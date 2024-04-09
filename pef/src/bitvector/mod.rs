@@ -72,11 +72,14 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use pef::{BitSlice, BitVec};
     ///
     /// let data = vec![0, 2, 3, 4, 5];
     /// let n_bits = 32;
     /// let bv = unsafe { BitVec::from_raw_parts(data, n_bits) };
+    ///
+    /// assert_eq!(bv.get_bits(64, 64), 2);
+    ///
     /// ```
     pub unsafe fn from_raw_parts(data: V, n_bits: usize) -> Self {
         Self {
@@ -524,7 +527,6 @@ impl From<BitVector<Vec<u64>>> for BitVector<Box<[u64]>> {
 ///
 /// let v = vec![0,2,3,4,5];
 /// let mut bv: BitBoxed = v.into_iter().collect();
-///
 ///
 /// let mut bvm: BitVec = bv.into();
 ///
