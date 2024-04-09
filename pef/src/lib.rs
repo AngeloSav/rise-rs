@@ -1,14 +1,17 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+pub mod bitvector;
+pub use bitvector::BitVector;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod gen_sequence;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+/// A trait for the support of `get` query over the binary alphabet.
+pub trait AccessBin {
+    /// Returns the bit at the given position `i`,
+    /// or [`None`] if ```i``` is out of bounds.
+    fn get(&self, i: usize) -> Option<bool>;
+
+    /// Returns the symbol at the given position `i`.
+    ///
+    /// # Safety
+    /// Calling this method with an out-of-bounds index is undefined behavior.
+    unsafe fn get_unchecked(&self, i: usize) -> bool;
 }

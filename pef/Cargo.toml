@@ -2,5 +2,22 @@
 name = "pef"
 version = "0.1.0"
 edition = "2021"
+authors = ["Rossano Venturini <rossano.venturini@unipi.it>"]
+readme = "README.md"
+description = "Rust implementation of Partitioned Elias-Fano encoding"
+license = "MIT"
+repository = "https://github.com/rossanoventurini/pef"
+
 
 [dependencies]
+clap = { version = "4.0.29", features = ["derive"] }
+generic-tests = "0.1.2"
+num-traits = "0.2.15"
+rand = "0.8.5"
+serde = { version = "1.0.148", features = ["derive"] }
+serde-big-array = "0.5.1"
+bincode = "1.3.3"
+
+[profile.release]
+lto = true
+debug = true
