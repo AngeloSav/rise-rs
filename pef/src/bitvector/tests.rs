@@ -3,14 +3,14 @@ use crate::gen_sequence::{gen_strictly_increasing_sequence, negate_vector};
 
 #[test]
 fn test_is_empty() {
-    let bv = BitVector::<Vec<u64>>::default();
+    let bv = BitVec::default();
     assert!(bv.is_empty());
 }
 
 // Build a bit vector of size n with even positions set to one
 // and odd ones to zero
-fn build_alternate(n: usize) -> BitVector {
-    let mut bv = BitVector::with_capacity(n);
+fn build_alternate(n: usize) -> BitVec {
+    let mut bv = BitVec::with_capacity(n);
     for i in 0..n {
         bv.push(i % 2 == 0);
     }
@@ -30,7 +30,7 @@ fn test_get() {
 #[test]
 fn test_iter() {
     let n = 1024 + 13;
-    let bv: BitVector = build_alternate(n).into();
+    let bv: BitVec = build_alternate(n).into();
 
     for (i, bit) in bv.into_iter().enumerate() {
         assert_eq!(bit, i % 2 == 0);
@@ -40,7 +40,7 @@ fn test_iter() {
 #[test]
 fn test_get_set_bits() {
     let n = 1024 + 13;
-    let mut bv = BitVector::new();
+    let mut bv = BitVec::new();
     bv.extend_with_zeros(n);
 
     assert_eq!(bv.get_bits(61, 35).unwrap(), 0);
@@ -60,25 +60,25 @@ fn test_from_iter() {
     let n = 1024 + 13;
     let bv = build_alternate(n);
 
-    let bv2: BitVector = (0..n).map(|x| x % 2 == 0).collect();
+    let bv2: BitVec = (0..n).map(|x| x % 2 == 0).collect();
 
     assert_eq!(bv, bv2);
 
     /* Note: if last bits are zero, the bit vector may differ
     because we are inserting only position of ones */
-    let bv2: BitVector = (0..n).filter(|x| x % 2 == 0).collect();
+    let bv2: BitVec = (0..n).filter(|x| x % 2 == 0).collect();
 
     assert_eq!(bv, bv2);
 }
 
 #[test]
 fn test_iter_zeros() {
-    let bv = BitVector::<Vec<u64>>::default();
+    let bv = BitVec::default();
     let v: Vec<usize> = bv.zeros().collect();
     assert!(v.is_empty());
 
     let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    let bv: BitVector = vv.iter().copied().collect();
+    let bv: BitVec = vv.iter().copied().collect();
 
     let v: Vec<usize> = bv.zeros().collect();
     assert_eq!(v, negate_vector(&vv));
@@ -90,12 +90,12 @@ fn test_iter_zeros() {
 
 #[test]
 fn test_iter_ones() {
-    let bv = BitVector::<Vec<u64>>::default();
+    let bv = BitVec::default();
     let v: Vec<usize> = bv.ones().collect();
     assert!(v.is_empty());
 
     let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    let bv: BitVector = vv.iter().copied().collect();
+    let bv: BitVec = vv.iter().copied().collect();
 
     let v: Vec<usize> = bv.ones().collect();
     assert_eq!(v, vv);
@@ -113,13 +113,13 @@ fn test_iter_ones() {
     assert_eq!(v, vec![]);
 
     let vv: Vec<usize> = (0..1024).collect();
-    let bv: BitVector = vv.iter().copied().collect();
+    let bv: BitVec = vv.iter().copied().collect();
     let v: Vec<usize> = bv.ones().collect();
     assert_eq!(v, vv);
 
     let vv = gen_strictly_increasing_sequence(1024 * 4, 1 << 20);
 
-    let bv: BitVector = vv.iter().copied().collect();
+    let bv: BitVec = vv.iter().copied().collect();
     let v: Vec<usize> = bv.ones().collect();
     assert_eq!(v, vv);
 }

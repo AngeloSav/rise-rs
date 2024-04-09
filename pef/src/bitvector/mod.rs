@@ -10,9 +10,16 @@ use crate::AccessBin;
 
 use serde::{Deserialize, Serialize};
 
+/// A resizable, growable, and mutable bit vector.
+pub type BitVec = BitVector<Vec<u64>>;
+/// Bit operations on a slice of u64, immutable or mutable but not growable bit vector.
+pub type BitSlice<'a> = BitVector<&'a [u64]>;
+/// Bit operations on a boxed slice of u64, immutable or mutable but not growable bit vector.
+pub type BitBoxed = BitVector<Box<[u64]>>; // pts pts pts punf punf punf :-)
+
 /// Implementation of an immutable bit vector.
 #[derive(Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct BitVector<V: AsRef<[u64]> = Vec<u64>> {
+pub struct BitVector<V: AsRef<[u64]>> {
     data: V,
     n_bits: usize,
     n_ones: usize,
@@ -27,10 +34,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVector, AccessBin};
+    /// use pef::{BitVec, BitSlice, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     /// assert_eq!(bv.get(1), Some(false));
     ///
     /// assert_eq!(bv.get_bits(1, 3), Some(0b110)); // Accesses bits from index 1 to 3
@@ -54,6 +61,31 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         Some(unsafe { self.get_bits_unchecked(index, len) })
     }
 
+    /// Creates a `BitVector` from raw parts.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it does not perform bounds checking.
+    /// It is the caller's responsibility to ensure that the provided `data` and `n_bits`
+    /// are valid and consistent.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    ///
+    /// let data = vec![0, 2, 3, 4, 5];
+    /// let n_bits = 32;
+    /// let bv = unsafe { BitVec::from_raw_parts(data, n_bits) };
+    /// ```
+    pub unsafe fn from_raw_parts(data: V, n_bits: usize) -> Self {
+        Self {
+            data,
+            n_bits,
+            n_ones: 0,
+        }
+    }
+
     /// Accesses `len` bits, starting at position `index`, without performing bounds checking.
     ///
     /// # Safety
@@ -65,10 +97,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVector};
+    /// use pef::{BitVec};
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// // This is unsafe because it does not perform bounds checking
     /// unsafe {
@@ -119,10 +151,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// // Get the 64-bit word at index 0
     /// let word = bv.get_word(0);
@@ -139,10 +171,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    /// let bv: BitVector = vv.iter().copied().collect();
+    /// let bv: BitVec = vv.iter().copied().collect();
     ///
     /// let v: Vec<usize> = bv.ones().collect();
     /// assert_eq!(v, vv);
@@ -157,10 +189,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    /// let bv: BitVector = vv.iter().copied().collect();
+    /// let bv: BitVec = vv.iter().copied().collect();
     ///
     /// let v: Vec<usize> = bv.ones_with_pos(2).collect();
     /// assert_eq!(v, vec![63, 128, 129, 254, 1026]);
@@ -175,11 +207,11 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     /// use pef::gen_sequence::negate_vector;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    /// let bv: BitVector = vv.iter().copied().collect();
+    /// let bv: BitVec = vv.iter().copied().collect();
     ///
     /// let v: Vec<usize> = bv.zeros().collect();
     /// assert_eq!(v, negate_vector(&vv));
@@ -200,10 +232,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let v = vec![0,2,3,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// let mut iter = bv.iter();
     /// assert_eq!(iter.next(), Some(true)); // First bit is true
@@ -232,10 +264,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// assert!(!bv.is_empty());
     /// ```
@@ -253,10 +285,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// assert_eq!(bv.len(), 6);
     /// ```
@@ -265,14 +297,15 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     }
 
     /// Counts the number of ones (bits set to 1) in the bit vector.
+    /// This is an expensive operation, as it requires iterating over the entire bit vector.
     ///
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// assert_eq!(bv.count_ones(), 5);
     /// ```
@@ -281,14 +314,15 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     }
 
     /// Counts the number of zeros (bits set to 0) in the bit vector.
+    /// This is an expensive operation, as it requires iterating over the entire bit vector.
     ///
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// assert_eq!(bv.count_zeros(), 1);
     /// ```
@@ -305,10 +339,10 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     ///
     /// # Examples
     /// ```
-    /// use pef::{BitVector, AccessBin};
+    /// use pef::{BitVec, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// assert_eq!(bv.get(5), Some(true));
     /// assert_eq!(bv.get(1), Some(false));
@@ -330,10 +364,10 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     ///
     /// # Examples
     /// ```
-    /// use pef::{BitVector, AccessBin};
+    /// use pef::{BitVec, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5];
-    /// let bv: BitVector = v.into_iter().collect();
+    /// let bv: BitVec = v.into_iter().collect();
     ///
     /// assert_eq!(unsafe{bv.get_unchecked(5)}, true);
     /// ```
@@ -357,23 +391,23 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
 /// # Examples
 ///
 /// ```
-/// use pef::{AccessBin, BitVector};
+/// use pef::{AccessBin, BitVec};
 ///
 /// // Create a bit vector from an iterator over bool values
-/// let bv: BitVector = vec![true, false, true].into_iter().collect();
+/// let bv: BitVec = vec![true, false, true].into_iter().collect();
 ///
 /// assert_eq!(bv.len(), 3);
 /// assert_eq!(bv.get(1), Some(false));
 /// ```
-impl FromIterator<bool> for BitVector {
+impl FromIterator<bool> for BitVector<Vec<u64>> {
     fn from_iter<T>(iter: T) -> Self
     where
         T: IntoIterator<Item = bool>,
     {
-        let mut bv = BitVector::<Vec<u64>>::default();
+        let mut bv = BitVec::default();
         bv.extend(iter);
 
-        bv.into()
+        bv
     }
 }
 
@@ -406,15 +440,15 @@ impl_my_prim_int![i8, u8, i16, u16, i32, u32, i64, u64, isize, usize, u128, i128
 /// # Examples
 ///
 /// ```
-/// use pef::{AccessBin, BitVector};
+/// use pef::{AccessBin, BitVec};
 ///
 /// // Create a bit vector from an iterator over usize values
-/// let bv: BitVector = vec![0, 1, 3, 5].into_iter().collect();
+/// let bv: BitVec = vec![0, 1, 3, 5].into_iter().collect();
 ///
 /// assert_eq!(bv.len(), 6);
 /// assert_eq!(bv.get(3), Some(true));
 /// ```
-impl<V> FromIterator<V> for BitVector
+impl<V> FromIterator<V> for BitVector<Vec<u64>>
 where
     V: MyPrimInt,
     <V as TryInto<usize>>::Error: std::fmt::Debug,
@@ -458,19 +492,19 @@ where
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVector, AccessBin};
+/// use pef::{BitVec,BitBoxed, AccessBin};
 ///
-/// let mut bvm = BitVector::new();
+/// let mut bvm = BitVec::new();
 /// bvm.push(true);
 /// bvm.push(false);
 ///
 /// // Convert mutable BitVector to immutable BitVector
-/// let bv: BitVector<Box<[u64]>> = bvm.into();
+/// let bv: BitBoxed = bvm.into();
 ///
 /// assert_eq!(bv.get(0), Some(true));
 /// ```
 impl From<BitVector<Vec<u64>>> for BitVector<Box<[u64]>> {
-    fn from(bvm: BitVector) -> Self {
+    fn from(bvm: BitVector<Vec<u64>>) -> Self {
         Self {
             data: bvm.data.into_boxed_slice(),
             n_bits: bvm.n_bits,
@@ -486,20 +520,20 @@ impl From<BitVector<Vec<u64>>> for BitVector<Box<[u64]>> {
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVector, AccessBin};
+/// use pef::{BitVec, BitBoxed, AccessBin};
 ///
 /// let v = vec![0,2,3,4,5];
-/// let mut bv: BitVector<Box<[u64]>> = v.into_iter().collect();
+/// let mut bv: BitBoxed = v.into_iter().collect();
 ///
 ///
-/// let mut bvm: BitVector<Vec<u64>> = bv.into();
+/// let mut bvm: BitVec = bv.into();
 ///
 /// assert_eq!(bvm.get(0), Some(true));
 /// assert_eq!(bvm.len(), 6);
 /// bvm.push(true);
 /// assert_eq!(bvm.len(), 7);
 /// ```
-impl From<BitVector<Box<[u64]>>> for BitVector {
+impl From<BitVector<Box<[u64]>>> for BitVector<Vec<u64>> {
     fn from(bv: BitVector<Box<[u64]>>) -> Self {
         Self {
             data: bv.data.into(),
@@ -509,7 +543,7 @@ impl From<BitVector<Box<[u64]>>> for BitVector {
     }
 }
 
-impl From<BitVector<&[u64]>> for BitVector {
+impl From<BitVector<&[u64]>> for BitVector<Vec<u64>> {
     fn from(bv: BitVector<&[u64]>) -> Self {
         Self {
             data: bv.data.into(),
@@ -668,9 +702,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
-    /// let bv = BitVector::new();
+    /// let bv = BitVec::new();
     /// assert_eq!(bv.len(), 0);
     /// ```
     #[must_use]
@@ -683,9 +717,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
-    /// let bv = BitVector::new();
+    /// let bv = BitVec::new();
     /// assert_eq!(bv.len(), 0);
     /// ```
     #[must_use]
@@ -702,9 +736,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
-    /// let bv = BitVector::with_zeros(5);
+    /// let bv = BitVec::with_zeros(5);
     /// assert_eq!(bv.len(), 5);
     /// assert_eq!(bv.count_ones(), 0);
     /// ```
@@ -725,9 +759,9 @@ impl BitVector<Vec<u64>> {
     /// # Example
     ///
     /// ```
-    /// use pef::{BitVector, AccessBin};
+    /// use pef::{BitVec, AccessBin};
     ///
-    /// let mut bv = BitVector::new();
+    /// let mut bv = BitVec::new();
     /// bv.push(true);
     /// bv.push(false);
     /// bv.push(true);
@@ -765,9 +799,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
-    /// let mut bv = BitVector::with_capacity(7);
+    /// let mut bv = BitVec::with_capacity(7);
     /// bv.append_bits(0b101, 3);  // appends 101
     /// bv.append_bits(0b0110, 4); // appends 0110  
     ///
@@ -808,9 +842,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVector, AccessBin};
+    /// use pef::{BitVec, AccessBin};
     ///
-    /// let mut bv = BitVector::with_capacity(10);
+    /// let mut bv = BitVec::with_capacity(10);
     /// bv.extend_with_zeros(10);
     /// assert_eq!(bv.len(), 10);
     /// assert_eq!(bv.get(8), Some(false));
@@ -831,9 +865,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVector, AccessBin};
+    /// use pef::{BitVec, AccessBin};
     ///
-    /// let mut bv = BitVector::with_capacity(2);
+    /// let mut bv = BitVec::with_capacity(2);
     /// bv.push(true);
     /// bv.push(false);
     ///
@@ -876,9 +910,9 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVector;
+    /// use pef::BitVec;
     ///
-    /// let mut bv = BitVector::with_zeros(5);
+    /// let mut bv = BitVec::with_zeros(5);
     /// bv.set_bits(0, 3, 0b101); // Sets bits 0 to 2 to 101
     /// assert_eq!(bv.get_bits(0, 3), Some(0b101));
     /// ```
@@ -944,9 +978,9 @@ impl Extend<bool> for BitVector<Vec<u64>> {
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVector, AccessBin};
+/// use pef::{BitVec, AccessBin};
 ///
-/// let mut bv = BitVector::new();
+/// let mut bv = BitVec::new();
 ///
 /// // Extending the bit vector with a range of positions
 /// bv.extend(0..5);
@@ -967,9 +1001,14 @@ impl Extend<usize> for BitVector<Vec<u64>> {
     }
 }
 
-impl std::fmt::Debug for BitVector {
+impl<V: AsRef<[u64]>> std::fmt::Debug for BitVector<V> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let data_str: Vec<String> = self.data.iter().map(|x| format!("{:b}", x)).collect();
+        let data_str: Vec<String> = self
+            .data
+            .as_ref()
+            .iter()
+            .map(|x| format!("{:b}", x))
+            .collect();
         write!(
             fmt,
             "BitVector {{ n_bits:{:?}, data:{:?}}}",
