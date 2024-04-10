@@ -5,6 +5,12 @@
 //! The immutable bit vector allows access to bits and can be extended to support [`RankBin`] and [`SelectBin`] queries.
 //!
 //! For both data structures, it is possible to iterate over bits or positions of bits set either to zero or one.
+//!
+
+// TODO:
+// - add CacheLine- based bit vectors
+// - create a BitBoxed with fixed size (with_zeros() or with_ones())
+// - add a function to get a BitSlice from a starting word of a given bitlength
 
 use crate::AccessBin;
 
@@ -511,25 +517,6 @@ impl BitVector<Vec<u64>> {
         }
     }
 
-    /// Creates a bit vector with `n_bits` set to 0.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::BitVec;
-    ///
-    /// let bv = BitVec::with_zeros(5);
-    /// assert_eq!(bv.len(), 5);
-    /// assert_eq!(bv.count_ones(), 0);
-    /// ```
-    #[must_use]
-    pub fn with_zeros(n_bits: usize) -> Self {
-        let mut bv = Self::with_capacity(n_bits);
-        bv.extend_with_zeros(n_bits);
-        bv.shrink_to_fit();
-        bv
-    }
-
     /// Pushes a `bit` at the end of the bit vector.
     ///
     /// # Panics
@@ -635,6 +622,66 @@ impl BitVector<Vec<u64>> {
     /// Shrinks the underlying vector of 64-bit words to fit the actual size of the bit vector.
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
+    }
+}
+
+impl<V: AsRef<[u64]> + From<Vec<u64>>> BitVector<V> {
+    /// Creates a bit vector with `n_bits` set to 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitBoxed;
+    ///
+    /// let bb = BitBoxed::with_zeros(5);
+    /// assert_eq!(bb.len(), 5);
+    /// assert_eq!(bb.count_ones(), 0);
+    /// ```
+    #[must_use]
+    pub fn with_zeros(n_bits: usize) -> Self {
+        let n_words = (n_bits + 63) / 64;
+        let data = vec![0_u64; n_words];
+
+        BitVector {
+            data: data.into(),
+            n_bits,
+        }
+    }
+
+    /// Creates a bit vector with `n_bits` set to 1.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitBoxed;
+    ///
+    /// let bb = BitBoxed::with_ones(5);
+    /// assert_eq!(bb.len(), 5);
+    /// assert_eq!(bb.count_ones(), 5);
+    ///
+    /// let bb = BitBoxed::with_ones(123);
+    /// assert_eq!(bb.len(), 123);
+    /// assert_eq!(bb.count_ones(), 123);
+    ///
+    /// let bb = BitBoxed::with_ones(128);
+    /// assert_eq!(bb.len(), 128);
+    /// assert_eq!(bb.count_ones(), 128);
+    /// ```
+    #[must_use]
+    pub fn with_ones(n_bits: usize) -> Self {
+        let n_words = (n_bits + 63) / 64;
+        let last_word = n_bits & 63;
+        let mut data = vec![std::u64::MAX; n_words - 1];
+        data.push(if last_word == 0 {
+            std::u64::MAX
+        } else {
+            (1_u64 << last_word) - 1
+        });
+
+        BitVector {
+            data: data.into(),
+            n_bits,
+        }
     }
 }
 
