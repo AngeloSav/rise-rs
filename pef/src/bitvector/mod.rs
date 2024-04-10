@@ -75,10 +75,16 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// use pef::{BitSlice, BitVec};
     ///
     /// let data = vec![0, 2, 3, 4, 5];
-    /// let n_bits = 32;
+    /// let n_bits = data.len() * 64;
     /// let bv = unsafe { BitVec::from_raw_parts(data, n_bits) };
     ///
-    /// assert_eq!(bv.get_bits(64, 64), 2);
+    /// assert_eq!(bv.get_bits(64, 64), Some(2));
+    ///
+    /// let data = vec![0, 2, 3, 4, 5];
+    /// let n_bits = data.len() * 64;
+    /// let bs = unsafe { BitSlice::from_raw_parts(&data[1..], n_bits-64) };
+    ///
+    /// assert_eq!(bs.get_bits(0, 64), Some(2));
     ///
     /// ```
     pub unsafe fn from_raw_parts(data: V, n_bits: usize) -> Self {
@@ -378,6 +384,321 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     #[inline(always)]
     unsafe fn get_unchecked(&self, index: usize) -> bool {
         Self::get_bit_slice(self.data.as_ref(), index)
+    }
+}
+
+impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
+    /// Sets the bit at the given position `index` to `bit`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::{BitVec, BitBoxed, AccessBin};
+    ///
+    /// let mut bv = BitVec::with_capacity(2);
+    /// bv.push(true);
+    /// bv.push(false);
+    ///
+    /// bv.set(1, true);
+    /// assert_eq!(bv.get(1), Some(true));
+    ///
+    /// // This will panic because index is out of bounds
+    /// // bv.set(10, false);
+    ///
+    /// let mut bb = BitBoxed::from(bv);
+    /// bb.set(0, false);
+    /// assert_eq!(bb.get(0), Some(false));
+    ///
+    /// ```
+    #[inline]
+    pub fn set(&mut self, index: usize, bit: bool) {
+        assert!(index < self.n_bits);
+
+        // SAFETY: check above guarantees we are within the bound
+        unsafe {
+            if bit && !self.get_unchecked(index) {
+                self.n_ones += 1;
+            }
+            if !bit && self.get_unchecked(index) {
+                self.n_ones -= 1;
+            }
+        }
+
+        let word = index >> 6;
+        let pos_in_word = index & 63;
+        self.data.as_mut()[word] &= !(1_u64 << pos_in_word);
+        self.data.as_mut()[word] |= (bit as u64) << pos_in_word;
+    }
+
+    /// Sets `len` bits, with 1 <= `len` <= 64,
+    /// starting at position `index` to the `len` least
+    /// significant bits in `bits`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index`+`len` is out of bounds,
+    /// `len` is greater than 64, or if the most significant bit in `bits`
+    /// is at a position larger than or equal to `len`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::{BitVec, BitBoxed};
+    ///
+    /// let mut bv = BitVec::with_zeros(5);
+    /// bv.set_bits(0, 3, 0b101); // Sets bits 0 to 2 to 101
+    /// assert_eq!(bv.get_bits(0, 3), Some(0b101));
+    ///
+    /// let mut bb = BitBoxed::from(bv);
+    /// bb.set_bits(0, 3, 0b100); // Sets bits 0 to 2 to 100
+    /// assert_eq!(bb.get_bits(0, 3), Some(0b100))
+    /// ```
+    #[inline]
+    pub fn set_bits(&mut self, index: usize, len: usize, bits: u64) {
+        assert!(index + len <= self.n_bits);
+        // check there are no spurious bits
+        assert!(len == 64 || (bits >> len) == 0);
+        assert!(len <= 64);
+
+        if len == 0 {
+            return;
+        }
+
+        self.n_ones += bits.count_ones() as usize;
+
+        let mask = if len == 64 {
+            std::u64::MAX
+        } else {
+            (1_u64 << len) - 1
+        };
+        let word = index >> 6;
+        let pos_in_word = index & 63;
+
+        self.data.as_mut()[word] &= !(mask << pos_in_word);
+        self.data.as_mut()[word] |= bits << pos_in_word;
+
+        let stored = 64 - pos_in_word;
+        if stored < len {
+            self.data.as_mut()[word + 1] &= !(mask >> stored);
+            self.data.as_mut()[word + 1] |= bits >> stored;
+        }
+    }
+}
+
+impl BitVector<Vec<u64>> {
+    /// Creates a new empty growable bit vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    ///
+    /// let bv = BitVec::new();
+    /// assert_eq!(bv.len(), 0);
+    /// ```
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates an empty bit vector with at least a capacity of `n_bits`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    ///
+    /// let bv = BitVec::new();
+    /// assert_eq!(bv.len(), 0);
+    /// ```
+    #[must_use]
+    pub fn with_capacity(n_bits: usize) -> Self {
+        let capacity = (n_bits + 63) / 64;
+        Self {
+            data: Vec::with_capacity(capacity),
+            ..Self::default()
+        }
+    }
+
+    /// Creates a bit vector with `n_bits` set to 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    ///
+    /// let bv = BitVec::with_zeros(5);
+    /// assert_eq!(bv.len(), 5);
+    /// assert_eq!(bv.count_ones(), 0);
+    /// ```
+    #[must_use]
+    pub fn with_zeros(n_bits: usize) -> Self {
+        let mut bv = Self::with_capacity(n_bits);
+        bv.extend_with_zeros(n_bits);
+        bv.shrink_to_fit();
+        bv
+    }
+
+    /// Pushes a `bit` at the end of the bit vector.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use pef::{BitVec, AccessBin};
+    ///
+    /// let mut bv = BitVec::new();
+    /// bv.push(true);
+    /// bv.push(false);
+    /// bv.push(true);
+    ///
+    /// assert_eq!(bv.len(), 3);
+    /// assert_eq!(bv.get(0), Some(true));
+    /// assert_eq!(bv.count_ones(), 2);
+    /// ```
+    #[inline]
+    pub fn push(&mut self, bit: bool) {
+        let pos_in_word = self.n_bits % 64;
+        if pos_in_word == 0 {
+            self.data.push(0);
+        }
+        if bit {
+            // push a 1
+            if let Some(last) = self.data.last_mut() {
+                *last |= (bit as u64) << pos_in_word;
+            }
+            self.n_ones += 1;
+        }
+        self.n_bits += 1;
+    }
+
+    /// Appends `len` bits at the end of the bit vector by taking
+    /// the least significant `len` bits in the u64 value `bits`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `len` is larger than 64 or if a bit of position
+    /// larger than `len` is set in `bits`.
+    ///
+    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    ///
+    /// let mut bv = BitVec::with_capacity(7);
+    /// bv.append_bits(0b101, 3);  // appends 101
+    /// bv.append_bits(0b0110, 4); // appends 0110  
+    ///
+    ///         
+    /// assert_eq!(bv.len(), 7);
+    /// assert_eq!(bv.get_bits(0, 3), Some(5));
+    /// ```
+    #[inline]
+    pub fn append_bits(&mut self, bits: u64, len: usize) {
+        assert!(len == 64 || (bits >> len) == 0);
+        assert!(len <= 64);
+
+        if len == 0 {
+            return;
+        }
+
+        self.n_ones += bits.count_ones() as usize;
+
+        let pos_in_word: usize = self.n_bits & 63;
+        self.n_bits += len;
+
+        if pos_in_word == 0 {
+            self.data.push(bits);
+        } else if let Some(last) = self.data.last_mut() {
+            *last |= bits << pos_in_word;
+            if len > 64 - pos_in_word {
+                self.data.push(bits >> (64 - pos_in_word));
+            }
+        }
+    }
+
+    /// Extends the bit vector by adding `n` bits set to 0.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::{BitVec, AccessBin};
+    ///
+    /// let mut bv = BitVec::with_capacity(10);
+    /// bv.extend_with_zeros(10);
+    /// assert_eq!(bv.len(), 10);
+    /// assert_eq!(bv.get(8), Some(false));
+    /// ```
+    #[inline]
+    pub fn extend_with_zeros(&mut self, n: usize) {
+        self.n_bits += n;
+        let new_size = (self.n_bits + 63) / 64;
+        self.data.resize_with(new_size, Default::default);
+    }
+    /// Shrinks the underlying vector of 64-bit words to fit the actual size of the bit vector.
+    pub fn shrink_to_fit(&mut self) {
+        self.data.shrink_to_fit();
+    }
+}
+
+impl Extend<bool> for BitVector<Vec<u64>> {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = bool>,
+    {
+        for bit in iter {
+            self.push(bit);
+        }
+    }
+
+    /* Nigthly
+        fn extend_one(&mut self, item: bool) {
+            self.push(item);
+        }
+        fn extend_reserve(&mut self, additional: usize) {
+            self.data.reserve
+        }
+    */
+}
+
+/// Extends a `BitVector` with an iterator over `usize` values.
+///
+/// # Examples
+///
+/// ```
+/// use pef::{BitVec, AccessBin};
+///
+/// let mut bv = BitVec::new();
+///
+/// // Extending the bit vector with a range of positions
+/// bv.extend(0..5);
+/// assert_eq!(bv.len(), 5);
+/// assert_eq!(bv.get(3), Some(true));
+/// ```
+impl Extend<usize> for BitVector<Vec<u64>> {
+    fn extend<T>(&mut self, iter: T)
+    where
+        T: IntoIterator<Item = usize>,
+    {
+        for pos in iter {
+            if pos >= self.n_bits {
+                self.extend_with_zeros(pos + 1 - self.n_bits);
+            }
+            self.set(pos, true);
+        }
     }
 }
 
@@ -695,311 +1016,6 @@ impl<'a, V: AsRef<[u64]>> IntoIterator for &'a BitVector<V> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
-    }
-}
-
-impl BitVector<Vec<u64>> {
-    /// Creates a new empty growable bit vector.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::BitVec;
-    ///
-    /// let bv = BitVec::new();
-    /// assert_eq!(bv.len(), 0);
-    /// ```
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Creates an empty bit vector with at least a capacity of `n_bits`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::BitVec;
-    ///
-    /// let bv = BitVec::new();
-    /// assert_eq!(bv.len(), 0);
-    /// ```
-    #[must_use]
-    pub fn with_capacity(n_bits: usize) -> Self {
-        let capacity = (n_bits + 63) / 64;
-        Self {
-            data: Vec::with_capacity(capacity),
-            ..Self::default()
-        }
-    }
-
-    /// Creates a bit vector with `n_bits` set to 0.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::BitVec;
-    ///
-    /// let bv = BitVec::with_zeros(5);
-    /// assert_eq!(bv.len(), 5);
-    /// assert_eq!(bv.count_ones(), 0);
-    /// ```
-    #[must_use]
-    pub fn with_zeros(n_bits: usize) -> Self {
-        let mut bv = Self::with_capacity(n_bits);
-        bv.extend_with_zeros(n_bits);
-        bv.shrink_to_fit();
-        bv
-    }
-
-    /// Pushes a `bit` at the end of the bit vector.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use pef::{BitVec, AccessBin};
-    ///
-    /// let mut bv = BitVec::new();
-    /// bv.push(true);
-    /// bv.push(false);
-    /// bv.push(true);
-    ///
-    /// assert_eq!(bv.len(), 3);
-    /// assert_eq!(bv.get(0), Some(true));
-    /// assert_eq!(bv.count_ones(), 2);
-    /// ```
-    #[inline]
-    pub fn push(&mut self, bit: bool) {
-        let pos_in_word = self.n_bits % 64;
-        if pos_in_word == 0 {
-            self.data.push(0);
-        }
-        if bit {
-            // push a 1
-            if let Some(last) = self.data.last_mut() {
-                *last |= (bit as u64) << pos_in_word;
-            }
-            self.n_ones += 1;
-        }
-        self.n_bits += 1;
-    }
-
-    /// Appends `len` bits at the end of the bit vector by taking
-    /// the least significant `len` bits in the u64 value `bits`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `len` is larger than 64 or if a bit of position
-    /// larger than `len` is set in `bits`.
-    ///
-    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::BitVec;
-    ///
-    /// let mut bv = BitVec::with_capacity(7);
-    /// bv.append_bits(0b101, 3);  // appends 101
-    /// bv.append_bits(0b0110, 4); // appends 0110  
-    ///
-    ///         
-    /// assert_eq!(bv.len(), 7);
-    /// assert_eq!(bv.get_bits(0, 3), Some(5));
-    /// ```
-    #[inline]
-    pub fn append_bits(&mut self, bits: u64, len: usize) {
-        assert!(len == 64 || (bits >> len) == 0);
-        assert!(len <= 64);
-
-        if len == 0 {
-            return;
-        }
-
-        self.n_ones += bits.count_ones() as usize;
-
-        let pos_in_word: usize = self.n_bits & 63;
-        self.n_bits += len;
-
-        if pos_in_word == 0 {
-            self.data.push(bits);
-        } else if let Some(last) = self.data.last_mut() {
-            *last |= bits << pos_in_word;
-            if len > 64 - pos_in_word {
-                self.data.push(bits >> (64 - pos_in_word));
-            }
-        }
-    }
-
-    /// Extends the bit vector by adding `n` bits set to 0.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::{BitVec, AccessBin};
-    ///
-    /// let mut bv = BitVec::with_capacity(10);
-    /// bv.extend_with_zeros(10);
-    /// assert_eq!(bv.len(), 10);
-    /// assert_eq!(bv.get(8), Some(false));
-    /// ```
-    #[inline]
-    pub fn extend_with_zeros(&mut self, n: usize) {
-        self.n_bits += n;
-        let new_size = (self.n_bits + 63) / 64;
-        self.data.resize_with(new_size, Default::default);
-    }
-
-    /// Sets the bit at the given position `index` to `bit`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `index` is out of bounds.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::{BitVec, AccessBin};
-    ///
-    /// let mut bv = BitVec::with_capacity(2);
-    /// bv.push(true);
-    /// bv.push(false);
-    ///
-    /// bv.set(1, true);
-    /// assert_eq!(bv.get(1), Some(true));
-    ///
-    /// // This will panic because index is out of bounds
-    /// // bv.set(10, false);
-    /// ```
-    #[inline]
-    pub fn set(&mut self, index: usize, bit: bool) {
-        assert!(index < self.n_bits);
-
-        // SAFETY: check above guarantees we are within the bound
-        unsafe {
-            if bit && !self.get_unchecked(index) {
-                self.n_ones += 1;
-            }
-            if !bit && self.get_unchecked(index) {
-                self.n_ones -= 1;
-            }
-        }
-
-        let word = index >> 6;
-        let pos_in_word = index & 63;
-        self.data[word] &= !(1_u64 << pos_in_word);
-        self.data[word] |= (bit as u64) << pos_in_word;
-    }
-
-    /// Sets `len` bits, with 1 <= `len` <= 64,
-    /// starting at position `index` to the `len` least
-    /// significant bits in `bits`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `index`+`len` is out of bounds,
-    /// `len` is greater than 64, or if the most significant bit in `bits`
-    /// is at a position larger than or equal to `len`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::BitVec;
-    ///
-    /// let mut bv = BitVec::with_zeros(5);
-    /// bv.set_bits(0, 3, 0b101); // Sets bits 0 to 2 to 101
-    /// assert_eq!(bv.get_bits(0, 3), Some(0b101));
-    /// ```
-    #[inline]
-    pub fn set_bits(&mut self, index: usize, len: usize, bits: u64) {
-        assert!(index + len <= self.n_bits);
-        // check there are no spurious bits
-        assert!(len == 64 || (bits >> len) == 0);
-        assert!(len <= 64);
-
-        if len == 0 {
-            return;
-        }
-
-        self.n_ones += bits.count_ones() as usize;
-
-        let mask = if len == 64 {
-            std::u64::MAX
-        } else {
-            (1_u64 << len) - 1
-        };
-        let word = index >> 6;
-        let pos_in_word = index & 63;
-
-        self.data[word] &= !(mask << pos_in_word);
-        self.data[word] |= bits << pos_in_word;
-
-        let stored = 64 - pos_in_word;
-        if stored < len {
-            self.data[word + 1] &= !(mask >> stored);
-            self.data[word + 1] |= bits >> stored;
-        }
-    }
-
-    /// Shrinks the underlying vector of 64-bit words to fit the actual size of the bit vector.
-    pub fn shrink_to_fit(&mut self) {
-        self.data.shrink_to_fit();
-    }
-}
-
-impl Extend<bool> for BitVector<Vec<u64>> {
-    fn extend<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = bool>,
-    {
-        for bit in iter {
-            self.push(bit);
-        }
-    }
-
-    /* Nigthly
-        fn extend_one(&mut self, item: bool) {
-            self.push(item);
-        }
-        fn extend_reserve(&mut self, additional: usize) {
-            self.data.reserve
-        }
-    */
-}
-
-/// Extends a `BitVector` with an iterator over `usize` values.
-///
-/// # Examples
-///
-/// ```
-/// use pef::{BitVec, AccessBin};
-///
-/// let mut bv = BitVec::new();
-///
-/// // Extending the bit vector with a range of positions
-/// bv.extend(0..5);
-/// assert_eq!(bv.len(), 5);
-/// assert_eq!(bv.get(3), Some(true));
-/// ```
-impl Extend<usize> for BitVector<Vec<u64>> {
-    fn extend<T>(&mut self, iter: T)
-    where
-        T: IntoIterator<Item = usize>,
-    {
-        for pos in iter {
-            if pos >= self.n_bits {
-                self.extend_with_zeros(pos + 1 - self.n_bits);
-            }
-            self.set(pos, true);
-        }
     }
 }
 
