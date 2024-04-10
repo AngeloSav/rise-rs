@@ -22,7 +22,6 @@ pub type BitBoxed = BitVector<Box<[u64]>>; // pts pts pts punf punf punf :-)
 pub struct BitVector<V: AsRef<[u64]>> {
     data: V,
     n_bits: usize,
-    n_ones: usize,
 }
 
 impl<V: AsRef<[u64]>> BitVector<V> {
@@ -88,11 +87,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     ///
     /// ```
     pub unsafe fn from_raw_parts(data: V, n_bits: usize) -> Self {
-        Self {
-            data,
-            n_bits,
-            n_ones: 0,
-        }
+        Self { data, n_bits }
     }
 
     /// Accesses `len` bits, starting at position `index`, without performing bounds checking.
@@ -319,7 +314,11 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// assert_eq!(bv.count_ones(), 5);
     /// ```
     pub fn count_ones(&self) -> usize {
-        self.n_ones
+        self.data
+            .as_ref()
+            .iter()
+            .map(|word| word.count_ones() as usize)
+            .sum()
     }
 
     /// Counts the number of zeros (bits set to 0) in the bit vector.
@@ -338,7 +337,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     #[inline]
     #[must_use]
     pub fn count_zeros(&self) -> usize {
-        self.len() - self.n_ones
+        self.len() - self.count_ones()
     }
 }
 
@@ -418,16 +417,6 @@ impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
     pub fn set(&mut self, index: usize, bit: bool) {
         assert!(index < self.n_bits);
 
-        // SAFETY: check above guarantees we are within the bound
-        unsafe {
-            if bit && !self.get_unchecked(index) {
-                self.n_ones += 1;
-            }
-            if !bit && self.get_unchecked(index) {
-                self.n_ones -= 1;
-            }
-        }
-
         let word = index >> 6;
         let pos_in_word = index & 63;
         self.data.as_mut()[word] &= !(1_u64 << pos_in_word);
@@ -467,8 +456,6 @@ impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
         if len == 0 {
             return;
         }
-
-        self.n_ones += bits.count_ones() as usize;
 
         let mask = if len == 64 {
             std::u64::MAX
@@ -569,13 +556,12 @@ impl BitVector<Vec<u64>> {
         if pos_in_word == 0 {
             self.data.push(0);
         }
-        if bit {
-            // push a 1
-            if let Some(last) = self.data.last_mut() {
-                *last |= (bit as u64) << pos_in_word;
-            }
-            self.n_ones += 1;
-        }
+
+        // push a 1
+        if let Some(last) = self.data.last_mut() {
+            *last |= (bit as u64) << pos_in_word;
+        };
+
         self.n_bits += 1;
     }
 
@@ -610,8 +596,6 @@ impl BitVector<Vec<u64>> {
         if len == 0 {
             return;
         }
-
-        self.n_ones += bits.count_ones() as usize;
 
         let pos_in_word: usize = self.n_bits & 63;
         self.n_bits += len;
@@ -832,7 +816,6 @@ impl From<BitVector<Vec<u64>>> for BitVector<Box<[u64]>> {
         Self {
             data: bvm.data.into_boxed_slice(),
             n_bits: bvm.n_bits,
-            n_ones: bvm.n_ones,
         }
     }
 }
@@ -861,7 +844,6 @@ impl From<BitVector<Box<[u64]>>> for BitVector<Vec<u64>> {
         Self {
             data: bv.data.into(),
             n_bits: bv.n_bits,
-            n_ones: bv.n_ones,
         }
     }
 }
@@ -871,7 +853,6 @@ impl From<BitVector<&[u64]>> for BitVector<Vec<u64>> {
         Self {
             data: bv.data.into(),
             n_bits: bv.n_bits,
-            n_ones: bv.n_ones,
         }
     }
 }
