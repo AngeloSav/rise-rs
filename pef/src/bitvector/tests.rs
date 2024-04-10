@@ -123,3 +123,28 @@ fn test_iter_ones() {
     let v: Vec<usize> = bv.ones().collect();
     assert_eq!(v, vv);
 }
+
+#[test]
+fn test_concat() {
+    let mut bv1 = BitVec::new();
+    bv1.push(true);
+    bv1.push(false);
+
+    let mut bv2 = BitVec::new();
+    bv2.push(true);
+    bv2.push(true);
+
+    bv1.concat(&bv2);
+
+    assert_eq!(bv1.len(), 4);
+    assert_eq!(bv1.get(2), Some(true));
+
+    let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
+    let mut bv1: BitVec = vv.iter().copied().collect();
+    let bv2: BitVec = vv.iter().copied().collect();
+    bv1.concat(bv2);
+    assert_eq!(bv1.len(), 2054);
+    assert_eq!(bv1.get(1026), Some(true));
+    assert_eq!(bv1.get(2053), Some(true));
+    assert_eq!(bv1.get(2054), None);
+}

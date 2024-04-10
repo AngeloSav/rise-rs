@@ -7,8 +7,10 @@
 //! For both data structures, it is possible to iterate over bits or positions of bits set either to zero or one.
 //!
 
+pub mod bitvector_collection;
+
 // TODO:
-// - add CacheLine- based bit vectors
+// - add CacheLine-based bit vectors
 // - create a BitBoxed with fixed size (with_zeros() or with_ones())
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
@@ -595,6 +597,37 @@ impl BitVector<Vec<u64>> {
                 self.data.push(bits >> (64 - pos_in_word));
             }
         }
+    }
+
+    pub fn concat<W: AsRef<[u64]>>(&mut self, rhs: impl AsRef<BitVector<W>>) {
+        let rhs = rhs.as_ref();
+
+        if rhs.is_empty() {
+            return;
+        }
+
+        let shift = self.n_bits % 64;
+        let n_bits = self.n_bits + rhs.n_bits;
+        let n_words = (n_bits + 63) / 64;
+
+        if shift == 0 {
+            // word-aligned, easy case
+            self.data.extend(rhs.data.as_ref().iter());
+        } else {
+            for w in rhs.data.as_ref().iter().take(self.data.len() - 1) {
+                let cur_word = self.data.last_mut().unwrap();
+                *cur_word |= w << shift;
+                self.data.push(w >> (64 - shift));
+            }
+            let cur_word = self.data.last_mut().unwrap();
+            *cur_word |= *rhs.data.as_ref().last().unwrap() << shift;
+            if self.data.len() < n_words {
+                self.data
+                    .push(*rhs.data.as_ref().last().unwrap() >> (64 - shift));
+            }
+        }
+
+        self.n_bits = n_bits;
     }
 
     /// Extends the bit vector by adding `n` bits set to 0.

@@ -1,4 +1,5 @@
 pub mod bitvector;
+pub use bitvector::bitvector_collection::BitVecCollection;
 pub use bitvector::{BitBoxed, BitSlice, BitVec};
 
 pub mod gen_sequence;
