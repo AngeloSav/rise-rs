@@ -95,15 +95,17 @@ impl<'a> BitSliceWithOffset<'a> {
     ///
     /// // Bitslice with offset that excludes the first 64 + 5 bits
     /// let offset = 5;
-    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 54+64, offset)};
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
     ///
+    /// assert_eq!(bswo.len(), 59+64);
     /// assert_eq!(bswo.get_bits(0, 4), Some(0b1110));
+    /// assert_eq!(bswo.get_bits(bswo.len()-2, 1), Some(1));
     ///
     /// ```
     #[must_use]
     #[inline]
     pub fn get_bits(&self, index: usize, len: usize) -> Option<u64> {
-        if (len == 0) | (len > 64) | (index + len >= self.n_bits) {
+        if (len == 0) | (len > 64) | (index + len > self.n_bits) {
             return None;
         }
         // SAFETY: safe access due to the above checks
@@ -128,7 +130,7 @@ impl<'a> BitSliceWithOffset<'a> {
     ///
     /// // Bitslice with offset that excludes the first 64 + 5 bits
     /// let offset = 5;
-    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 54+64, offset)};
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
     ///
     /// // This is unsafe because it does not perform bounds checking
     /// unsafe {
@@ -146,20 +148,26 @@ impl<'a> BitSliceWithOffset<'a> {
     ///
     /// # Examples
     ///
+    ///
     /// ```
     /// use pef::BitVec;
+    /// use pef::bitvector::bitvector_collection::BitSliceWithOffset;
     ///
-    /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    /// let bv: BitVec = vv.iter().copied().collect();
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
-    /// let v: Vec<usize> = bv.ones().collect();
-    /// assert_eq!(v, vv);
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    /// let mut v = vec![1, 2, 3, 5, 7];
+    /// v.extend(59..(59+64));
+    /// assert_eq!(bswo.ones().collect::<Vec<_>>(), v);
     /// ```
     #[must_use]
     pub fn ones(&self) -> BitVectorBitPositionsIter<true> {
-        BitVectorBitPositionsIter::with_pos(
+        BitVectorBitPositionsIter::with_pos_and_offset(
             self.data.as_ref(),
             self.n_bits + self.offset,
+            0,
             self.offset,
         )
     }
@@ -170,19 +178,24 @@ impl<'a> BitSliceWithOffset<'a> {
     ///
     /// ```
     /// use pef::BitVec;
+    /// use pef::bitvector::bitvector_collection::BitSliceWithOffset;
     ///
-    /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
-    /// let bv: BitVec = vv.iter().copied().collect();
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
-    /// let v: Vec<usize> = bv.ones_with_pos(2).collect();
-    /// assert_eq!(v, vec![63, 128, 129, 254, 1026]);
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    /// let mut v = vec![5, 7];
+    /// v.extend(59..(59+64));
+    /// assert_eq!(bswo.ones_with_pos(5).collect::<Vec<_>>(), v);
     /// ```
     #[must_use]
     pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<true> {
-        BitVectorBitPositionsIter::with_pos(
+        BitVectorBitPositionsIter::with_pos_and_offset(
             self.data.as_ref(),
             self.n_bits + self.offset,
-            self.offset + pos,
+            pos,
+            self.offset,
         )
     }
 
@@ -202,13 +215,23 @@ impl<'a> BitSliceWithOffset<'a> {
     /// ```
     #[must_use]
     pub fn zeros(&self) -> BitVectorBitPositionsIter<false> {
-        BitVectorBitPositionsIter::with_pos(self.data.as_ref(), self.n_bits, self.offset)
+        BitVectorBitPositionsIter::with_pos_and_offset(
+            self.data.as_ref(),
+            self.n_bits + self.offset,
+            0,
+            self.offset,
+        )
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector, starting at a specified bit position.
     #[must_use]
     pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<false> {
-        BitVectorBitPositionsIter::with_pos(self.data.as_ref(), self.n_bits, self.offset + pos)
+        BitVectorBitPositionsIter::with_pos_and_offset(
+            self.data.as_ref(),
+            self.n_bits + self.offset,
+            pos,
+            self.offset,
+        )
     }
 
     #[inline]

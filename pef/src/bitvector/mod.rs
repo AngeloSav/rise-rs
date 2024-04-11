@@ -87,11 +87,14 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     ///
     /// // Accessing more than 0 bits
     /// assert_eq!(bv.get_bits(0, 0), None);
+    ///
+    /// // Accessing last bit
+    /// assert_eq!(bv.get_bits(bv.len()-1, 1), Some(1));
     /// ```
     #[must_use]
     #[inline]
     pub fn get_bits(&self, index: usize, len: usize) -> Option<u64> {
-        if (len == 0) | (len > 64) | (index + len >= self.n_bits) {
+        if (len == 0) | (len > 64) | (index + len > self.n_bits) {
             return None;
         }
         // SAFETY: safe access due to the above checks
@@ -949,6 +952,7 @@ pub struct BitVectorBitPositionsIter<'a, const BIT: bool> {
     cur_position: usize,
     cur_word_pos: usize,
     cur_word: u64,
+    offset: usize, // Offset needed by BitSliceWithOffset. Rescale the position by this ammount
 }
 
 impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
@@ -961,12 +965,20 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
             cur_position: 0,
             cur_word_pos: 0, // points the the next word to read
             cur_word: 0,     // last word we read
+            offset: 0,
         }
     }
 
     #[must_use]
     #[inline(always)]
     pub fn with_pos(data: &'a [u64], n_bits: usize, pos: usize) -> Self {
+        Self::with_pos_and_offset(data, n_bits, pos, 0)
+    }
+
+    #[must_use]
+    #[inline(always)]
+    pub fn with_pos_and_offset(data: &'a [u64], n_bits: usize, pos: usize, offset: usize) -> Self {
+        let pos = pos + offset;
         let cur_word_pos = pos >> 6;
         let cur_word = if cur_word_pos < data.len() {
             if BIT {
@@ -988,6 +1000,7 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
             cur_position: pos,
             cur_word_pos: cur_word_pos + 1,
             cur_word,
+            offset: offset,
         }
     }
 }
@@ -1026,7 +1039,7 @@ impl<'a, const BIT: bool> Iterator for BitVectorBitPositionsIter<'a, BIT> {
         if pos >= self.n_bits {
             None
         } else {
-            Some(pos)
+            Some(pos - self.offset)
         }
     }
 }

@@ -46,7 +46,9 @@ fn test_get_set_bits() {
     assert_eq!(bv.get_bits(61, 35).unwrap(), 0);
     assert_eq!(bv.get_bits(0, 42).unwrap(), 0);
     assert_eq!(bv.get_bits(n - 42 - 1, 42).unwrap(), 0);
-    assert_eq!(bv.get_bits(n - 42, 42), None);
+    assert_eq!(bv.get_bits(n - 42, 42).unwrap(), 0);
+    assert_eq!(bv.get_bits(n - 1, 1).unwrap(), 0);
+    assert_eq!(bv.get_bits(n - 42, 43), None);
     bv.set_bits(0, 6, 42);
     assert_eq!(bv.get_bits(0, 6).unwrap(), 42);
     bv.set_bits(n - 61 - 1, 61, 42);
