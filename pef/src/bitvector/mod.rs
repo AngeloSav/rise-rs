@@ -23,7 +23,7 @@ pub type BitVec = BitVector<Vec<u64>>;
 /// Bit operations on a slice of u64, immutable or mutable but not growable bit vector.
 pub type BitSlice<'a> = BitVector<&'a [u64]>;
 /// Bit operations on a boxed slice of u64, immutable or mutable but not growable bit vector.
-pub type BitBoxed = BitVector<Box<[u64]>>; // pts pts pts punf punf punf :-)
+pub type BitBoxed = BitVector<Box<[u64]>>;
 
 /// Implementation of an immutable bit vector.
 #[derive(Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -33,6 +33,36 @@ pub struct BitVector<V: AsRef<[u64]>> {
 }
 
 impl<V: AsRef<[u64]>> BitVector<V> {
+    /// Creates a `BitVector` from raw parts.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it does not perform bounds checking.
+    /// It is the caller's responsibility to ensure that the provided `data` and `n_bits`
+    /// are valid and consistent.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::{BitSlice, BitVec};
+    ///
+    /// let data = vec![0, 2, 3, 4, 5];
+    /// let n_bits = data.len() * 64;
+    /// let bv = unsafe { BitVec::from_raw_parts(data, n_bits) };
+    ///
+    /// assert_eq!(bv.get_bits(64, 64), Some(2));
+    ///
+    /// let data = vec![0, 2, 3, 4, 5];
+    /// let n_bits = data.len() * 64;
+    /// let bs = unsafe { BitSlice::from_raw_parts(&data[1..], n_bits-64) };
+    ///
+    /// assert_eq!(bs.get_bits(0, 64), Some(2));
+    ///
+    /// ```
+    pub unsafe fn from_raw_parts(data: V, n_bits: usize) -> Self {
+        Self { data, n_bits }
+    }
+
     /// Accesses `len` bits, with 1 <= `len` <= 64, starting at position `index`.
     ///
     /// Returns [`None`] if `index`+`len` is out of bounds,
@@ -66,36 +96,6 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         }
         // SAFETY: safe access due to the above checks
         Some(unsafe { self.get_bits_unchecked(index, len) })
-    }
-
-    /// Creates a `BitVector` from raw parts.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it does not perform bounds checking.
-    /// It is the caller's responsibility to ensure that the provided `data` and `n_bits`
-    /// are valid and consistent.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pef::{BitSlice, BitVec};
-    ///
-    /// let data = vec![0, 2, 3, 4, 5];
-    /// let n_bits = data.len() * 64;
-    /// let bv = unsafe { BitVec::from_raw_parts(data, n_bits) };
-    ///
-    /// assert_eq!(bv.get_bits(64, 64), Some(2));
-    ///
-    /// let data = vec![0, 2, 3, 4, 5];
-    /// let n_bits = data.len() * 64;
-    /// let bs = unsafe { BitSlice::from_raw_parts(&data[1..], n_bits-64) };
-    ///
-    /// assert_eq!(bs.get_bits(0, 64), Some(2));
-    ///
-    /// ```
-    pub unsafe fn from_raw_parts(data: V, n_bits: usize) -> Self {
-        Self { data, n_bits }
     }
 
     /// Accesses `len` bits, starting at position `index`, without performing bounds checking.
