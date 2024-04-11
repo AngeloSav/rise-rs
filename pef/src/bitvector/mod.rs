@@ -1109,5 +1109,206 @@ impl<V: AsRef<[u64]>> std::fmt::Debug for BitVector<V> {
     }
 }
 
+// The bit vector may start at an offset (in bits) in the first word (i.e., the first word may contain some bits that are not part of the bit vector). This is useful for the implementation of the [`BitVecCollection`] where we concatenate several binary vectors and we want to avoid padding.
+#[derive(Default, Clone, Eq, PartialEq)]
+pub struct BitSliceWithOffset<'a> {
+    data: &'a [u64],
+    n_bits: usize,
+    offset: usize,
+}
+
+impl<'a> BitSliceWithOffset<'a> {
+    pub unsafe fn from_raw_parts(data: &'a [u64], n_bits: usize, offset: usize) -> Self {
+        Self {
+            data,
+            n_bits,
+            offset,
+        }
+    }
+
+    /// Accesses `len` bits, with 1 <= `len` <= 64, starting at position `index`.
+    ///
+    /// Returns [`None`] if `index`+`len` is out of bounds,
+    /// if `len` is 0, or if `len` is greater than 64.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    /// use pef::BitSliceWithOffset;
+    ///
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
+    ///
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    ///
+    /// assert_eq!(bswo.len(), 59+64);
+    /// assert_eq!(bswo.get_bits(0, 4), Some(0b1110));
+    /// assert_eq!(bswo.get_bits(bswo.len()-2, 1), Some(1));
+    ///
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn get_bits(&self, index: usize, len: usize) -> Option<u64> {
+        if (len == 0) | (len > 64) | (index + len > self.n_bits) {
+            return None;
+        }
+        // SAFETY: safe access due to the above checks
+        Some(unsafe { self.get_bits_unchecked(index, len) })
+    }
+
+    /// Accesses `len` bits, starting at position `index`, without performing bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it does not perform bounds checking.
+    /// It is the caller's responsibility to ensure that the provided `index` and `len`
+    /// are within the bounds of the bit vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    /// use pef::BitSliceWithOffset;
+    ///
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
+    ///
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    ///
+    /// // This is unsafe because it does not perform bounds checking
+    /// unsafe {
+    ///     assert_eq!(bswo.get_bits_unchecked(0, 4), 0b1110);
+    /// }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub unsafe fn get_bits_unchecked(&self, index: usize, len: usize) -> u64 {
+        debug_assert!(index + len < self.n_bits, "Index out of bounds");
+        BitVector::<&[u64]>::get_bits_slice(self.data.as_ref(), index + self.offset, len)
+    }
+
+    /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    /// use pef::BitSliceWithOffset;
+    ///
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
+    ///
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    /// let mut v = vec![1, 2, 3, 5, 7];
+    /// v.extend(59..(59+64));
+    /// assert_eq!(bswo.ones().collect::<Vec<_>>(), v);
+    /// ```
+    #[must_use]
+    pub fn ones(&self) -> BitVectorBitPositionsIter<true> {
+        BitVectorBitPositionsIter::with_pos_and_offset(
+            self.data.as_ref(),
+            self.n_bits + self.offset,
+            0,
+            self.offset,
+        )
+    }
+
+    /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector, starting at a specified bit position.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    /// use pef::BitSliceWithOffset;
+    ///
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
+    ///
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    /// let mut v = vec![5, 7];
+    /// v.extend(59..(59+64));
+    /// assert_eq!(bswo.ones_with_pos(5).collect::<Vec<_>>(), v);
+    /// ```
+    #[must_use]
+    pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<true> {
+        BitVectorBitPositionsIter::with_pos_and_offset(
+            self.data.as_ref(),
+            self.n_bits + self.offset,
+            pos,
+            self.offset,
+        )
+    }
+
+    /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    /// use pef::gen_sequence::negate_vector;
+    ///
+    /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
+    /// let bv: BitVec = vv.iter().copied().collect();
+    ///
+    /// let v: Vec<usize> = bv.zeros().collect();
+    /// assert_eq!(v, negate_vector(&vv));
+    /// ```
+    #[must_use]
+    pub fn zeros(&self) -> BitVectorBitPositionsIter<false> {
+        BitVectorBitPositionsIter::with_pos_and_offset(
+            self.data.as_ref(),
+            self.n_bits + self.offset,
+            0,
+            self.offset,
+        )
+    }
+
+    /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector, starting at a specified bit position.
+    #[must_use]
+    pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<false> {
+        BitVectorBitPositionsIter::with_pos_and_offset(
+            self.data.as_ref(),
+            self.n_bits + self.offset,
+            pos,
+            self.offset,
+        )
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.n_bits
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl AccessBin for BitSliceWithOffset<'_> {
+    #[inline]
+    #[must_use]
+    fn get(&self, index: usize) -> Option<bool> {
+        dbg!(index, self.n_bits, self.offset);
+
+        if index >= self.n_bits {
+            return None;
+        }
+        Some(unsafe { self.get_unchecked(index) })
+    }
+
+    unsafe fn get_unchecked(&self, index: usize) -> bool {
+        debug_assert!(index < self.n_bits, "Index out of bounds");
+        BitVector::<&[u64]>::get_bit_slice(self.data, index + self.offset)
+    }
+}
+
 #[cfg(test)]
 mod tests;
