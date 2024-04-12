@@ -130,8 +130,8 @@ impl<V: AsRef<[u64]>> BitVector<V> {
 
     // TODO: make the to functions a trait and implement for &[u64] together with set_bit and set_bits for &mut [T]. This way we can have a generic type T which implements those traits for &[T] and &mut [T].
 
-    // Private function to decode bits at a given index on a slice. The function does not
-    // check bounds.
+    // Private function to decode bits at a given index on a slice.
+    // The function does not check bounds while accessing data.
     #[inline]
     unsafe fn get_bits_slice(data: &[u64], index: usize, len: usize) -> u64 {
         let block = index >> 6;
@@ -144,10 +144,11 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         };
 
         if shift + len <= 64 {
-            return data[block] >> shift & mask;
+            return *data.get_unchecked(block) >> shift & mask;
         }
 
-        (data[block] >> shift) | (data[block + 1] << (64 - shift) & mask)
+        (*data.get_unchecked(block) >> shift)
+            | (*data.get_unchecked(block + 1) << (64 - shift) & mask)
     }
 
     // Private function to decode a bit at a given index on a slice. The function does not
@@ -158,7 +159,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         let word = index >> 6;
         let pos_in_word = index & 63;
 
-        data[word] >> pos_in_word & 1_u64 == 1
+        *data.get_unchecked(word) >> pos_in_word & 1 != 0
     }
 
     /// Gets a whole 64-bit word from the bit vector at index `i` in the underlying vector of u64.
@@ -176,7 +177,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// assert_eq!(word, 0b111101);
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn get_word(&self, i: usize) -> u64 {
         self.data.as_ref()[i]
     }
@@ -368,7 +369,7 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     /// assert_eq!(bv.get(10), None);
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     fn get(&self, index: usize) -> Option<bool> {
         if index >= self.len() {
             return None;
@@ -391,7 +392,7 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     /// assert_eq!(unsafe{bv.get_unchecked(5)}, true);
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     unsafe fn get_unchecked(&self, index: usize) -> bool {
         Self::get_bit_slice(self.data.as_ref(), index)
     }
@@ -957,7 +958,7 @@ pub struct BitVectorBitPositionsIter<'a, const BIT: bool> {
 
 impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn new(data: &'a [u64], n_bits: usize) -> Self {
         BitVectorBitPositionsIter {
             data,
@@ -970,22 +971,24 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     }
 
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn with_pos(data: &'a [u64], n_bits: usize, pos: usize) -> Self {
         Self::with_pos_and_offset(data, n_bits, pos, 0)
     }
 
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn with_pos_and_offset(data: &'a [u64], n_bits: usize, pos: usize, offset: usize) -> Self {
         let pos = pos + offset;
         let cur_word_pos = pos >> 6;
         let cur_word = if cur_word_pos < data.len() {
             if BIT {
-                data[cur_word_pos]
+                // SAFETY: we are sure that cur_word_pos is in bounds
+                unsafe { *data.get_unchecked(cur_word_pos) }
             } else {
+                // SAFETY: we are sure that cur_word_pos is in bounds
                 // for zeros, just negate the word and report the positions of bit set to one!
-                !data[cur_word_pos]
+                unsafe { !*data.get_unchecked(cur_word_pos) }
             }
         } else {
             0
@@ -1227,7 +1230,7 @@ impl<'a> BitSliceWithOffset<'a> {
     ///
     /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
-    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// // Bit slice with offset that excludes the first 64 + 5 bits
     /// let offset = 5;
     /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
     /// let mut v = vec![5, 7];
