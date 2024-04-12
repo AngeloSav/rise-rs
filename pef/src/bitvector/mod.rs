@@ -182,6 +182,12 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         self.data.as_ref()[i]
     }
 
+    #[must_use]
+    #[inline]
+    pub unsafe fn get_word_unchecked(&self, i: usize) -> u64 {
+        *self.data.as_ref().get_unchecked(i)
+    }
+
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.
     ///
     /// # Examples
@@ -1121,6 +1127,7 @@ pub struct BitSliceWithOffset<'a> {
 }
 
 impl<'a> BitSliceWithOffset<'a> {
+    #[inline]
     pub unsafe fn from_raw_parts(data: &'a [u64], n_bits: usize, offset: usize) -> Self {
         Self {
             data,

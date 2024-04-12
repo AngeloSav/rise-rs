@@ -19,6 +19,7 @@ impl Default for BitVecCollection {
 }
 
 impl BitVecCollection {
+    #[must_use]
     pub fn with_capacity(n_bits: usize, n_vecs: usize) -> Self {
         let mut endpoints = Vec::<usize>::with_capacity(n_vecs + 1);
         endpoints.push(0); // First zero is always there
@@ -36,28 +37,40 @@ impl BitVecCollection {
         self.n_vecs += 1;
     }
 
+    #[must_use]
+    #[inline]
     pub fn get(&self, i: usize) -> BitSliceWithOffset {
         assert!(i < self.n_vecs, "Index out of bounds");
 
-        let start_bit = self.endpoints[i];
-        let end_bit = self.endpoints[i + 1];
+        // SAFETY: i < self.n_vecs
+        let start_bit = unsafe { *self.endpoints.get_unchecked(i) };
+        let end_bit = unsafe { *self.endpoints.get_unchecked(i + 1) };
         let n_bits = end_bit - start_bit;
 
         let start_word = start_bit / 64;
         let end_word = (end_bit + 63) / 64;
         let offset = start_bit % 64;
 
-        dbg!(start_word, end_word, offset, n_bits, start_bit, end_bit);
-
         unsafe {
-            BitSliceWithOffset::from_raw_parts(&self.bv.data[start_word..end_word], n_bits, offset)
+            BitSliceWithOffset::from_raw_parts(
+                self.bv.data.get_unchecked(start_word..end_word),
+                n_bits,
+                offset,
+            )
         }
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         self.n_vecs
     }
 
+    #[must_use]
+    pub fn n_bits(&self) -> usize {
+        self.bv.len()
+    }
+
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
