@@ -1,5 +1,5 @@
 use divan::{black_box, Bencher};
-use pef::{AccessBin, BitVec, BitVecCollection};
+use pef::{AccessBin, BitVec, BitVectorCollection};
 
 fn main() {
     divan::main();
@@ -54,7 +54,7 @@ fn get_bits_unchecked(bencher: Bencher, len: usize) {
 
 #[divan::bench(args = LENS)]
 fn get_bits_unchecked_collection(bencher: Bencher, len: usize) {
-    let mut bc = BitVecCollection::default();
+    let mut bc = BitVectorCollection::default();
     for _ in 0..3 {
         let bv = BitVec::from_iter(vec![0, 63, 128, 129, 254, 341]);
         bc.push(&bv);
