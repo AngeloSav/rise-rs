@@ -24,7 +24,7 @@ pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
 /// # Examples
 ///
 /// ```
-/// use bitvector_collection::*;
+/// use pef::{BitVecCollection, BitVec, AccessBin};
 ///
 /// let mut bvc = BitVecCollection::default();
 /// assert!(bvc.is_empty());

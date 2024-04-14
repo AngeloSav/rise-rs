@@ -656,12 +656,40 @@ impl BitVector<Vec<u64>> {
     /// assert_eq!(bv.len(), 10);
     /// assert_eq!(bv.get(8), Some(false));
     /// ```
-    #[inline]
     pub fn extend_with_zeros(&mut self, n: usize) {
-        self.n_bits += n;
-        let new_size = (self.n_bits + 63) / 64;
+        let new_size = (self.n_bits + n + 63) / 64;
         self.data.resize_with(new_size, Default::default);
+        self.n_bits += n;
     }
+
+    /// Extends the bit vector by adding `n` bits set to 1.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the size of the bit vector exceeds `usize::MAX` bits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::{BitVec, AccessBin};
+    ///
+    /// let mut bv = BitVec::with_capacity(100);
+    /// bv.extend_with_ones(100);
+    /// assert_eq!(bv.len(), 100);
+    /// assert_eq!(bv.get(8), Some(true));
+    /// assert_eq!(bv.get(99), Some(true));
+    /// ```
+    pub fn extend_with_ones(&mut self, n: usize) {
+        let new_size = (self.n_bits + n + 63) / 64;
+        self.data.resize_with(new_size, || u64::MAX);
+
+        let last = n % 64;
+        if last > 0 {
+            *self.data.last_mut().unwrap() = u64::MAX >> (64 - last);
+        }
+        self.n_bits += n;
+    }
+
     /// Shrinks the underlying vector of 64-bit words to fit the actual size of the bit vector.
     pub fn shrink_to_fit(&mut self) {
         self.data.shrink_to_fit();
