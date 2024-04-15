@@ -1,5 +1,5 @@
 use divan::{black_box, Bencher};
-use pef::{AccessBin, BitVec, BitVectorCollection};
+use pef::{AccessBin, BitVec, BitVecCollection};
 
 fn main() {
     divan::main();
@@ -34,7 +34,7 @@ fn get_bit_unchecked(bencher: Bencher) {
 fn get_bits(bencher: Bencher, len: usize) {
     let bv = BitVec::from_iter(vec![0, 63, 128, 129, 254, 1026]);
     bencher.bench_local(move || {
-        for i in 0..(bv.len() - 32) {
+        for i in 0..(bv.len() - len) {
             let _ = black_box(bv.get_bits(i, len));
         }
     });
@@ -44,7 +44,7 @@ fn get_bits(bencher: Bencher, len: usize) {
 fn get_bits_unchecked(bencher: Bencher, len: usize) {
     let bv = BitVec::from_iter(vec![0, 63, 128, 129, 254, 1026]);
     bencher.bench_local(move || {
-        for i in 0..(bv.len() - 32) {
+        for i in 0..(bv.len() - len) {
             unsafe {
                 let _ = black_box(bv.get_bits_unchecked(i, len));
             }
@@ -53,8 +53,22 @@ fn get_bits_unchecked(bencher: Bencher, len: usize) {
 }
 
 #[divan::bench(args = LENS)]
+fn get_bits_unchecked_iter(bencher: Bencher, len: usize) {
+    let bv = BitVec::from_iter(vec![0, 63, 128, 129, 254, 1026]);
+    let n_bits = bv.len();
+    bencher.bench_local(move || {
+        for _ in 0..len {
+            let mut iter = bv.ones();
+            for _ in (0..n_bits - len).step_by(len) {
+                let _ = black_box(unsafe { iter.get_bits_unchecked(len) });
+            }
+        }
+    });
+}
+
+#[divan::bench(args = LENS)]
 fn get_bits_unchecked_collection(bencher: Bencher, len: usize) {
-    let mut bc = BitVectorCollection::default();
+    let mut bc = BitVecCollection::default();
     for _ in 0..3 {
         let bv = BitVec::from_iter(vec![0, 63, 128, 129, 254, 341]);
         bc.push(&bv);

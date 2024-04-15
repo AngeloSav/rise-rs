@@ -1,5 +1,5 @@
 use super::*;
-use crate::gen_sequence::{gen_strictly_increasing_sequence, negate_vector};
+use crate::gen_sequences::{gen_strictly_increasing_sequence, negate_vector};
 
 #[test]
 fn test_is_empty() {
@@ -71,6 +71,35 @@ fn test_from_iter() {
     let bv2: BitVec = (0..n).filter(|x| x % 2 == 0).collect();
 
     assert_eq!(bv, bv2);
+}
+
+#[test]
+fn test_get_bits_iter() {
+    for n_bits in 3..4 {
+        let mut bv = BitVec::new();
+        let max = 1 << n_bits;
+
+        for i in 0..1024 {
+            bv.append_bits(i % max, n_bits);
+        }
+
+        let mut iter = bv.ones();
+        for i in 0..1024 {
+            assert_eq!(iter.get_bits(n_bits), Some(i % max));
+        }
+    }
+}
+
+#[test]
+fn test_get_bits_iter_2() {
+    let bv = BitVec::from_iter(vec![0, 63, 128, 129, 254, 1026]);
+
+    for n_bits in 1..64 {
+        let mut iter = bv.ones();
+        for position in (0..bv.len() - n_bits).step_by(n_bits) {
+            assert_eq!(iter.get_bits(n_bits), bv.get_bits(position, n_bits));
+        }
+    }
 }
 
 #[test]
