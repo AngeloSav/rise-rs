@@ -103,6 +103,18 @@ fn test_get_bits_iter_2() {
 }
 
 #[test]
+fn test_gamma() {
+    let mut bv = BitVec::new();
+    for i in 0..3042 {
+        bv.append_gamma(i);
+    }
+
+    for (i, dec) in bv.iter_gamma().enumerate() {
+        assert_eq!(dec, i as u64);
+    }
+}
+
+#[test]
 fn test_iter_zeros() {
     let bv = BitVec::default();
     let v: Vec<usize> = bv.zeros().collect();

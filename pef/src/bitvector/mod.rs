@@ -275,6 +275,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         }
     }
 
+    pub fn iter_gamma(&self) -> BitVectorGammaIter {
+        BitVectorGammaIter::new(self.data.as_ref(), self.n_bits, 0)
+    }
+
     /// Checks if the bit vector is empty.
     ///
     /// # Returns
@@ -691,15 +695,14 @@ impl BitVector<Vec<u64>> {
 
     /// Encode `v` with Elias Gamma encoding. We assume that `v` is a non-negative integer (i.e., `v` can be zero).
     /// The largest possible value for `v` is `u64::MAX - 1`.
-    pub fn write_gamma(&mut self, v: u64) {
+    #[inline]
+    pub fn append_gamma(&mut self, v: u64) {
         let v = v + 1;
 
         let n_bits = (64 - v.leading_zeros()) as usize;
-
-        if n_bits > 1 {
-            self.extend_with_zeros(n_bits - 1);
-        }
-        self.append_bits(v, n_bits);
+        let hb = 1 << (n_bits - 1);
+        self.append_bits(hb, n_bits);
+        self.append_bits(v ^ hb, n_bits - 1);
     }
 
     /// Shrinks the underlying vector of 64-bit words to fit the actual size of the bit vector.
@@ -1013,15 +1016,21 @@ impl<'a> BitVectorGammaIter<'a> {
     }
 }
 
-// impl<'a> Iterator for BitVectorGammaIter<'a> {
-//     type Item = u64;
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let prev_pos = self.inner_iter.cur_position;
-//         let pos = self.inner_iter.next()?;
-//         let l = pos - prev_pos;
-//         (1_u64 << l) | self.inner_iter.get_bits(l)?;
-//     }
-// }
+impl<'a> Iterator for BitVectorGammaIter<'a> {
+    type Item = u64;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let prev_pos = self.inner_iter.cur_position;
+
+        let pos = self.inner_iter.next()?;
+        let l = pos - prev_pos;
+
+        // SAFETY: if pos was Some, then l is in bounds
+        let v = (1_u64 << l) | unsafe { self.inner_iter.get_bits_unchecked(l) };
+        Some(v - 1)
+    }
+}
 
 #[derive(Debug)]
 pub struct BitVectorBitPositionsIter<'a, const BIT: bool> {
