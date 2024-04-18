@@ -15,8 +15,6 @@ pub mod bitvector_collection;
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
 use crate::AccessBin;
-
-use bincode::de;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -1038,7 +1036,7 @@ pub struct BitVectorBitPositionsIter<'a, const BIT: bool> {
     n_bits: usize,         // Number of bits in the bit vector
     cur_position: usize,   // Current position in the bit vector
     cur_word_pos: usize,   // Position of the next word to read in data
-    buffer: u128,          // Last word we read
+    buffer: u64,           // Last word we read
     bits_in_buffer: usize, // How many bits can we read from cur_word?
     offset: usize, // Offset needed by BitSliceWithOffset. Rescale the position by this ammount
 }
@@ -1059,17 +1057,29 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     // The buffer may contain up to 128 bits, but we only read 64 bits at a time.
     // As we want to access up to 64 bits with get_bits(), we aim at having at least 64 bits in the buffer.
 
+    // #[inline]
+    // unsafe fn fill_buffer(&mut self) {
+    //     self.buffer |= (if BIT {
+    //         *self.data.get_unchecked(self.cur_word_pos)
+    //     } else {
+    //         // for zeros, just negate the word and report the positions of bit set to one!
+    //         !*self.data.get_unchecked(self.cur_word_pos)
+    //     } as u128)
+    //         << self.bits_in_buffer;
+    //     self.cur_word_pos += 1;
+    //     self.bits_in_buffer += 64;
+    // }
+
     #[inline]
     unsafe fn fill_buffer(&mut self) {
-        self.buffer |= (if BIT {
+        self.buffer = if BIT {
             *self.data.get_unchecked(self.cur_word_pos)
         } else {
             // for zeros, just negate the word and report the positions of bit set to one!
             !*self.data.get_unchecked(self.cur_word_pos)
-        } as u128)
-            << self.bits_in_buffer;
+        };
         self.cur_word_pos += 1;
-        self.bits_in_buffer += 64;
+        self.bits_in_buffer = 64;
     }
 
     #[must_use]
@@ -1108,6 +1118,8 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
 
 impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     /// If bits == 0, return 0
+    #[must_use]
+    #[inline]
     pub fn get_bits(&mut self, bits: usize) -> Option<u64> {
         if bits > 64 || self.cur_position + bits > self.n_bits {
             return None;
@@ -1119,15 +1131,26 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
         Some(unsafe { self.get_bits_unchecked(bits) })
     }
 
-    pub unsafe fn get_bits_unchecked(&mut self, bits: usize) -> u64 {
+    #[must_use]
+    #[inline]
+    pub unsafe fn get_bits_unchecked(&mut self, len: usize) -> u64 {
         // UB if cur_word_pos is out of bounds
-        if self.bits_in_buffer < bits {
+
+        let mut res = 0;
+        let mut len = len;
+        let mut shift = 0;
+
+        if self.bits_in_buffer < len {
+            res = self.buffer;
+            shift = self.bits_in_buffer;
+            len -= self.bits_in_buffer;
             self.fill_buffer();
         }
+        let mask = (1 << len) - 1;
 
-        let res = (self.buffer & ((1 << bits) - 1)) as u64; // incorrect if bits > 64
-        self.buffer >>= bits;
-        self.bits_in_buffer -= bits;
+        res |= (self.buffer & mask) << shift;
+        self.buffer = self.buffer >> len;
+        self.bits_in_buffer -= len;
 
         res
     }
@@ -1143,13 +1166,10 @@ impl<'a, const BIT: bool> Iterator for BitVectorBitPositionsIter<'a, BIT> {
             return None;
         }
 
-        dbg!(self.cur_position);
-
         while self.buffer == 0 {
             if self.cur_word_pos < self.data.len() {
                 // SAFETY: check above guarantees that cur_word_pos is in bounds
                 self.cur_position += self.bits_in_buffer;
-                self.bits_in_buffer = 0;
                 unsafe { self.fill_buffer() };
             } else {
                 return None;
@@ -1160,7 +1180,12 @@ impl<'a, const BIT: bool> Iterator for BitVectorBitPositionsIter<'a, BIT> {
         let l = self.buffer.trailing_zeros() as usize + 1;
         self.cur_position += l;
         self.bits_in_buffer -= l;
-        self.buffer >>= l;
+
+        if l == 64 {
+            self.buffer = 0;
+        } else {
+            self.buffer >>= l;
+        }
 
         // self.cur_position points to the next bit to read
         if self.cur_position - 1 >= self.n_bits {

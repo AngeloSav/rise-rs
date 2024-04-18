@@ -25,3 +25,4 @@ harness = false
 [profile.release]
 lto = true
 debug = true
+overflow-checks = false # Enable this checks for debugging in release mode

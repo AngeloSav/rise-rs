@@ -1,3 +1,5 @@
+#![feature(unchecked_shifts)]
+
 pub mod bitvector;
 pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
