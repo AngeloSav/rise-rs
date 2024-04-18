@@ -1,5 +1,6 @@
 use divan::black_box;
 use pef::gen_sequences::gen_strictly_increasing_sequence;
+use pef::AccessBin;
 
 const N_RUNS: usize = 500;
 
@@ -8,6 +9,19 @@ fn main() {
     let v = gen_strictly_increasing_sequence(n_bits / 2, n_bits);
 
     let bv = pef::bitvector::BitVec::from_iter(v);
+
+    let mut timings = pef::utils::TimingQueries::new(N_RUNS, n_bits);
+
+    for _ in 0..N_RUNS {
+        timings.start();
+        for i in 0..bv.len() {
+            let _ = unsafe { black_box(bv.get_unchecked(i)) };
+        }
+
+        timings.stop();
+    }
+    let (_, _, avg) = timings.get_float();
+    println!("{:>2} bits: avg: {:.2} ns", 1, avg);
 
     for bit_len in 1..=64 {
         let mut timings = pef::utils::TimingQueries::new(N_RUNS, n_bits - bit_len);

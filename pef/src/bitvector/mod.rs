@@ -154,8 +154,8 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     unsafe fn get_bit_slice(data: &[u64], index: usize) -> bool {
         let word = index >> 6;
         let pos_in_word = index & 63;
-
-        *data.get_unchecked(word) >> pos_in_word & 1 != 0
+        // SAFETY: unchecked_shl is safe because shifts by a value which is less than 64
+        (*data.get_unchecked(word)).unchecked_shl(pos_in_word as u32) & 1 != 0
     }
 
     /// Gets a whole 64-bit word from the bit vector at index `i` in the underlying vector of u64.
