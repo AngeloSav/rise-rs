@@ -1,4 +1,4 @@
-//! This module provides implementations for both mutable and immutable bit vectors.
+//! This module provides implementations for mutable, immutable, or growable bit vectors.
 //!
 //! The mutable bit vector offers operations to [`AccessBin`], append, and modify bits at arbitrary positions.
 //!
@@ -30,6 +30,13 @@ pub struct BitVector<V: AsRef<[u64]>> {
     data: V,
     n_bits: usize,
 }
+
+// A function that returns a u64 with the first `bits` set to 1.
+// UB if `bits` > 64
+#[inline]
+unsafe fn compute_mask(bits: usize) -> u64 {
+    if bits == 0 { 0 } else { u64::MAX  >> (64-bits) }
+} 
 
 impl<V: AsRef<[u64]>> BitVector<V> {
     /// Creates a `BitVector` from raw parts.
@@ -121,30 +128,36 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     #[must_use]
     #[inline]
     pub unsafe fn get_bits_unchecked(&self, index: usize, len: usize) -> u64 {
+        debug_assert!(len <= 64 && index + len <= self.n_bits);
+
         Self::get_bits_slice(self.data.as_ref(), index, len)
     }
 
     // TODO: make the to functions a trait and implement for &[u64] together with set_bit and set_bits for &mut [T]. This way we can have a generic type T which implements those traits for &[T] and &mut [T].
 
     // Private function to decode bits at a given index on a slice.
-    // The function does not check bounds while accessing data.
+    // The function does not check bounds while accessing data and does not clear bits in position larger than len.
     #[inline]
-    unsafe fn get_bits_slice(data: &[u64], index: usize, len: usize) -> u64 {
-        let block = index >> 6;
-        let shift = index & 63;
+    #[must_use]
+    unsafe fn get_bits_unmasked_slice(data: &[u64], index: usize, len: usize) -> u64 {
+        let (block, shift) = (index >> 6, index & 63);
 
-        let mask = if len == 64 {
-            std::u64::MAX
-        } else {
-            (1_u64 << len) - 1
-        };
+        let w = *data.get_unchecked(block) >> shift;
 
         if shift + len <= 64 {
-            return *data.get_unchecked(block) >> shift & mask;
+            w
+        } else {
+            w | (*data.get_unchecked(block + 1) << (64 - shift))
         }
+    }
 
-        (*data.get_unchecked(block) >> shift)
-            | (*data.get_unchecked(block + 1) << (64 - shift) & mask)
+    // Private function to decode bits at a given index on a slice.
+    // The function does not check bounds while accessing data.
+    #[inline]
+    #[must_use]
+    unsafe fn get_bits_slice(data: &[u64], index: usize, len: usize) -> u64 {
+        
+        Self::get_bits_unmasked_slice(data, index, len) & compute_mask(len)
     }
 
     // Private function to decode a bit at a given index on a slice. The function does not
@@ -475,11 +488,8 @@ impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
             return;
         }
 
-        let mask = if len == 64 {
-            std::u64::MAX
-        } else {
-            (1_u64 << len) - 1
-        };
+        // SAFETY: len <= 64 checked above
+        let mask = unsafe{compute_mask(len)};
         let word = index >> 6;
         let pos_in_word = index & 63;
 
@@ -1146,9 +1156,10 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
             len -= self.bits_in_buffer;
             self.fill_buffer();
         }
-        let mask = (1 << len) - 1;
 
-        res |= (self.buffer & mask) << shift;
+        let mask = compute_mask(len);
+
+        res |= (self.buffer << shift) & mask;
         self.buffer = self.buffer >> len;
         self.bits_in_buffer -= len;
 
