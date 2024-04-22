@@ -21,7 +21,9 @@ fn main() {
         timings.stop();
     }
     let (_, _, avg) = timings.get_float();
-    println!("{:>2} bits: avg: {:.2} ns", 1, avg);
+    println!("One bit: avg: {:.2} ns", avg);
+
+    let mut t = [0.0; 64 + 1];
 
     for bit_len in 1..=64 {
         let mut timings = pef::utils::TimingQueries::new(N_RUNS, n_bits - bit_len);
@@ -35,10 +37,13 @@ fn main() {
             }
             timings.stop();
         }
+
         let (_, _, avg) = timings.get_float();
-        println!("{bit_len:>2} bits: avg: {:.2} ns", avg);
+        //println!("{bit_len:>2} bits: {:.2} ns", avg);
+        t[bit_len] = avg;
     }
 
+    let mut t_i = [0.0; 64 + 1];
     for bit_len in 1..=64 {
         let mut timings = pef::utils::TimingQueries::new(N_RUNS, n_bits - bit_len);
 
@@ -53,6 +58,13 @@ fn main() {
             timings.stop();
         }
         let (_, _, avg) = timings.get_float();
-        println!("{bit_len:>2} bits: avg: {:.2} ns", avg);
+        t_i[bit_len] = avg;
+    }
+
+    for bit_len in 1..=64 {
+        println!(
+            "{bit_len:>2} bits: {:.2} ns, {:.2} ns",
+            t[bit_len], t_i[bit_len]
+        );
     }
 }

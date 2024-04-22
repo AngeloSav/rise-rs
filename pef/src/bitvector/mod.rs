@@ -15,6 +15,7 @@ pub mod bitvector_collection;
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
 use crate::AccessBin;
+use rand::seq::index;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -35,8 +36,12 @@ pub struct BitVector<V: AsRef<[u64]>> {
 // UB if `bits` > 64
 #[inline]
 unsafe fn compute_mask(bits: usize) -> u64 {
-    if bits == 0 { 0 } else { u64::MAX  >> (64-bits) }
-} 
+    if bits == 0 {
+        0
+    } else {
+        u64::MAX >> (64 - bits)
+    }
+}
 
 impl<V: AsRef<[u64]>> BitVector<V> {
     /// Creates a `BitVector` from raw parts.
@@ -151,12 +156,120 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         }
     }
 
+    #[inline]
+    #[must_use]
+    /// Returns the position of the next 1 bit in the bit vector starting from position `index`.
+    /// Returns [`None`] if `index` is out of bounds or if there is no one after index.
+    /// # Examples
+    /// ```
+    /// use pef::{BitVec, AccessBin};
+    ///
+    /// let v = vec![0,2,3,4,5, 124, 1023, 1045];
+    /// let bv: BitVec = v.into_iter().collect();
+    /// assert_eq!(bv.get(1), Some(false));
+    /// ```
+    pub fn next_one(&self, index: usize) -> Option<usize> {
+        if index >= self.n_bits {
+            return None;
+        }
+
+        // SAFETY: index is ok due to the above check
+        let res = unsafe { self.next_one_unchecked(index) };
+
+        if res < self.n_bits {
+            Some(res)
+        } else {
+            None
+        }
+    }
+
+    /// Returns the position of the next 1 bit in the bit vector starting from position `index`.
+    ///
+    /// If there is no bit after that position, the function returns a value larger than or equal to the number of bits in the bit vector. The function does not check bounds.
+    pub unsafe fn next_one_unchecked(&self, index: usize) -> usize {
+        // SAFETY: index is ok due to the above check
+
+        Self::next_bit_slice_unchecked::<true>(self.data.as_ref(), index, self.n_bits)
+    }
+
+    pub fn next_zero(&self, index: usize) -> Option<usize> {
+        if index >= self.n_bits {
+            return None;
+        }
+
+        // SAFETY: index is ok due to the above check
+        let res = unsafe { self.next_zero_unchecked(index) };
+
+        if res < self.n_bits {
+            Some(res)
+        } else {
+            None
+        }
+    }
+
+    /// Returns the position of the next 0 bit in the bit vector starting from position `index`.
+    ///
+    /// If there is no bit after that position, the function returns a value larger than or equal to the number of bits in the bit vector. The function does not check bounds.
+    pub unsafe fn next_zero_unchecked(&self, index: usize) -> usize {
+        // SAFETY: index is ok due to the above check
+
+        Self::next_bit_slice_unchecked::<false>(self.data.as_ref(), index, self.n_bits)
+    }
+
+    // Private function that returns the position of the next 1 bit in the bit vector starting from position
+    // `index``. If such bit does not exist, the function returns a value larger than or euqal to the number of bits in the bit vector.
+    //
+    // UB if `index` is out of bounds.
+    #[inline]
+    #[must_use]
+    unsafe fn next_bit_slice_unchecked<const BIT: bool>(
+        data: &[u64],
+        index: usize,
+        n_bits: usize,
+    ) -> usize {
+        let block = index >> 6;
+        let mut shift = index & 63;
+        let last_block = n_bits >> 6;
+
+        // if block < last_block {
+        let w = if BIT {
+            *data.get_unchecked(block)
+        } else {
+            !*data.get_unchecked(block)
+        } >> shift;
+
+        if w != 0 {
+            return index + w.trailing_zeros() as usize;
+        }
+
+        for (i, &w) in data[block + 1..last_block].iter().enumerate() {
+            let w = if BIT { w } else { !w };
+            if w != 0 {
+                return ((block + i + 1) << 6) + w.trailing_zeros() as usize;
+            }
+        }
+        shift = 0;
+        // }
+
+        let w = (if BIT {
+            *data.get_unchecked(last_block)
+        } else {
+            !*data.get_unchecked(last_block)
+        } & compute_mask(n_bits & 63))
+            >> shift;
+
+        if w != 0 {
+            return (last_block << 6) + shift + w.trailing_zeros() as usize;
+        }
+
+        n_bits
+    }
+
     // Private function to decode bits at a given index on a slice.
     // The function does not check bounds while accessing data.
     #[inline]
     #[must_use]
     unsafe fn get_bits_slice(data: &[u64], index: usize, len: usize) -> u64 {
-        
         Self::get_bits_unmasked_slice(data, index, len) & compute_mask(len)
     }
 
@@ -212,7 +325,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// ```
     #[must_use]
     pub fn ones(&self) -> BitVectorBitPositionsIter<true> {
-        BitVectorBitPositionsIter::new(self.data.as_ref(), self.n_bits)
+        let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
+
+        BitVectorBitPositionsIter::new(bs)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector, starting at a specified bit position.
@@ -230,7 +345,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// ```
     #[must_use]
     pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<true> {
-        BitVectorBitPositionsIter::with_pos(self.data.as_ref(), self.n_bits, pos)
+        let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
+
+        BitVectorBitPositionsIter::with_pos(bs, pos)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector.
@@ -249,13 +366,17 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// ```
     #[must_use]
     pub fn zeros(&self) -> BitVectorBitPositionsIter<false> {
-        BitVectorBitPositionsIter::new(self.data.as_ref(), self.n_bits)
+        let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
+
+        BitVectorBitPositionsIter::new(bs)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector, starting at a specified bit position.
     #[must_use]
     pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<false> {
-        BitVectorBitPositionsIter::with_pos(self.data.as_ref(), self.n_bits, pos)
+        let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
+
+        BitVectorBitPositionsIter::with_pos(bs, pos)
     }
 
     /// Returns a non-consuming iterator over bits of the bit vector.
@@ -287,7 +408,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     }
 
     pub fn iter_gamma(&self) -> BitVectorGammaIter {
-        BitVectorGammaIter::new(self.data.as_ref(), self.n_bits, 0)
+        BitVectorGammaIter::new(unsafe {
+            BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0)
+        })
     }
 
     /// Checks if the bit vector is empty.
@@ -489,7 +612,7 @@ impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
         }
 
         // SAFETY: len <= 64 checked above
-        let mask = unsafe{compute_mask(len)};
+        let mask = unsafe { compute_mask(len) };
         let word = index >> 6;
         let pos_in_word = index & 63;
 
@@ -1005,21 +1128,16 @@ impl<V: AsRef<[u64]>> AsRef<BitVector<V>> for BitVector<V> {
 }
 
 pub struct BitVectorGammaIter<'a> {
-    inner_iter: BitVectorBitPositionsIter<'a, true>,
+    bs: BitVectorBitPositionsIter<'a, true>,
 }
 
 impl<'a> BitVectorGammaIter<'a> {
     /// Offset is needed by BitSliceWithOffset. It is the number of bits to skip in the first word before starting to read the bit vector.
     #[must_use]
     #[inline]
-    pub fn new(data: &'a [u64], n_bits: usize, offset: usize) -> Self {
-        assert!(
-            offset < 64,
-            "The offset must be within the first word (i.e., < 64)"
-        );
-
+    pub fn new(bs: BitSliceWithOffset<'a>) -> Self {
         BitVectorGammaIter {
-            inner_iter: BitVectorBitPositionsIter::with_pos_and_offset(data, n_bits, 0, offset),
+            bs: BitVectorBitPositionsIter::new(bs),
         }
     }
 }
@@ -1029,100 +1147,38 @@ impl<'a> Iterator for BitVectorGammaIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let prev_pos = self.inner_iter.cur_position;
+        // let prev_pos = self.inner_iter.cur_position;
 
-        let pos = self.inner_iter.next()?;
-        let l = pos - prev_pos;
+        // let pos = self.inner_iter.next()?;
+        // let l = pos - prev_pos;
+        let l = 0;
 
         // SAFETY: if pos was Some, then l is in bounds
-        let v = (1_u64 << l) | unsafe { self.inner_iter.get_bits_unchecked(l) };
+        let v = (1_u64 << l) | unsafe { self.bs.get_bits_unchecked(l) };
         Some(v - 1)
     }
 }
 
 #[derive(Debug)]
 pub struct BitVectorBitPositionsIter<'a, const BIT: bool> {
-    data: &'a [u64],
-    n_bits: usize,         // Number of bits in the bit vector
-    cur_position: usize,   // Current position in the bit vector
-    cur_word_pos: usize,   // Position of the next word to read in data
-    buffer: u64,           // Last word we read
-    bits_in_buffer: usize, // How many bits can we read from cur_word?
-    offset: usize, // Offset needed by BitSliceWithOffset. Rescale the position by this ammount
+    bs: BitSliceWithOffset<'a>,
+    cur_position: usize, // Current position in the bit vector
 }
 
 impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     #[must_use]
     #[inline]
-    pub fn new(data: &'a [u64], n_bits: usize) -> Self {
-        Self::with_pos_and_offset(data, n_bits, 0, 0)
+    pub fn new(bs: BitSliceWithOffset<'a>) -> Self {
+        Self::with_pos(bs, 0)
     }
 
     #[must_use]
     #[inline]
-    pub fn with_pos(data: &'a [u64], n_bits: usize, pos: usize) -> Self {
-        Self::with_pos_and_offset(data, n_bits, pos, 0)
-    }
-    // The function is unsafe because it assumes that the current word is in bounds.
-    // The buffer may contain up to 128 bits, but we only read 64 bits at a time.
-    // As we want to access up to 64 bits with get_bits(), we aim at having at least 64 bits in the buffer.
-
-    // #[inline]
-    // unsafe fn fill_buffer(&mut self) {
-    //     self.buffer |= (if BIT {
-    //         *self.data.get_unchecked(self.cur_word_pos)
-    //     } else {
-    //         // for zeros, just negate the word and report the positions of bit set to one!
-    //         !*self.data.get_unchecked(self.cur_word_pos)
-    //     } as u128)
-    //         << self.bits_in_buffer;
-    //     self.cur_word_pos += 1;
-    //     self.bits_in_buffer += 64;
-    // }
-
-    #[inline]
-    unsafe fn fill_buffer(&mut self) {
-        self.buffer = if BIT {
-            *self.data.get_unchecked(self.cur_word_pos)
-        } else {
-            // for zeros, just negate the word and report the positions of bit set to one!
-            !*self.data.get_unchecked(self.cur_word_pos)
-        };
-        self.cur_word_pos += 1;
-        self.bits_in_buffer = 64;
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn with_pos_and_offset(data: &'a [u64], n_bits: usize, pos: usize, offset: usize) -> Self {
-        let pos = pos + offset;
-        let cur_word_pos = pos >> 6;
-        let mut me = Self {
-            data,
-            n_bits,
+    pub fn with_pos(bs: BitSliceWithOffset<'a>, pos: usize) -> Self {
+        Self {
+            bs,
             cur_position: pos,
-            cur_word_pos: cur_word_pos,
-            buffer: 0,
-            bits_in_buffer: 0,
-            offset: offset,
-        };
-
-        if cur_word_pos >= data.len() {
-            return me;
         }
-
-        // SAFETY: we are sure that cur_word_pos is in bounds
-        unsafe {
-            me.fill_buffer();
-        }
-
-        // We are sure there are 64 bits in the buffer
-        let l = pos % 64; // How many bits to skip in the first word
-
-        me.buffer >>= l; // remove bits to skip
-        me.bits_in_buffer -= l;
-
-        me
     }
 }
 
@@ -1131,7 +1187,7 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     #[must_use]
     #[inline]
     pub fn get_bits(&mut self, bits: usize) -> Option<u64> {
-        if bits > 64 || self.cur_position + bits > self.n_bits {
+        if bits > 64 || self.cur_position + bits > self.bs.n_bits {
             return None;
         }
 
@@ -1144,26 +1200,10 @@ impl<'a, const BIT: bool> BitVectorBitPositionsIter<'a, BIT> {
     #[must_use]
     #[inline]
     pub unsafe fn get_bits_unchecked(&mut self, len: usize) -> u64 {
-        // UB if cur_word_pos is out of bounds
+        let v = self.bs.get_bits_unchecked(self.cur_position, len);
+        self.cur_position += len;
 
-        let mut res = 0;
-        let mut len = len;
-        let mut shift = 0;
-
-        if self.bits_in_buffer < len {
-            res = self.buffer;
-            shift = self.bits_in_buffer;
-            len -= self.bits_in_buffer;
-            self.fill_buffer();
-        }
-
-        let mask = compute_mask(len);
-
-        res |= (self.buffer << shift) & mask;
-        self.buffer = self.buffer >> len;
-        self.bits_in_buffer -= len;
-
-        res
+        v
     }
 }
 
@@ -1173,39 +1213,23 @@ impl<'a, const BIT: bool> Iterator for BitVectorBitPositionsIter<'a, BIT> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.cur_position >= self.n_bits {
+        dbg!(self.cur_position, self.bs.offset);
+        if self.cur_position >= self.bs.n_bits {
             return None;
         }
 
-        while self.buffer == 0 {
-            if self.cur_word_pos < self.data.len() {
-                // SAFETY: check above guarantees that cur_word_pos is in bounds
-                self.cur_position += self.bits_in_buffer;
-                unsafe { self.fill_buffer() };
-            } else {
-                return None;
-            }
-        }
-
-        // +1 is because we are looking for the position of the first bit set to 1
-        let l = self.buffer.trailing_zeros() as usize + 1;
-        self.cur_position += l;
-        self.bits_in_buffer -= l;
-
-        if l == 64 {
-            self.buffer = 0;
+        let p = if BIT {
+            unsafe { self.bs.next_one_unchecked(self.cur_position) }
         } else {
-            self.buffer >>= l;
-        }
+            unsafe { self.bs.next_zero_unchecked(self.cur_position) }
+        };
 
-        // self.cur_position points to the next bit to read
-        if self.cur_position - 1 >= self.n_bits {
-            // We may have read more bits than possible
-            self.bits_in_buffer = 0;
-            self.buffer = 0;
+        if p < self.bs.n_bits {
+            self.cur_position = p + 1;
+            Some(p)
+        } else {
+            self.cur_position = self.bs.n_bits;
             None
-        } else {
-            Some(self.cur_position - self.offset - 1)
         }
     }
 }
@@ -1276,7 +1300,7 @@ impl<V: AsRef<[u64]>> std::fmt::Debug for BitVector<V> {
 }
 
 // The bit vector may start at an offset (in bits) in the first word (i.e., the first word may contain some bits that are not part of the bit vector). This is useful for the implementation of the [`BitVecCollection`] where we concatenate several binary vectors and we want to avoid padding.
-#[derive(Default, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct BitSliceWithOffset<'a> {
     data: &'a [u64],
     n_bits: usize,
@@ -1284,6 +1308,39 @@ pub struct BitSliceWithOffset<'a> {
 }
 
 impl<'a> BitSliceWithOffset<'a> {
+    /// `offset` is any bit position in the bit vector (i.e., offset < n_bits).
+    /// # Examples
+    ///
+    /// ```
+    /// use pef::BitVec;
+    /// use pef::BitSliceWithOffset;
+    ///
+    /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
+    ///
+    /// // Bitslice with offset that excludes the first 64 + 5 bits
+    /// let offset = 5;
+    /// let bswo = unsafe{ BitSliceWithOffset::from_raw_parts(&v[1..], 59+64, offset)};
+    ///
+    /// assert_eq!(bswo.len(), 59+64);
+    /// assert_eq!(bswo.get_bits(0, 4), Some(0b1110));
+    /// ```
+    pub fn new<V: AsRef<[u64]>>(bv: &'a BitVector<V>, offset: usize) -> Self {
+        if offset > bv.n_bits {
+            return BitSliceWithOffset::default();
+        }
+
+        let p = offset / 64;
+        let data = &bv.data.as_ref()[p..];
+        let n_bits = bv.n_bits - offset;
+        let offset = offset % 64;
+
+        Self {
+            data,
+            n_bits,
+            offset,
+        }
+    }
+
     #[inline]
     pub unsafe fn from_raw_parts(data: &'a [u64], n_bits: usize, offset: usize) -> Self {
         Self {
@@ -1352,10 +1409,53 @@ impl<'a> BitSliceWithOffset<'a> {
     #[must_use]
     #[inline]
     pub unsafe fn get_bits_unchecked(&self, index: usize, len: usize) -> u64 {
-        debug_assert!(index + len < self.n_bits, "Index out of bounds");
+        debug_assert!(index + len <= self.n_bits, "Index out of bounds");
         BitVector::<&[u64]>::get_bits_slice(self.data.as_ref(), index + self.offset, len)
     }
 
+    pub fn next_one(&self, index: usize) -> Option<usize> {
+        if index >= self.n_bits {
+            return None;
+        }
+        // SAFETY: safe access due to the above checks
+        let p = unsafe { self.next_one_unchecked(index) };
+
+        if p < self.n_bits {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn next_one_unchecked(&self, index: usize) -> usize {
+        BitVector::<&[u64]>::next_bit_slice_unchecked::<true>(
+            self.data.as_ref(),
+            index + self.offset,
+            self.n_bits + self.offset,
+        ) - self.offset
+    }
+
+    pub fn next_zero(&self, index: usize) -> Option<usize> {
+        if index >= self.n_bits {
+            return None;
+        }
+        // SAFETY: safe access due to the above checks
+        let p = unsafe { self.next_zero_unchecked(index) };
+
+        if p < self.n_bits {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn next_zero_unchecked(&self, index: usize) -> usize {
+        BitVector::<&[u64]>::next_bit_slice_unchecked::<false>(
+            self.data.as_ref(),
+            index + self.offset,
+            self.n_bits + self.offset,
+        ) - self.offset
+    }
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.
     ///
     /// # Examples
@@ -1375,12 +1475,7 @@ impl<'a> BitSliceWithOffset<'a> {
     /// ```
     #[must_use]
     pub fn ones(&self) -> BitVectorBitPositionsIter<true> {
-        BitVectorBitPositionsIter::with_pos_and_offset(
-            self.data.as_ref(),
-            self.n_bits + self.offset,
-            0,
-            self.offset,
-        )
+        BitVectorBitPositionsIter::with_pos(self.clone(), 0)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector, starting at a specified bit position.
@@ -1402,12 +1497,7 @@ impl<'a> BitSliceWithOffset<'a> {
     /// ```
     #[must_use]
     pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<true> {
-        BitVectorBitPositionsIter::with_pos_and_offset(
-            self.data.as_ref(),
-            self.n_bits + self.offset,
-            pos,
-            self.offset,
-        )
+        BitVectorBitPositionsIter::with_pos(self.clone(), pos)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector.
@@ -1426,23 +1516,13 @@ impl<'a> BitSliceWithOffset<'a> {
     /// ```
     #[must_use]
     pub fn zeros(&self) -> BitVectorBitPositionsIter<false> {
-        BitVectorBitPositionsIter::with_pos_and_offset(
-            self.data.as_ref(),
-            self.n_bits + self.offset,
-            0,
-            self.offset,
-        )
+        BitVectorBitPositionsIter::with_pos(self.clone(), 0)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector, starting at a specified bit position.
     #[must_use]
     pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<false> {
-        BitVectorBitPositionsIter::with_pos_and_offset(
-            self.data.as_ref(),
-            self.n_bits + self.offset,
-            pos,
-            self.offset,
-        )
+        BitVectorBitPositionsIter::with_pos(self.clone(), pos)
     }
 
     #[inline]

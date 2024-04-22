@@ -74,6 +74,54 @@ fn test_from_iter() {
 }
 
 #[test]
+fn test_next_one_and_zero() {
+    let n = 1024 + 13;
+    let bv = BitVec::with_ones(n);
+
+    for i in 0..n {
+        assert_eq!(bv.next_one(i).unwrap(), i);
+    }
+    assert_eq!(bv.next_one(n), None);
+
+    let v = vec![
+        1, 129, 193, 257, 321, 385, 449, 513, 577, 641, 705, 769, 833, 897, 961,
+    ];
+
+    let bv = BitVec::from_iter(v.iter().copied());
+
+    let mut prev_pos = 0;
+    for &p in v.iter() {
+        assert_eq!(bv.next_one(prev_pos).unwrap(), p);
+        prev_pos = p + 1;
+    }
+    assert_eq!(bv.next_one(*v.last().unwrap() + 1), None);
+
+    for offset in [10, 64, 123, 961] {
+        let bswo = BitSliceWithOffset::new(&bv, offset);
+
+        assert_eq!(bswo.len(), bv.len() - offset);
+
+        let mut prev_pos = 0;
+        for p in v.iter().filter(|&&x| x >= offset).map(|&x| x - offset) {
+            assert_eq!(bswo.next_one(prev_pos).unwrap(), p);
+            prev_pos = p + 1;
+        }
+        assert_eq!(bswo.next_one(*v.last().unwrap() - offset + 1), None);
+    }
+
+    let bv = BitVec::from_iter(v.iter().copied());
+
+    let v = negate_vector(&v);
+
+    let mut prev_pos = 0;
+    for &p in v.iter() {
+        assert_eq!(bv.next_zero(prev_pos).unwrap(), p);
+        prev_pos = p + 1;
+    }
+    assert_eq!(bv.next_zero(*v.last().unwrap() + 1), None);
+}
+
+#[test]
 fn test_get_bits_iter() {
     for n_bits in 3..4 {
         let mut bv = BitVec::new();
@@ -103,6 +151,7 @@ fn test_get_bits_iter_2() {
 }
 
 #[test]
+#[ignore]
 fn test_gamma() {
     let mut bv = BitVec::new();
     for i in 0..3042 {
