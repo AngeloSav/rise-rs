@@ -265,6 +265,23 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         n_bits
     }
 
+    #[inline]
+    #[must_use]
+    pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
+        Self::get_gamma_slice_unchecked(self.data.as_ref(), index, self.n_bits)
+    }
+
+    #[inline]
+    #[must_use]
+    unsafe fn get_gamma_slice_unchecked(data: &[u64], index: usize, n_bits: usize) -> (u64, usize) {
+        let pos = Self::next_bit_slice_unchecked::<true>(data, index, n_bits) + 1;
+        let l = pos - index - 1c;
+
+        // SAFETY: if pos was Some, then l is in bounds
+        let v = (1_u64 << l) | unsafe { Self::get_bits_slice(data, pos, l) };
+        (v - 1, pos + l)
+    }
+
     // Private function to decode bits at a given index on a slice.
     // The function does not check bounds while accessing data.
     #[inline]

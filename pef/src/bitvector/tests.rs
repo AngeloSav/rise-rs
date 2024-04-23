@@ -151,6 +151,23 @@ fn test_get_bits_iter_2() {
 }
 
 #[test]
+fn test_append_get_gamma() {
+    let mut bv = BitVec::new();
+    let n = 10021;
+
+    for i in 0..n {
+        bv.append_gamma(i);
+    }
+
+    let mut pos = 0;
+    for i in 0..n {
+        let (v, p) = unsafe { bv.get_gamma_unchecked(pos) };
+        pos = p;
+        assert_eq!(v, i);
+    }
+}
+
+#[test]
 #[ignore]
 fn test_gamma() {
     let mut bv = BitVec::new();
