@@ -15,7 +15,6 @@ pub mod bitvector_collection;
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
 use crate::AccessBin;
-use rand::seq::index;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -1145,7 +1144,8 @@ impl<V: AsRef<[u64]>> AsRef<BitVector<V>> for BitVector<V> {
 }
 
 pub struct BitVectorGammaIter<'a> {
-    bs: BitVectorBitPositionsIter<'a, true>,
+    bs: BitSliceWithOffset<'a>,
+    pos: usize,
 }
 
 impl<'a> BitVectorGammaIter<'a> {
@@ -1153,9 +1153,7 @@ impl<'a> BitVectorGammaIter<'a> {
     #[must_use]
     #[inline]
     pub fn new(bs: BitSliceWithOffset<'a>) -> Self {
-        BitVectorGammaIter {
-            bs: BitVectorBitPositionsIter::new(bs),
-        }
+        BitVectorGammaIter { bs, pos: 0 }
     }
 }
 
@@ -1164,15 +1162,14 @@ impl<'a> Iterator for BitVectorGammaIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        // let prev_pos = self.inner_iter.cur_position;
+        if self.pos >= self.bs.n_bits {
+            return None;
+        }
 
-        // let pos = self.inner_iter.next()?;
-        // let l = pos - prev_pos;
-        let l = 0;
-
-        // SAFETY: if pos was Some, then l is in bounds
-        let v = (1_u64 << l) | unsafe { self.bs.get_bits_unchecked(l) };
-        Some(v - 1)
+        // SAFETY: pos is in bounds
+        let (v, l) = unsafe { self.bs.get_gamma_unchecked(self.pos) };
+        self.pos = l;
+        Some(v)
     }
 }
 
@@ -1428,6 +1425,16 @@ impl<'a> BitSliceWithOffset<'a> {
     pub unsafe fn get_bits_unchecked(&self, index: usize, len: usize) -> u64 {
         debug_assert!(index + len <= self.n_bits, "Index out of bounds");
         BitVector::<&[u64]>::get_bits_slice(self.data.as_ref(), index + self.offset, len)
+    }
+
+    #[inline]
+    #[must_use]
+    pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
+        BitVector::<&[u64]>::get_gamma_slice_unchecked(
+            self.data.as_ref(),
+            index + self.offset,
+            self.n_bits,
+        )
     }
 
     pub fn next_one(&self, index: usize) -> Option<usize> {

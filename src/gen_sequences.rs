@@ -1,3 +1,4 @@
+use num::Integer;
 use rand::Rng;
 
 /// Generates a random strictly increasing sequence of `n` values up to `u`.
@@ -10,6 +11,38 @@ pub fn gen_strictly_increasing_sequence(n: usize, u: usize) -> Vec<usize> {
         *value += i;
     }
     v
+}
+
+/// An iterator that returns the difference between consecutive elements minus one!
+pub struct DGaps<T: Integer, I: Iterator<Item = T>> {
+    iter: I,
+    prev: Option<T>,
+}
+
+impl<T: Integer, I: Iterator<Item = T>> DGaps<T, I> {
+    pub fn new(iter: I) -> Self {
+        Self { iter, prev: None }
+    }
+}
+
+impl<T: Integer + Copy, I: Iterator<Item = T>> Iterator for DGaps<T, I> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let cur = self.iter.next()?;
+
+        let gap = if let Some(prev) = self.prev {
+            assert!(cur > prev, "Sequence is not strictly increasing");
+            cur - prev - T::one()
+        } else {
+            self.prev = Some(cur);
+            cur
+        };
+
+        self.prev = Some(cur);
+
+        Some(gap)
+    }
 }
 
 /// Given a strictly increasing vector v, it returns a vector with all

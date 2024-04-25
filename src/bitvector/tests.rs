@@ -1,5 +1,5 @@
 use super::*;
-use crate::gen_sequences::{gen_strictly_increasing_sequence, negate_vector};
+use crate::gen_sequences::{gen_strictly_increasing_sequence, negate_vector, DGaps};
 
 #[test]
 fn test_is_empty() {
@@ -231,6 +231,25 @@ fn test_iter_ones() {
     let bv: BitVec = vv.iter().copied().collect();
     let v: Vec<usize> = bv.ones().collect();
     assert_eq!(v, vv);
+}
+
+#[test]
+fn test_gamma_iter_on_dgaps() {
+    let v = gen_strictly_increasing_sequence(10, 100);
+
+    let _n = v.len();
+    let u = *v.last().unwrap();
+
+    let dgaps = DGaps::new(v.into_iter().map(|x| x as u64));
+
+    let mut bv: BitVec = BitVec::new();
+
+    for gap in dgaps {
+        bv.append_gamma(gap);
+    }
+
+    let sum = bv.iter_gamma().map(|gap| gap + 1).sum::<u64>() - 1; // -1 to account for the first value of the sequence which is not gapped (and thus we do not subtracted 1)
+    assert_eq!(sum, u as u64);
 }
 
 #[test]
