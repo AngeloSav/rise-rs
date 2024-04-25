@@ -275,7 +275,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     #[must_use]
     unsafe fn get_gamma_slice_unchecked(data: &[u64], index: usize, n_bits: usize) -> (u64, usize) {
         let pos = Self::next_bit_slice_unchecked::<true>(data, index, n_bits) + 1;
-        let l = pos - index - 1c;
+        let l = pos - index - 1;
 
         // SAFETY: if pos was Some, then l is in bounds
         let v = (1_u64 << l) | unsafe { Self::get_bits_slice(data, pos, l) };
