@@ -1,9 +1,34 @@
-use std::ops::BitAnd;
-
 /// GodBolt  flags:
 use divan::black_box;
 use num::{Bounded, PrimInt};
 use rand::{distributions::uniform::SampleUniform, Rng};
+
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
+fn random_permutation(n: usize) -> Vec<usize> {
+    let mut v: Vec<usize> = (0..n).collect(); // Create a vector with numbers from 0 to n-1
+    let mut rng = thread_rng(); // Random number generator
+    v.shuffle(&mut rng); // Shuffle the vector
+    v
+}
+
+fn random_permutation_with_one_cycle(n: usize) -> Vec<usize> {
+    let mut v: Vec<usize> = (0..n).collect();
+    v.shuffle(&mut thread_rng());
+
+    // This permutation v may contain multiple cycles,
+    // so instead we use it to construct another permutation q with a single cycle
+    // see https://en.algorithmica.org/hpc/cpu-cache/latency/
+    let mut q = vec![0; n];
+    let mut k = v[n - 1];
+    for i in 0..n {
+        q[k] = v[i];
+        k = v[i];
+    }
+
+    q
+}
 
 fn generate_random_vector<T>(size: usize, max_v: T) -> Vec<T>
 where
@@ -15,7 +40,7 @@ where
         .collect()
 }
 
-const N_RUNS: usize = 5000;
+const N_RUNS: usize = 5;
 const SEQUENCE_SIZE: usize = 256;
 
 /// https://godbolt.org/z/9dbcPTs91
@@ -105,11 +130,6 @@ pub fn do_more_stuff_5(v: &[u64]) -> (u64, u64, u64) {
             prod *= sum;
             xor ^= prod;
             sum += xor;
-        } else {
-            xor ^= value;
-            prod *= xor;
-            sum += prod;
-            xor ^= sum;
         }
     }
 
@@ -126,6 +146,30 @@ pub fn do_stuff_half_wow(v: &[u64]) -> u64 {
         }
     }
     prod
+}
+
+#[inline]
+pub fn sum(v: &[usize]) -> usize {
+    let mut sum = 0;
+
+    for &value in v.iter() {
+        sum += value;
+    }
+
+    sum
+}
+
+#[inline]
+pub fn sum_by_jumping(v: &[usize]) -> usize {
+    let mut sum = 0;
+
+    let mut k = 0;
+    for _ in 0..v.len() {
+        sum += v[k];
+        k = v[k];
+    }
+
+    sum
 }
 
 fn main() {
@@ -234,6 +278,57 @@ fn main() {
     let (_min, _max, avg) = timings.get_float();
     println!(
         "do_more_stuff_5():\tTime per iteration: {:.1} ns avg {_min} {_max}",
+        avg
+    );
+
+    let w: Vec<u64> = (0..256).map(|i| if i % 2 == 0 { 0 } else { 99 }).collect();
+    let mut timings = pef::utils::TimingQueries::new(N_RUNS, SEQUENCE_SIZE);
+
+    for _ in 0..N_RUNS {
+        timings.start();
+
+        let _ = black_box(do_more_stuff_5(&w));
+
+        timings.stop();
+    }
+
+    let (_min, _max, avg) = timings.get_float();
+    println!(
+        "do_more_stuff_5():\tTime per iteration: {:.1} ns avg {_min} {_max}",
+        avg
+    );
+
+    let pi: Vec<usize> = random_permutation_with_one_cycle(16777216);
+
+    let mut timings = pef::utils::TimingQueries::new(N_RUNS, pi.len());
+    for _ in 0..N_RUNS {
+        timings.start();
+
+        let s = black_box(sum(&pi));
+
+        timings.stop();
+        println!("sum: {}", s);
+    }
+
+    let (_min, _max, avg) = timings.get_float();
+    println!(
+        "sum():\t\t  \t\tTime per value: {:.1} ns avg {_min} {_max}",
+        avg
+    );
+
+    let mut timings = pef::utils::TimingQueries::new(N_RUNS, pi.len());
+    for _ in 0..N_RUNS {
+        timings.start();
+
+        let s = black_box(sum_by_jumping(&pi));
+
+        timings.stop();
+        println!("sum: {}", s);
+    }
+
+    let (_min, _max, avg) = timings.get_float();
+    println!(
+        "sum_by_jumping():\t\t Time per value: {:.1} ns avg {_min} {_max}",
         avg
     );
 }
