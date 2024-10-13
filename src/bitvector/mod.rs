@@ -1,11 +1,13 @@
 //! This module provides implementations for mutable, immutable, or growable bit vectors.
 //!
-//! The mutable bit vector offers operations to [`AccessBin`], append, and modify bits at arbitrary positions.
+//! The mutable bit vector offers operations to [`AccessBin`], append, and modify bits at 
+//! arbitrary positions.
 //!
-//! The immutable bit vector allows access to bits and can be extended to support [`RankBin`] and [`SelectBin`] queries.
+//! The immutable bit vector allows access to bits and can be extended to support 
+//! [`RankBin`] and [`SelectBin`] queries.
 //!
-//! For both data structures, it is possible to iterate over bits or positions of bits set either to zero or one.
-//!
+//! For both data structures, it is possible to iterate over bits or positions of bits 
+//! set either to zero or one.
 
 pub mod bitvector_collection;
 
@@ -23,6 +25,35 @@ pub type BitVec = BitVector<Vec<u64>>;
 pub type BitSlice<'a> = BitVector<&'a [u64]>;
 /// Bit operations on a boxed slice of u64, immutable or mutable but not growable bit vector.
 pub type BitBoxed = BitVector<Box<[u64]>>;
+
+
+const GAMMA_BITS: usize = 10;
+const GAMMA_TABLE: [(u16, u8); 1 << GAMMA_BITS] = fill_gamma_table::<{ 1 << GAMMA_BITS }>();
+
+/// Filling Gamma Table at compile time.
+const fn fill_gamma_table<const SIZE: usize>() -> [(u16, u8); SIZE] {
+    let mut table = [(0, 0_u8); SIZE];
+    table[0] = (0, GAMMA_BITS as u8 + 1);
+    let mut i = 1;
+    while i < SIZE {
+        let l = i.trailing_zeros();
+        let gamma_len = 2 * l + 1; // Length of gamma code
+
+        if gamma_len != 0 && gamma_len > GAMMA_BITS as u32 {
+            table[i] = (0, l as u8);
+            i += 1;
+            continue;
+        }
+        let mask = (1 << l) - 1;
+        let v = (1_u64 << l) | ((i as u64 >> (l+1)) & mask);
+
+        table[i] = (v as u16, gamma_len as u8);
+        i += 1;
+    }
+
+    table
+}
+
 
 /// Implementation of an immutable bit vector.
 #[derive(Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -155,8 +186,6 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         }
     }
 
-    #[inline]
-    #[must_use]
     /// Returns the position of the next 1 bit in the bit vector starting from position `index`.
     /// Returns [`None`] if `index` is out of bounds or if there is no one after index.
     /// # Examples
@@ -167,6 +196,8 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// let bv: BitVec = v.into_iter().collect();
     /// assert_eq!(bv.get(1), Some(false));
     /// ```
+    #[inline]
+    #[must_use]
     pub fn next_one(&self, index: usize) -> Option<usize> {
         if index >= self.n_bits {
             return None;
@@ -184,13 +215,18 @@ impl<V: AsRef<[u64]>> BitVector<V> {
 
     /// Returns the position of the next 1 bit in the bit vector starting from position `index`.
     ///
-    /// If there is no bit after that position, the function returns a value larger than or equal to the number of bits in the bit vector. The function does not check bounds.
+    /// If there is no bit after that position, the function returns a value larger than or 
+    /// equal to the number of bits in the bit vector. The function does not check bounds.
+    #[inline]
+    #[must_use]
     pub unsafe fn next_one_unchecked(&self, index: usize) -> usize {
         // SAFETY: index is ok due to the above check
 
         Self::next_bit_slice_unchecked::<true>(self.data.as_ref(), index, self.n_bits)
     }
 
+    #[inline]
+    #[must_use]
     pub fn next_zero(&self, index: usize) -> Option<usize> {
         if index >= self.n_bits {
             return None;
@@ -208,17 +244,21 @@ impl<V: AsRef<[u64]>> BitVector<V> {
 
     /// Returns the position of the next 0 bit in the bit vector starting from position `index`.
     ///
-    /// If there is no bit after that position, the function returns a value larger than or equal to the number of bits in the bit vector. The function does not check bounds.
+    /// If there is no bit after that position, the function returns a value larger than or equal 
+    /// to the number of bits in the bit vector. The function does not check bounds.
+    #[inline]
+    #[must_use]
     pub unsafe fn next_zero_unchecked(&self, index: usize) -> usize {
         // SAFETY: index is ok due to the above check
 
         Self::next_bit_slice_unchecked::<false>(self.data.as_ref(), index, self.n_bits)
     }
 
-    // Private function that returns the position of the next 1 bit in the bit vector starting from position
-    // `index``. If such bit does not exist, the function returns a value larger than or euqal to the number of bits in the bit vector.
+    // Private function that returns the position of the next 1 bit in the bit vector starting 
+    // from position `index``. If such bit does not exist, the function returns a value larger 
+    // than or euqal to the number of bits in the bit vector.
     //
-    // UB if `index` is out of bounds.
+    // UB: if `index` is out of bounds.
     #[inline]
     #[must_use]
     unsafe fn next_bit_slice_unchecked<const BIT: bool>(
@@ -227,10 +267,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         n_bits: usize,
     ) -> usize {
         let block = index >> 6;
-        let mut shift = index & 63;
+        let shift = index & 63;
         let last_block = n_bits >> 6;
 
-        // if block < last_block {
         let w = if BIT {
             *data.get_unchecked(block)
         } else {
@@ -240,25 +279,22 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         if w != 0 {
             return index + w.trailing_zeros() as usize;
         }
-
+        
         for (i, &w) in data[block + 1..last_block].iter().enumerate() {
             let w = if BIT { w } else { !w };
             if w != 0 {
                 return ((block + i + 1) << 6) + w.trailing_zeros() as usize;
             }
         }
-        shift = 0;
-        // }
 
-        let w = (if BIT {
+        let w = if BIT {
             *data.get_unchecked(last_block)
         } else {
             !*data.get_unchecked(last_block)
-        } & compute_mask(n_bits & 63))
-            >> shift;
+        } & compute_mask(n_bits & 63);
 
         if w != 0 {
-            return (last_block << 6) + shift + w.trailing_zeros() as usize;
+            return (last_block << 6) +  w.trailing_zeros() as usize;
         }
 
         n_bits
@@ -277,8 +313,30 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         let l = pos - index - 1;
 
         // SAFETY: if pos was Some, then l is in bounds
-        let v = (1_u64 << l) | unsafe { Self::get_bits_slice(data, pos, l) };
+        let v = (1_u64 << l) |  Self::get_bits_slice(data, pos, l);
         (v - 1, pos + l)
+    }
+
+    #[inline]
+    #[must_use]
+    unsafe fn get_gamma_with_table_slice_unchecked(data: &[u64], index: usize, n_bits: usize) -> (u64, usize) {
+
+        let bits = Self::get_bits_slice(data, index, GAMMA_BITS);
+        if bits == 0 {
+            return Self::get_gamma_slice_unchecked(data, index, n_bits)
+        }
+
+        let (v, d) = GAMMA_TABLE[bits as usize];
+
+        if v != 0 {
+            (v as u64 - 1, index + d as usize)
+        } else { 
+            let l = d as usize;
+            let pos = index + l + 1;
+            let v = (1_u64 << l) | Self::get_bits_slice(data, pos, l);
+            (v - 1, pos + l)
+        }
+
     }
 
     // Private function to decode bits at a given index on a slice.

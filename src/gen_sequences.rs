@@ -1,8 +1,13 @@
 use num::Integer;
 use rand::Rng;
 
+
 /// Generates a random strictly increasing sequence of `n` values up to `u`.
 pub fn gen_strictly_increasing_sequence(n: usize, u: usize) -> Vec<usize> {
+    if u == n {
+        return (0..n).collect();
+    }
+
     let mut rng = rand::thread_rng();
     let mut v: Vec<usize> = (0..n).map(|_x| rng.gen_range(0..(u - n))).collect();
     v.sort_unstable();
@@ -60,4 +65,5 @@ pub fn negate_vector(v: &[usize]) -> Vec<usize> {
     }
     assert_eq!(max - v.len() + 1, vv.len());
     vv
+
 }

@@ -252,6 +252,7 @@ fn test_gamma_iter_on_dgaps() {
     assert_eq!(sum, u as u64);
 }
 
+
 #[test]
 fn test_concat() {
     let mut bv1 = BitVec::new();
