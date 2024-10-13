@@ -18,7 +18,7 @@ pub fn gen_strictly_increasing_sequence(n: usize, u: usize) -> Vec<usize> {
     v
 }
 
-/// An iterator that returns the difference between consecutive elements minus one!
+/// An iterator over a strictly increasing sequence of non-negative integers that returns the difference between consecutive elements minus one!
 pub struct DGaps<T: Integer, I: Iterator<Item = T>> {
     iter: I,
     prev: Option<T>,
