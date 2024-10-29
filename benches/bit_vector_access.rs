@@ -1,5 +1,8 @@
 use divan::{black_box, Bencher};
-use pef::{AccessBin, BitVec, BitVecCollection};
+use pef::{
+    AccessBin, BitVec,
+    BitVecCollection,
+};
 
 fn main() {
     divan::main();

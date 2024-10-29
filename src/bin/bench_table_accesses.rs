@@ -29,7 +29,7 @@ where
     T: PrimInt + Bounded + SampleUniform,
 {
     for log in log_min..=log_max {
-        let size = 1 << log - 1;
+        let size = 1 << (log - 1);
         let table = generate_random_array::<T>(size, T::max_value());
         let table_size = mem::size_of_val(&table[0]) * table.len();
 
@@ -63,7 +63,7 @@ where
     <T as TryFrom<usize>>::Error: Debug,
 {
     for log in log_min..=log_max {
-        let size = 1 << log - 1;
+        let size = 1 << (log - 1);
         let table = generate_random_array::<T>(size, T::max_value());
         let table_size = mem::size_of_val(&table[0]) * table.len();
 
@@ -74,7 +74,7 @@ where
             timings.start();
 
             for _ in 0..SEQUENCE_SIZE {
-                pos = black_box((table[pos as usize] % T::max_value()).try_into().unwrap());
+                pos = black_box((table[pos] % T::max_value()).try_into().unwrap());
             }
 
             timings.stop();

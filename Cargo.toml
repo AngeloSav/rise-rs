@@ -23,7 +23,14 @@ num = "0.4.2"
 name = "bit_vector_access"
 harness = false
 
+[[bench]]
+name = "ef_iter"
+harness = false
+
 [profile.release]
 lto = true
 debug = true
 overflow-checks = false # Enable this checks for debugging in release mode
+
+[toolchain]
+channel = "nightly"
