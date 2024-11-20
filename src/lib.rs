@@ -1,6 +1,8 @@
 #![feature(unchecked_shifts)]
+#![feature(array_chunks)]
 
 pub mod bitvector;
+
 pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
 pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
@@ -9,6 +11,9 @@ pub mod darray;
 pub use darray::DArray;
 
 pub mod elias_fano;
+pub use elias_fano::{EliasFano, EliasFanoIter};
+
+pub mod indexes;
 
 pub mod space_usage;
 
@@ -51,4 +56,24 @@ pub trait SelectBin {
     /// This method doesnt check that such element exists
     /// Calling this method with an `i >= maximum rank0` is undefined behaviour.
     unsafe fn select0_unchecked(&self, i: usize) -> usize;
+}
+
+pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
+    fn next_val(&mut self) -> Option<(u64, usize)>;
+    fn next_geq(&mut self, i: u64) -> Option<(u64, usize)>;
+    fn move_to_position(&mut self, pos: usize);
+    fn position(&self) -> usize;
+    fn size(&self) -> usize;
+    fn prev_value(&mut self) -> (usize, u64) {
+        unimplemented!();
+    }
+}
+
+/// Serializer class, this result can be appended to a bitvectorCollection
+pub trait ToBitvector {
+    fn to_bv(&self) -> BitVec;
+}
+
+pub trait EnumeratorFromBitSlice {
+    fn iter_from_slice(bv: BitSliceWithOffset) -> impl IncreasingSequenceEnumerator;
 }

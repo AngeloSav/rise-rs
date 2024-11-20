@@ -1,0 +1,195 @@
+use std::result;
+
+use pef::{elias_fano::EliasFano, indexes::freq_index::FreqIndex, IncreasingSequenceEnumerator};
+
+fn main() {
+    let path = "/home/anglo/uni/ds2i/test/test_data/test_collection";
+    let idx: FreqIndex<EliasFano> = FreqIndex::from_files(path);
+
+    // let mut p = idx.get_plist_iter(101070);
+    // println!("posting list len: {}", p.size());
+    // let mut prec = 0;
+    // while let Some((x, pos)) = p.next_val() {
+    //     println!("value {} at position {}", x, pos);
+    //     assert!(prec <= x);
+    //     prec = x;
+    // }
+
+    // let t1 = 1000;
+    // let t2 = 23495;
+
+    println!("---------two terms------------");
+    let t1 = 0;
+    let t2 = 2;
+
+    let results_and = boolean_and(&idx, t1, t2);
+    let results_or = boolean_or(&idx, t1, t2);
+
+    // println!("t1: {:?}", idx.get_plist_iter(t1).collect::<Vec<_>>());
+    // println!("t2: {:?}", idx.get_plist_iter(t2).collect::<Vec<_>>());
+
+    println!("t1 len: {}", idx.get_plist_iter(t1).size());
+    println!("t2 len: {}", idx.get_plist_iter(t2).size());
+    println!("AND result {}", results_and.len());
+    println!("OR result {}", results_or.len());
+
+    println!("---------multi term------------");
+    let terms = vec![0, 1, 2, 5];
+    let results_multi_and = boolean_and_multiterm(&idx, &terms);
+    let results_multi_or = boolean_or_multiterm(&idx, &terms);
+
+    println!(
+        "terms lens: {:?}",
+        terms
+            .iter()
+            .map(|&i| idx.get_plist_iter(i).size())
+            .collect::<Vec<_>>()
+    );
+    println!("MULTI AND result: {}", results_multi_and.len());
+    println!("MULTI OR result: {}", results_multi_or.len());
+
+    //sanity checks
+    results_and.windows(2).for_each(|s| assert!(s[0] < s[1]));
+    results_or.windows(2).for_each(|s| assert!(s[0] < s[1]));
+    results_multi_and
+        .windows(2)
+        .for_each(|s| assert!(s[0] < s[1]));
+    results_multi_or
+        .windows(2)
+        .for_each(|s| assert!(s[0] < s[1]));
+}
+
+fn boolean_and(idx: &FreqIndex<EliasFano>, t1: usize, t2: usize) -> Vec<u64> {
+    let mut p1 = idx.get_plist_iter(t1);
+    let mut p2 = idx.get_plist_iter(t2);
+
+    let mut posting1 = p1.next_val();
+    let mut posting2 = p2.next_val();
+
+    let mut v = Vec::new();
+
+    while posting1.is_some() && posting2.is_some() {
+        if posting1.unwrap().0 == posting2.unwrap().0 {
+            v.push(posting1.unwrap().0);
+
+            //increment both
+            posting1 = p1.next_val();
+            posting2 = p2.next_val();
+        } else if posting1.unwrap().0 < posting2.unwrap().0 {
+            posting1 = p1.next_geq(posting2.unwrap().0)
+        } else {
+            posting2 = p2.next_geq(posting1.unwrap().0)
+        }
+    }
+    v
+}
+
+fn boolean_or(idx: &FreqIndex<EliasFano>, t1: usize, t2: usize) -> Vec<u64> {
+    let mut p1 = idx.get_plist_iter(t1);
+    let mut p2 = idx.get_plist_iter(t2);
+
+    let mut posting1 = p1.next_val();
+    let mut posting2 = p2.next_val();
+
+    let mut v = Vec::new();
+
+    while posting1.is_some() && posting2.is_some() {
+        if posting1.unwrap().0 == posting2.unwrap().0 {
+            v.push(posting1.unwrap().0);
+            //increment both
+            posting1 = p1.next_val();
+            posting2 = p2.next_val();
+        } else if posting1.unwrap().0 < posting2.unwrap().0 {
+            v.push(posting1.unwrap().0);
+            posting1 = p1.next_val()
+        } else {
+            v.push(posting2.unwrap().0);
+            posting2 = p2.next_val()
+        }
+    }
+
+    //flush last list
+    if let Some(posting1) = posting1 {
+        v.push(posting1.0);
+        while let Some(posting1) = p1.next_val() {
+            v.push(posting1.0);
+        }
+    }
+    if let Some(posting2) = posting2 {
+        v.push(posting2.0);
+        while let Some(posting2) = p2.next_val() {
+            v.push(posting2.0);
+        }
+    }
+    v
+}
+
+fn boolean_and_multiterm(idx: &FreqIndex<EliasFano>, terms: &Vec<usize>) -> Vec<u64> {
+    let mut plists: Vec<_> = terms
+        .iter()
+        .map(|&i| {
+            let mut a = idx.get_plist_iter(i);
+            (a.next_val(), a)
+        })
+        .collect();
+
+    let mut v = Vec::new();
+
+    while plists.iter().all(|x| x.0.is_some()) {
+        if plists
+            .iter()
+            .all(|(x, _)| x.unwrap().0 == plists[0].0.unwrap().0)
+        {
+            //push common value
+            v.push(plists[0].0.unwrap().0);
+
+            //increment all plists
+            for (x, it) in plists.iter_mut() {
+                *x = it.next_val();
+            }
+        } else {
+            //take max and nextgeq
+            let max = plists.iter().map(|(x, it)| x.unwrap().0).max().unwrap();
+
+            //increment all plists
+            for (x, it) in plists.iter_mut() {
+                *x = it.next_geq(max);
+            }
+        }
+    }
+    v
+}
+
+fn boolean_or_multiterm(idx: &FreqIndex<EliasFano>, terms: &Vec<usize>) -> Vec<u64> {
+    let mut plists: Vec<_> = terms
+        .iter()
+        .map(|&i| {
+            let mut a = idx.get_plist_iter(i);
+            (a.next_val(), a)
+        })
+        .collect();
+
+    let mut v = Vec::new();
+
+    while !plists.is_empty() {
+        // push min to v
+        let min = plists.iter().map(|(x, _)| x.unwrap().0).min().unwrap();
+        v.push(min);
+
+        // inc all that are min
+        plists
+            .iter_mut()
+            .filter(|(x, _)| x.unwrap().0 == min)
+            .for_each(|(x, it)| {
+                *x = it.next_val();
+            });
+
+        // remove finished lists
+        plists = plists
+            .into_iter()
+            .filter(|(x, _)| x.is_some())
+            .collect::<Vec<_>>();
+    }
+
+    v
+}

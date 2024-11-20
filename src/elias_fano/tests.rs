@@ -1,6 +1,7 @@
-use crate::{elias_fano::EliasFano, gen_sequences::gen_strictly_increasing_sequence, utils::msb};
-
-use super::ef_bv::EliasFano2;
+use crate::{
+    elias_fano::EliasFano, gen_sequences::gen_strictly_increasing_sequence, utils::msb,
+    IncreasingSequenceEnumerator,
+};
 
 #[test]
 fn create_ef() {
@@ -15,14 +16,12 @@ fn create_ef() {
 }
 
 #[test]
-fn create_ef2() {
+fn next_geq_test() {
     let v = vec![2, 3, 5, 7, 11, 13, 14, 256, 1024, 10000];
 
-    let ef = EliasFano2::from(v.clone());
-
-    for b in ef.iter() {
-        println!("{}", b);
-    }
+    let ef = EliasFano::from(v.clone());
+    let mut efi = ef.iter();
+    println!("{:?}", efi.next_geq(3000));
 }
 
 #[test]

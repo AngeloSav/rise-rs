@@ -277,7 +277,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
             return index + w.trailing_zeros() as usize;
         }
 
-        for (i, &w) in data[block + 1..last_block].iter().enumerate() {
+        for (i, &w) in data[block + 1..].iter().enumerate() {
             let w = if BIT { w } else { !w };
             if w != 0 {
                 return ((block + i + 1) << 6) + w.trailing_zeros() as usize;
@@ -831,7 +831,7 @@ impl BitVector<Vec<u64>> {
             // word-aligned, easy case
             self.data.extend(rhs.data.as_ref().iter());
         } else {
-            for w in rhs.data.as_ref().iter().take(self.data.len() - 1) {
+            for w in rhs.data.as_ref().iter().take(rhs.data.as_ref().len() - 1) {
                 let cur_word = self.data.last_mut().unwrap();
                 *cur_word |= w << shift;
                 self.data.push(w >> (64 - shift));
@@ -1421,6 +1421,25 @@ impl<'a> BitSliceWithOffset<'a> {
         }
     }
 
+    pub fn split_at(&self, mid: usize) -> (BitSliceWithOffset<'a>, BitSliceWithOffset<'a>) {
+        assert!(mid <= self.n_bits, "split point is out of bounds!");
+
+        let left = BitSliceWithOffset {
+            data: self.data,
+            n_bits: mid,
+            offset: self.offset,
+        };
+
+        let right_offset = self.offset + mid;
+        let right = BitSliceWithOffset {
+            data: &self.data[right_offset / 64..],
+            n_bits: self.n_bits - mid,
+            offset: right_offset % 64,
+        };
+
+        (left, right)
+    }
+
     /// Accesses `len` bits, with 0 <= `len` <= 64, starting at position `index`.
     ///
     /// Returns [`None`] if `index`+`len` is out of bounds or if `len` is greater than 64.
@@ -1615,6 +1634,15 @@ impl<'a> BitSliceWithOffset<'a> {
     }
 }
 
+// impl Into<BitBoxed> for BitSliceWithOffset<'_> {
+//     fn into(self) -> BitBoxed {
+//         BitBoxed {
+//             data: self.data.into(),
+//             n_bits: self.n_bits,
+//         }
+//     }
+// }
+
 impl AccessBin for BitSliceWithOffset<'_> {
     #[inline]
     #[must_use]
@@ -1637,6 +1665,15 @@ where
 {
     fn space_usage_byte(&self) -> usize {
         self.n_bits / 8 + 8
+    }
+}
+
+impl From<BitSliceWithOffset<'_>> for BitBoxed {
+    fn from(value: BitSliceWithOffset<'_>) -> Self {
+        BitVector {
+            data: Box::from(value.data),
+            n_bits: value.n_bits,
+        }
     }
 }
 

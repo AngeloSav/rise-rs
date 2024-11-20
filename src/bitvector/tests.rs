@@ -1,5 +1,8 @@
 use super::*;
-use crate::gen_sequences::{gen_strictly_increasing_sequence, negate_vector, DGaps};
+use crate::{
+    gen_sequences::{gen_strictly_increasing_sequence, negate_vector, DGaps},
+    utils::msb,
+};
 
 #[test]
 fn test_is_empty() {
@@ -275,4 +278,31 @@ fn test_concat() {
     assert_eq!(bv1.get(1026), Some(true));
     assert_eq!(bv1.get(2053), Some(true));
     assert_eq!(bv1.get(2054), None);
+}
+
+#[test]
+fn random_tests() {
+    let n = 1;
+    let u = 2000;
+
+    let mut bv = BitVec::new();
+    bv.append_gamma(n);
+    bv.append_gamma(u);
+
+    println!("bitvector is {:?}", bv);
+
+    println!("gamma size n = {} bits", gamma_size(n));
+    println!("gamma size u = {} bits", gamma_size(u));
+
+    let (rn, npos) = unsafe { bv.get_gamma_unchecked(0) };
+    println!("N | got {:0b}, should be {:0b}", rn, n);
+    assert!(rn == n);
+
+    let (ru, upos) = unsafe { bv.get_gamma_unchecked(gamma_size(n)) };
+    println!("U | got {:0b}, should be {:0b}", ru, u);
+    assert!(ru == u);
+}
+
+fn gamma_size(n: u64) -> usize {
+    (msb(n + 1) * 2 + 1) as usize
 }

@@ -66,7 +66,7 @@ pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
 /// ```
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct BitVectorCollection<V: AsRef<[u64]>> {
-    bv: BitVector<V>,
+    pub bv: BitVector<V>,
     endpoints: Vec<usize>,
     n_vecs: usize,
 }
@@ -98,6 +98,11 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
         let start_word = start_bit / 64;
         let end_word = (end_bit + 63) / 64;
         let offset = start_bit % 64;
+
+        // dbg!(&self.endpoints);
+        // dbg!(start_bit, end_bit, n_bits);
+        // dbg!(self.bv.data.as_ref().len());
+        // dbg!(start_word..end_word);
 
         unsafe {
             BitSliceWithOffset::from_raw_parts(

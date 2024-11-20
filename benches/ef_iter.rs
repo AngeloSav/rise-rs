@@ -1,8 +1,5 @@
 use divan::{black_box, Bencher};
-use pef::{
-    elias_fano::{ef_bv::EliasFano2, EliasFano},
-    gen_sequences::gen_strictly_increasing_sequence,
-};
+use pef::{elias_fano::EliasFano, gen_sequences::gen_strictly_increasing_sequence};
 
 fn main() {
     divan::main();
@@ -17,22 +14,6 @@ fn ef_iter_bench(bencher: Bencher, len: usize) {
         .map(|x| x as u64)
         .collect();
     let binding = EliasFano::from(vec);
-    let mut ef = binding.iter();
-
-    bencher.bench_local(move || {
-        for _ in 0..len {
-            let _ = black_box(ef.next());
-        }
-    });
-}
-
-#[divan::bench(args = LENS_1)]
-fn ef2_iter_bench(bencher: Bencher, len: usize) {
-    let vec: Vec<_> = gen_strictly_increasing_sequence(len, 1 << 32)
-        .into_iter()
-        .map(|x| x as u64)
-        .collect();
-    let binding = EliasFano2::from(vec);
     let mut ef = binding.iter();
 
     bencher.bench_local(move || {
