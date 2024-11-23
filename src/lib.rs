@@ -13,7 +13,9 @@ pub use darray::DArray;
 pub mod elias_fano;
 pub use elias_fano::{EliasFano, EliasFanoIter};
 
+// pub mod increasing_seq;
 pub mod indexes;
+// pub mod positive_sequences;
 
 pub mod space_usage;
 
@@ -63,7 +65,6 @@ pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
     fn next_geq(&mut self, i: u64) -> Option<(u64, usize)>;
     fn move_to_position(&mut self, pos: usize);
     fn position(&self) -> usize;
-    fn size(&self) -> usize;
     fn prev_value(&mut self) -> (usize, u64) {
         unimplemented!();
     }
@@ -74,6 +75,9 @@ pub trait ToBitvector {
     fn to_bv(&self) -> BitVec;
 }
 
-pub trait EnumeratorFromBitSlice {
-    fn iter_from_slice(bv: BitSliceWithOffset) -> impl IncreasingSequenceEnumerator;
+pub trait EnumeratorFromBitSlice<'a, T>
+where
+    T: IncreasingSequenceEnumerator,
+{
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> T;
 }

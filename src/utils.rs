@@ -166,3 +166,15 @@ where
     }
     (std::mem::size_of::<T>() * 8 - 1) as u32 - v.leading_zeros()
 }
+
+pub fn ceil_log2<T>(v: T) -> u32
+where
+    T: PrimInt,
+{
+    assert!(v > T::zero());
+    if v == T::one() {
+        0
+    } else {
+        msb(v - T::one()) + 1
+    }
+}

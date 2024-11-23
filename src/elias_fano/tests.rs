@@ -3,6 +3,8 @@ use crate::{
     IncreasingSequenceEnumerator,
 };
 
+use super::uniform_partitioned_seq::UniformPartitionedSequence;
+
 #[test]
 fn create_ef() {
     let v = vec![2, 3, 5, 7, 11, 13, 14, 256, 1024, 10000];
@@ -40,6 +42,10 @@ fn test_ef_iter_random() {
 
 #[test]
 fn pg() {
-    let a = msb(2);
-    println!("{}", a);
+    let a: UniformPartitionedSequence<EliasFano, _, 33> =
+        UniformPartitionedSequence::from((0..).step_by(7).take(128).collect::<Vec<_>>());
+
+    for e in a.iter() {
+        println!("{:?}", e);
+    }
 }

@@ -1,7 +1,7 @@
 use std::{hint::black_box, time::Duration};
 
 use pef::{
-    elias_fano::EliasFano,
+    elias_fano::{uniform_partitioned_seq::UniformPartitionedSequence, EliasFano},
     indexes::freq_index::{FreqIndex, PostingList},
     space_usage::SpaceUsage,
     utils::TimingQueries,
@@ -17,34 +17,54 @@ macro_rules! time_function {
         t.stop();
         (res, t.get().2)
     }};
+
+    ($f: expr, $reps: expr) => {{
+        assert!($reps > 0);
+        let mut t = TimingQueries::new(1, $reps);
+        t.start();
+        let mut res = black_box($f);
+        t.stop();
+        for _ in 0..$reps - 1 {
+            t.start();
+            res = black_box($f);
+            t.stop();
+        }
+        (res, t.get().2)
+    }};
 }
 
 fn main() {
     const N_RUNS: usize = 1;
     let path = "/home/anglo/uni/ds2i/test/test_data/test_collection";
-    let idx: FreqIndex<EliasFano, _> = FreqIndex::from_files(path);
+    let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _, 1024>, _> =
+        FreqIndex::from_files(path);
     idx.check_correctness(path);
 
-    // let mut p = idx.get_plist_iter(101070);
-    // println!("posting list len: {}", p.size());
-    // let mut prec = 0;
-    // while let Some((x, pos)) = p.next_val() {
-    //     println!("value {} at position {}", x, pos);
-    //     assert!(prec <= x);
-    //     prec = x;
-    // }
+    // let mut p = idx.get_plist_iter(0);
 
-    // let t1 = 1000;
-    // let t2 = 23495;
+    for i in 0..113306 {
+        // println!("i = {}", i);
+        let mut p = idx.get_plist_iter(i);
+        // println!("posting list len: {}", p.size());
+        // let mut prec = 0;
+        // while let Some((x, pos)) = p.next_val() {
+        //     println!("value {} at position {}", x, pos);
+        //     assert!(prec <= x);
+        //     prec = x;
+        // }
+    }
 
     println!("size of idx = {} MiB", idx.space_usage_MiB());
+
+    let t1 = 1000;
+    let t2 = 23495;
 
     println!("---------two terms------------");
     let t1 = 0;
     let t2 = 2;
 
-    let (results_and, time_and) = time_function!(boolean_and(&idx, t1, t2));
-    let (results_or, time_or) = time_function!(boolean_or(&idx, t1, t2));
+    let (results_and, time_and) = time_function!(boolean_and(&idx, t1, t2), N_RUNS);
+    let (results_or, time_or) = time_function!(boolean_or(&idx, t1, t2), N_RUNS);
 
     // println!("t1: {:?}", idx.get_plist_iter(t1).collect::<Vec<_>>());
     // println!("t2: {:?}", idx.get_plist_iter(t2).collect::<Vec<_>>());
@@ -56,8 +76,10 @@ fn main() {
 
     println!("---------multi term------------");
     let terms = vec![0, 1, 2, 5];
-    let (results_multi_and, time_multi_and) = time_function!(boolean_and_multiterm(&idx, &terms));
-    let (results_multi_or, time_multi_or) = time_function!(boolean_or_multiterm(&idx, &terms));
+    let (results_multi_and, time_multi_and) =
+        time_function!(boolean_and_multiterm(&idx, &terms), N_RUNS);
+    let (results_multi_or, time_multi_or) =
+        time_function!(boolean_or_multiterm(&idx, &terms), N_RUNS);
 
     // println!(
     //     "terms lens: {:?}",
@@ -91,7 +113,7 @@ fn main() {
         Duration::from_nanos(time_multi_or as u64)
     );
 
-    //sanity checks (strictly increasing sequences)
+    //sanity checks
     results_and.windows(2).for_each(|s| assert!(s[0] < s[1]));
     results_or.windows(2).for_each(|s| assert!(s[0] < s[1]));
     results_multi_and

@@ -253,7 +253,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
 
     // Private function that returns the position of the next 1 bit in the bit vector starting
     // from position `index``. If such bit does not exist, the function returns a value larger
-    // than or euqal to the number of bits in the bit vector.
+    // than or equal to the number of bits in the bit vector.
     //
     // UB: if `index` is out of bounds.
     #[inline]
@@ -1438,6 +1438,22 @@ impl<'a> BitSliceWithOffset<'a> {
         };
 
         (left, right)
+    }
+
+    pub fn slice(&self, start: usize, end: usize) -> BitSliceWithOffset<'a> {
+        assert!(start <= end, "end < start!");
+        assert!(start <= self.n_bits, "start point is out of bounds!");
+        assert!(end <= self.n_bits, "end point is out of bounds!");
+
+        let actual_start = self.offset + start;
+        let actual_end = self.offset + end;
+        let s = BitSliceWithOffset {
+            data: &self.data[actual_start / 64..(actual_end + 63) / 64],
+            n_bits: end - start,
+            offset: actual_start % 64,
+        };
+
+        s
     }
 
     /// Accesses `len` bits, with 0 <= `len` <= 64, starting at position `index`.

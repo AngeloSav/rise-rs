@@ -1,8 +1,14 @@
+use std::mem;
+
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection, utils::msb, BitSliceWithOffset, BitVec,
-    BitVecCollection, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
+    bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage, utils::msb,
+    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
+    IncreasingSequenceEnumerator, ToBitvector,
 };
 
+pub mod uniform_partitioned_seq;
+
+#[derive(Debug, Default)]
 pub struct EliasFano {
     bv: BitVecCollection,
     n: usize,
@@ -26,64 +32,6 @@ impl EliasFano {
             i_hi: 0,
             len: self.len(),
             cur_value: 0,
-        }
-    }
-
-    fn build_from_vec(v: Vec<u64>, u: usize) -> EliasFano {
-        assert!(!v.is_empty(), "Sequence is empty");
-
-        let mut bv_lo = BitVec::new();
-        let mut bv_hi = BitVec::new();
-
-        let n = v.len();
-
-        // let n_bits = msb(u) + 1;
-        let n_lo_bits = msb(u / v.len()) + 1;
-
-        let mut prec = 0;
-        for el in v {
-            assert!(prec <= el, "Sequence must be non decreasing!");
-            let to_push = el & ((1 << n_lo_bits) - 1);
-            // println!("to push  {:0>10b}", to_push);
-            bv_lo.append_bits(to_push, n_lo_bits as usize);
-
-            bv_hi.extend_with_zeros(((el >> n_lo_bits) - (prec >> n_lo_bits)) as usize);
-            bv_hi.push(true);
-
-            prec = el;
-        }
-        bv_hi.push(false);
-
-        // println!("---------------");
-        let mut bv = BitVectorCollection::with_capacity(bv_hi.len() + bv_lo.len(), 2);
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
-        bv.push(bv_lo);
-        // println!("pushed lo");
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
-        bv.push(bv_hi);
-        // println!("pushed hi");
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
-
-        Self {
-            bv,
-            n,
-            u: u as u64,
-            n_lo_bits: n_lo_bits as usize,
         }
     }
 }
@@ -149,6 +97,7 @@ impl From<Vec<u64>> for EliasFano {
     }
 }
 
+#[derive(Debug, Default)]
 pub struct EliasFanoIter<'a> {
     slice_lo: BitSliceWithOffset<'a>,
     slice_hi: BitSliceWithOffset<'a>,
@@ -201,16 +150,12 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
         Some((val, self.i))
     }
 
-    fn move_to_position(&mut self, pos: usize) {
+    fn move_to_position(&mut self, _pos: usize) {
         todo!()
     }
 
     fn position(&self) -> usize {
         self.i
-    }
-
-    fn size(&self) -> usize {
-        self.len
     }
 }
 
@@ -234,9 +179,9 @@ impl ToBitvector for EliasFano {
     }
 }
 
-impl EnumeratorFromBitSlice for EliasFano {
-    fn iter_from_slice(bv: BitSliceWithOffset) -> impl IncreasingSequenceEnumerator {
-        let (n, _) = unsafe { bv.get_gamma_unchecked(0) };
+impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> EliasFanoIter<'a> {
+        let (n, pos) = unsafe { bv.get_gamma_unchecked(0) };
         let n_len = gamma_size(n);
 
         // println!("n: {} | n_len {} | pos {}", n, n_len, pos);
@@ -246,10 +191,6 @@ impl EnumeratorFromBitSlice for EliasFano {
 
         // println!("bv len = {}", bv.len());
         // println!("u: {} | u gamma len: {}", u, u_len);
-
-        // maybe word wraparound???
-        //   0000000000001  101010101000
-        // 00000000000000100101010101000
 
         let n_lo_bits = msb(u / n) as u64 + 1;
         // println!("n_lo_bits: {}", n_lo_bits);
@@ -274,6 +215,12 @@ impl EnumeratorFromBitSlice for EliasFano {
             len: n as usize,
             cur_value: 0,
         }
+    }
+}
+
+impl SpaceUsage for EliasFano {
+    fn space_usage_byte(&self) -> usize {
+        self.bv.n_bits() / 8 + 8 + 2 * mem::size_of::<usize>()
     }
 }
 
