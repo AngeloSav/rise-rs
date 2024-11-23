@@ -1,5 +1,7 @@
 use std::{marker::PhantomData, mem};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
     BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
@@ -8,7 +10,7 @@ use crate::{
 
 use super::{gamma_size, EliasFano, EliasFanoIter};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UniformPartitionedSequence<BaseSequence, BSIter, const PARTITION_SIZE: usize = 256> {
     n: usize,
     n_partitions: usize,
@@ -69,7 +71,6 @@ where
         let mut bv_sequences = BitVecCollection::default();
 
         let mut cur_partition = Vec::new();
-        let mut endpoints = vec![0];
         let mut bv_upper_bounds = Vec::new();
         if n_partitions == 1 {
             cur_partition.extend(v);
@@ -80,10 +81,11 @@ where
                 n,
                 bv_upper_bounds: EliasFano::default(),
                 bv_sequences,
-                endpoints,
+                endpoints: vec![0],
                 _phantom: PhantomData,
             }
         } else {
+            let mut endpoints = Vec::new();
             let mut it = v.into_iter();
             for _ in 0..n_partitions {
                 cur_partition = (&mut it).take(PARTITION_SIZE).collect();

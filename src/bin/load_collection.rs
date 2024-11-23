@@ -22,7 +22,9 @@ macro_rules! time_function {
 fn main() {
     const N_RUNS: usize = 1;
     let path = "/home/anglo/uni/ds2i/test/test_data/test_collection";
-    let idx: FreqIndex<EliasFano, _> = FreqIndex::from_files(path);
+    // let idx: FreqIndex<EliasFano, _> = FreqIndex::from_files(path);
+    let idx: FreqIndex<EliasFano, _> =
+        FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.ef.out"), false);
     idx.check_correctness(path);
 
     // let mut p = idx.get_plist_iter(101070);

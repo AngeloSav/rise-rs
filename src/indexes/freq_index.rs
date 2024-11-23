@@ -1,12 +1,13 @@
-use std::{marker::PhantomData, mem};
+use serde::{Deserialize, Serialize};
+use std::{fs, marker::PhantomData, mem, path::Path};
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage,
-    BitSliceWithOffset, BitVecCollection, EnumeratorFromBitSlice, IncreasingSequenceEnumerator,
-    ToBitvector,
+    utils::TimingQueries, BitSliceWithOffset, BitVecCollection, EnumeratorFromBitSlice,
+    IncreasingSequenceEnumerator, ToBitvector,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FreqIndex<DocumentSequence, DSIter> {
     _n_docs: usize,
     n_terms: usize,
@@ -117,6 +118,36 @@ where
         }
 
         println!("everything is ok!")
+    }
+
+    pub fn load_or_build_and_save(
+        input_filename: &str,
+        output_filename: &str,
+        force_rebuild: bool,
+    ) -> Self {
+        let ds: Self;
+        let path = Path::new(&output_filename);
+        if path.exists() && !force_rebuild {
+            println!(
+                "The data structure already exists. Filename: {}. I'm going to load it ...",
+                output_filename
+            );
+            let serialized = fs::read(path).unwrap();
+            println!("Serialized size: {:?} bytes", serialized.len());
+            ds = bincode::deserialize::<Self>(&serialized).unwrap();
+        } else {
+            let mut t = TimingQueries::new(1, 1); // measure building time
+            t.start();
+            ds = Self::from_files(input_filename);
+            t.stop();
+            let (t_min, _, _) = t.get();
+            println!("Construction time {:?} millisecs", t_min / 1000000);
+
+            let serialized = bincode::serialize(&ds).unwrap();
+            println!("Serialized size: {:?} bytes", serialized.len());
+            fs::write(path, serialized).unwrap();
+        }
+        ds
     }
 }
 

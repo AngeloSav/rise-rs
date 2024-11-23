@@ -1,5 +1,7 @@
 use std::mem;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage, utils::msb,
     BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
@@ -8,7 +10,7 @@ use crate::{
 
 pub mod uniform_partitioned_seq;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct EliasFano {
     bv: BitVecCollection,
     n: usize,
