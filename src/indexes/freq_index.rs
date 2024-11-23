@@ -110,8 +110,8 @@ where
                 println!("checked {} plists", processed);
             }
             let mut it = self.get_plist_iter(processed - 1);
-            let mut itv = v.iter();
-            for (i, &s) in itv.enumerate() {
+            let itv = v.iter();
+            for (_i, &s) in itv.enumerate() {
                 // println!("check n {}", i);
                 assert!(s == it.next().unwrap());
             }

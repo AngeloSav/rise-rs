@@ -44,13 +44,16 @@ where
             upper_bounds.next().unwrap()
         };
 
+        let mut endpoints = vec![0];
+        endpoints.extend(self.endpoints.clone());
+
         UniformPartitionedSeqIter {
             position: 0,
             cur_base,
             cur_partition: 0,
             upper_bounds,
             n_partitions: self.n_partitions,
-            endpoints: self.endpoints.clone(),
+            endpoints,
             sequences: BitSliceWithOffset::new(&self.bv_sequences.bv, 0),
             cur_sequence: BaseSequence::iter_from_slice(first_seq),
             cur_value: 0,
