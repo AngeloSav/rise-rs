@@ -1,4 +1,4 @@
-use indicatif::{ProgressBar, ProgressIterator};
+use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use serde::{Deserialize, Serialize};
 use std::{fs, marker::PhantomData, mem, path::Path};
 
@@ -65,7 +65,11 @@ where
         let mut docs_iter = binding
             .array_chunks::<4>()
             .map(|chunk| u32::from_le_bytes(*chunk))
-            .progress(); // progress bar
+            // progress bar
+            .progress_with(pb_with_message(
+                (binding.len() / 4) as u64,
+                String::from("Building Index"),
+            ));
 
         docs_iter.next();
 
@@ -85,10 +89,7 @@ where
             // }
         }
 
-        println!(
-            "FINISHED BUILDING\nIndex contains {} docs, {} terms",
-            idx._n_docs, idx.n_terms
-        );
+        println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
 
         idx
     }
@@ -100,7 +101,11 @@ where
         let mut docs_iter = binding
             .array_chunks::<4>()
             .map(|chunk| u32::from_le_bytes(*chunk))
-            .progress(); //progress bar
+            // progress bar
+            .progress_with(pb_with_message(
+                (binding.len() / 4) as u64,
+                String::from("Checking"),
+            ));
 
         docs_iter.next();
         docs_iter.next();
@@ -123,8 +128,6 @@ where
                 assert!(s == it.next().unwrap());
             }
         }
-
-        println!("everything is ok!")
     }
 
     pub fn load_or_build_and_save(
@@ -156,6 +159,20 @@ where
         }
         ds
     }
+}
+
+fn pb_with_message(len: u64, msg: String) -> ProgressBar {
+    let pb = ProgressBar::new(len as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{msg} [{bar:40.cyan/blue}] {percent}%")
+            .unwrap()
+            .progress_chars("#>-"),
+    );
+    pb.set_message(msg.clone());
+    pb.with_finish(indicatif::ProgressFinish::WithMessage(
+        format!("{} Done!", msg).into(),
+    ))
 }
 
 impl<T, S> SpaceUsage for FreqIndex<T, S> {

@@ -21,7 +21,7 @@ macro_rules! time_function {
 
 fn main() {
     const N_RUNS: usize = 1;
-    let path = "/home/anglo/uni/ds2i/test/test_data/test_collection";
+    let path = "/data1/InvertedIndexes/inverted_indexes/gov2/gov2.sorted-text.bin";
     // let idx: FreqIndex<EliasFano, _> = FreqIndex::from_files(path);
     let idx: FreqIndex<EliasFano, _> =
         FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.ef.out"), false);
