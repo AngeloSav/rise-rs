@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressIterator};
 use serde::{Deserialize, Serialize};
 use std::{fs, marker::PhantomData, mem, path::Path};
 
@@ -60,14 +61,16 @@ where
         let docs_file = format!("{}.docs", input_path);
         let sizes_file = format!("{}.sizes", input_path);
 
-        let binding = std::fs::read(docs_file).expect("cant read .docs file ");
+        let binding = std::fs::read(docs_file).expect("can't read .docs file ");
         let mut docs_iter = binding
             .array_chunks::<4>()
-            .map(|chunk| u32::from_le_bytes(*chunk));
+            .map(|chunk| u32::from_le_bytes(*chunk))
+            .progress(); // progress bar
 
         docs_iter.next();
 
-        let mut idx = Self::new(docs_iter.next().unwrap() as usize);
+        let n_docs = docs_iter.next().unwrap();
+        let mut idx = Self::new(n_docs as usize);
 
         while let Some(sz) = docs_iter.next() {
             // println!("------------- list n {} -------------", processed);
@@ -77,23 +80,27 @@ where
                 .collect();
             idx.push_posting_list(DocumentSequence::from(v.clone()));
 
-            if idx.n_terms % 10_000 == 0 {
-                println!("processed {} plists", idx.n_terms);
-            }
+            // if idx.n_terms % 10_000 == 0 {
+            //     println!("processed {} plists", idx.n_terms);
+            // }
         }
 
-        println!("{} docs, {} terms", idx._n_docs, idx.n_terms);
+        println!(
+            "FINISHED BUILDING\nIndex contains {} docs, {} terms",
+            idx._n_docs, idx.n_terms
+        );
 
         idx
     }
 
     pub fn check_correctness(&'a self, input_path: &str) {
         let docs_file = format!("{}.docs", input_path);
-        let binding = std::fs::read(docs_file).expect("cant read .docs file ");
+        let binding = std::fs::read(docs_file).expect("can't read .docs file ");
 
         let mut docs_iter = binding
             .array_chunks::<4>()
-            .map(|chunk| u32::from_le_bytes(*chunk));
+            .map(|chunk| u32::from_le_bytes(*chunk))
+            .progress(); //progress bar
 
         docs_iter.next();
         docs_iter.next();
@@ -106,9 +113,9 @@ where
                 .collect();
 
             processed += 1;
-            if processed % 50_000 == 0 {
-                println!("checked {} plists", processed);
-            }
+            // if processed % 50_000 == 0 {
+            //     println!("checked {} plists", processed);
+            // }
             let mut it = self.get_plist_iter(processed - 1);
             let itv = v.iter();
             for (_i, &s) in itv.enumerate() {
