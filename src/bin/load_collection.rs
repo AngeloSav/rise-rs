@@ -20,24 +20,12 @@ macro_rules! time_function {
 }
 
 fn main() {
-    const N_RUNS: usize = 1;
     let path = "/data1/InvertedIndexes/inverted_indexes/gov2/gov2.sorted-text.bin";
     // let idx: FreqIndex<EliasFano, _> = FreqIndex::from_files(path);
     let idx: FreqIndex<EliasFano, _> =
         FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.ef.out"), false);
-    idx.check_correctness(path);
-
-    // let mut p = idx.get_plist_iter(101070);
-    // println!("posting list len: {}", p.size());
-    // let mut prec = 0;
-    // while let Some((x, pos)) = p.next_val() {
-    //     println!("value {} at position {}", x, pos);
-    //     assert!(prec <= x);
-    //     prec = x;
-    // }
-
-    // let t1 = 1000;
-    // let t2 = 23495;
+    println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
+    // idx.check_correctness(path);
 
     println!("size of idx = {} MiB", idx.space_usage_MiB());
 

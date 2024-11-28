@@ -183,7 +183,7 @@ impl ToBitvector for EliasFano {
 
 impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> EliasFanoIter<'a> {
-        let (n, pos) = unsafe { bv.get_gamma_unchecked(0) };
+        let (n, _pos) = unsafe { bv.get_gamma_unchecked(0) };
         let n_len = gamma_size(n);
 
         // println!("n: {} | n_len {} | pos {}", n, n_len, pos);
