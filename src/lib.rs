@@ -76,6 +76,10 @@ pub trait ToBitvector {
     fn to_bv(&self) -> BitVec;
 }
 
+pub trait EstimateSpace {
+    fn bitsize(u: u64, n: usize) -> usize;
+}
+
 pub trait EnumeratorFromBitSlice<'a, T>
 where
     T: IncreasingSequenceEnumerator,

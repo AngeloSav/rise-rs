@@ -274,7 +274,7 @@ where
             self.cur_value = x + self.cur_base;
             Some((self.cur_value, self.position))
         } else if self.cur_partition < self.n_partitions - 1 && self.n_partitions != 1 {
-            // go to next value, if any
+            // go to next partition, if any
             self.cur_partition += 1;
 
             self.cur_sequence = BaseSequence::iter_from_slice(self.sequences.slice(

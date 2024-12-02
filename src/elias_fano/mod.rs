@@ -4,10 +4,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage, utils::msb,
-    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
+    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector,
 };
 
+pub mod all_ones_seq;
+pub mod indexed_seq;
+pub mod ranked_bv;
 pub mod uniform_partitioned_seq;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -178,6 +181,15 @@ impl ToBitvector for EliasFano {
         bvr.append_gamma(self.u);
         bvr.concat(&self.bv.bv);
         bvr
+    }
+}
+
+impl EstimateSpace for EliasFano {
+    fn bitsize(u: u64, n: usize) -> usize {
+        let n_lo_bits = msb(u / n as u64) + 1;
+
+        let n_ones = (u >> n_lo_bits) as usize;
+        n + n_ones + n * n_lo_bits as usize
     }
 }
 

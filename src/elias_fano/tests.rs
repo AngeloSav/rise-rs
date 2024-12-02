@@ -1,9 +1,18 @@
 use crate::{
-    elias_fano::EliasFano, gen_sequences::gen_strictly_increasing_sequence, utils::msb,
-    IncreasingSequenceEnumerator,
+    bitvector::bitvector_collection::BitVectorCollection,
+    elias_fano::{
+        indexed_seq::IndexedSequenceIter, uniform_partitioned_seq::UniformPartitionedSeqIter,
+        EliasFano,
+    },
+    gen_sequences::gen_strictly_increasing_sequence,
+    utils::msb,
+    EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
 };
 
-use super::uniform_partitioned_seq::UniformPartitionedSequence;
+use super::{
+    all_ones_seq::AllOnes, indexed_seq::IndexedSequence, ranked_bv::RankedBv,
+    uniform_partitioned_seq::UniformPartitionedSequence,
+};
 
 #[test]
 fn create_ef() {
@@ -41,11 +50,61 @@ fn test_ef_iter_random() {
 }
 
 #[test]
-fn pg() {
-    let a: UniformPartitionedSequence<EliasFano, _, 33> =
-        UniformPartitionedSequence::from((0..).step_by(7).take(128).collect::<Vec<_>>());
+fn test_ef_small() {
+    let v = vec![1, 2, 3, 4, 5, 6, 61, 127, 200, 290];
+    let a: EliasFano = EliasFano::from(v.clone());
 
-    for e in a.iter() {
-        println!("{:?}", e);
+    for (a, b) in a.iter().zip(v) {
+        assert!(a == b);
+        println!("{:?}", a);
+    }
+}
+
+#[test]
+fn test_ranked_bv_small() {
+    let v = vec![1, 2, 3, 4, 5, 6, 61, 127, 200, 290];
+    let a: RankedBv = RankedBv::from(v.clone());
+
+    for (a, b) in a.iter().zip(v) {
+        assert!(a == b);
+        println!("{:?}", a);
+    }
+}
+
+#[test]
+fn test_all_ones_small() {
+    let v = vec![0, 1, 2, 3, 4, 5, 6];
+    // let v = (0..=170).collect::<Vec<_>>();
+    let a: AllOnes = AllOnes::from(v.clone());
+
+    for (a, b) in a.iter().zip(v) {
+        assert!(a == b);
+        println!("{:?}", a);
+    }
+}
+
+#[test]
+fn pg() {
+    // let v = vec![1, 2, 3, 4, 5, 6, 10, 10000];
+    // let v = (0..=4000).collect::<Vec<_>>();
+    let v = gen_strictly_increasing_sequence(1 << 12, 1 << 22)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+    type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>, 1024>;
+    // type TY<'a> = AllOnes;
+
+    let x = TY::from(v.clone());
+
+    println!("{:?}", x);
+
+    let mut bv = BitVectorCollection::with_capacity(0, 0);
+    bv.push(x.to_bv());
+
+    let it = TY::iter_from_slice(bv.get(0));
+
+    for (a, b) in it.zip(v) {
+        println!("{:?}", a);
+        assert!(a == b);
     }
 }

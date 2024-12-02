@@ -66,7 +66,7 @@ pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
 /// ```
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct BitVectorCollection<V: AsRef<[u64]>> {
-    pub bv: BitVector<V>,
+    pub(crate) bv: BitVector<V>,
     endpoints: Vec<usize>,
     n_vecs: usize,
 }
