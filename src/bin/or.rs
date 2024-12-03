@@ -86,7 +86,7 @@ fn main() {
 
                 //test and
                 timer.start();
-                boolean_and_multiterm(&idx, &parsed);
+                boolean_or_multiterm(&idx, &parsed);
                 timer.stop();
             }
 
@@ -117,7 +117,7 @@ fn main() {
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
+fn boolean_or<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
@@ -133,20 +133,36 @@ where
     while posting1.is_some() && posting2.is_some() {
         if posting1.unwrap().0 == posting2.unwrap().0 {
             v.push(posting1.unwrap().0);
-
             //increment both
             posting1 = p1.next_val();
             posting2 = p2.next_val();
         } else if posting1.unwrap().0 < posting2.unwrap().0 {
-            posting1 = p1.next_geq(posting2.unwrap().0)
+            v.push(posting1.unwrap().0);
+            posting1 = p1.next_val()
         } else {
-            posting2 = p2.next_geq(posting1.unwrap().0)
+            v.push(posting2.unwrap().0);
+            posting2 = p2.next_val()
+        }
+    }
+
+    //flush last list
+    if let Some(posting1) = posting1 {
+        v.push(posting1.0);
+        while let Some(posting1) = p1.next_val() {
+            v.push(posting1.0);
+        }
+    }
+    if let Some(posting2) = posting2 {
+        v.push(posting2.0);
+        while let Some(posting2) = p2.next_val() {
+            v.push(posting2.0);
         }
     }
     v
 }
 
-fn boolean_and_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &Vec<usize>) -> Vec<u64>
+#[inline(always)]
+fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &Vec<usize>) -> Vec<u64>
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
@@ -161,27 +177,24 @@ where
 
     let mut v = Vec::new();
 
-    while plists.iter().all(|x| x.0.is_some()) {
-        if plists
-            .iter()
-            .all(|(x, _)| x.unwrap().0 == plists[0].0.unwrap().0)
-        {
-            //push common value
-            v.push(plists[0].0.unwrap().0);
+    while !plists.is_empty() {
+        // push min to v
+        let min = plists.iter().map(|(x, _)| x.unwrap().0).min().unwrap();
+        v.push(min);
 
-            //increment all plists
-            for (x, it) in plists.iter_mut() {
+        // inc all that are min
+        plists
+            .iter_mut()
+            .filter(|(x, _)| x.unwrap().0 == min)
+            .for_each(|(x, it)| {
                 *x = it.next_val();
-            }
-        } else {
-            //take max and nextgeq
-            let max = plists.iter().map(|(x, _)| x.unwrap().0).max().unwrap();
+            });
 
-            //increment all plists
-            for (x, it) in plists.iter_mut() {
-                *x = it.next_geq(max);
-            }
-        }
+        // remove finished lists
+        plists = plists
+            .into_iter()
+            .filter(|(x, _)| x.is_some())
+            .collect::<Vec<_>>();
     }
     v
 }
