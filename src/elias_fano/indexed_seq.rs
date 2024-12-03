@@ -8,8 +8,8 @@ use super::{
     ranked_bv::{RankedBv, RankedBvIter},
     EliasFano, EliasFanoIter,
 };
-#[derive(Debug)]
 
+#[derive(Debug)]
 pub enum IndexType {
     EliasFanoT(EliasFano),
     RankedBvT(RankedBv),
