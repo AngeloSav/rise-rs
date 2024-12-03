@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, time::Duration};
 
 use clap::{Parser, ValueEnum};
 use pef::{
@@ -6,6 +6,7 @@ use pef::{
         indexed_seq::IndexedSequence, uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::{FreqIndex, PostingList},
+    space_usage::SpaceUsage,
     utils::TimingQueries,
     EliasFano, IncreasingSequenceEnumerator,
 };
@@ -17,19 +18,9 @@ enum IdxKind {
     UPIs,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
-enum QueryKind {
-    And,
-    Or,
-}
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Type of queries we want to perform
-    #[arg()]
-    query_kind: QueryKind,
-
     /// Path of the collection (without ".docs" or similar)
     #[arg()]
     input_path: String,
@@ -80,16 +71,14 @@ fn main() {
             println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
 
             let n_lines = queries.lines().collect::<Vec<_>>().len();
-            let mut timer = TimingQueries::new(
-                1,
-                if let Some(x) = args.n_queries {
-                    x.min(n_lines)
-                } else {
-                    n_lines
-                },
-            );
+            let n_queries = if let Some(x) = args.n_queries {
+                x.min(n_lines)
+            } else {
+                n_lines
+            };
+            let mut timer = TimingQueries::new(1, n_queries);
 
-            for l in queries.lines() {
+            for l in queries.lines().take(n_queries) {
                 let parsed: Vec<_> = l
                     .split_whitespace()
                     .map(|x| x.parse::<usize>().expect("can't parse number"))
@@ -101,6 +90,14 @@ fn main() {
                 boolean_and(&idx, t1, t2);
                 timer.stop();
             }
+
+            println!(
+                "RESULT [exp=boolean_and, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+                Duration::from_nanos(timer.get().0.try_into().unwrap()),
+                Duration::from_nanos(timer.get().1.try_into().unwrap()),
+                Duration::from_nanos(timer.get().2.try_into().unwrap()),
+                idx.space_usage_MiB()
+            );
         }};
     }
 
@@ -144,51 +141,6 @@ where
             posting1 = p1.next_geq(posting2.unwrap().0)
         } else {
             posting2 = p2.next_geq(posting1.unwrap().0)
-        }
-    }
-    v
-}
-
-#[inline(always)]
-fn boolean_or<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
-where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
-{
-    let mut p1 = idx.get_plist_iter(t1);
-    let mut p2 = idx.get_plist_iter(t2);
-
-    let mut posting1 = p1.next_val();
-    let mut posting2 = p2.next_val();
-
-    let mut v = Vec::new();
-
-    while posting1.is_some() && posting2.is_some() {
-        if posting1.unwrap().0 == posting2.unwrap().0 {
-            v.push(posting1.unwrap().0);
-            //increment both
-            posting1 = p1.next_val();
-            posting2 = p2.next_val();
-        } else if posting1.unwrap().0 < posting2.unwrap().0 {
-            v.push(posting1.unwrap().0);
-            posting1 = p1.next_val()
-        } else {
-            v.push(posting2.unwrap().0);
-            posting2 = p2.next_val()
-        }
-    }
-
-    //flush last list
-    if let Some(posting1) = posting1 {
-        v.push(posting1.0);
-        while let Some(posting1) = p1.next_val() {
-            v.push(posting1.0);
-        }
-    }
-    if let Some(posting2) = posting2 {
-        v.push(posting2.0);
-        while let Some(posting2) = p2.next_val() {
-            v.push(posting2.0);
         }
     }
     v
