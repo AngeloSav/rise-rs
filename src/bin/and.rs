@@ -73,6 +73,7 @@ fn main() {
                 n_lines
             };
             let mut timer = TimingQueries::new(1, n_queries);
+            let mut check = 0;
 
             for l in queries.lines().take(n_queries) {
                 let parsed: Vec<_> = l
@@ -82,12 +83,17 @@ fn main() {
 
                 //test and
                 timer.start();
-                boolean_and_multiterm(&idx, &parsed);
+                let x = boolean_and_multiterm(&idx, &parsed);
                 timer.stop();
+
+                check += x.len();
+                // eprintln!("result size: {}", x.len());
             }
 
             println!(
-                "RESULT [exp=boolean_and, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+                "RESULT {} [exp=boolean_and, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+                check,
+                n_queries,
                 Duration::from_nanos(timer.get().0.try_into().unwrap()),
                 Duration::from_nanos(timer.get().1.try_into().unwrap()),
                 Duration::from_nanos(timer.get().2.try_into().unwrap()),
@@ -174,7 +180,7 @@ where
             let max = plists.iter().map(|(x, _)| x.unwrap().0).max().unwrap();
 
             //increment all plists
-            for (x, it) in plists.iter_mut() {
+            for (x, it) in plists.iter_mut().filter(|(x, _)| x.unwrap().0 != max) {
                 *x = it.next_geq(max);
             }
         }
