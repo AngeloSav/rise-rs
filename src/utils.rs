@@ -178,3 +178,7 @@ where
         msb(v - T::one()) + 1
     }
 }
+
+pub fn gamma_size(n: u64) -> usize {
+    (msb(n + 1) * 2 + 1) as usize
+}

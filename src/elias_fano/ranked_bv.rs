@@ -1,12 +1,11 @@
 use num::integer::div_ceil;
 
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection, utils::ceil_log2, BitSliceWithOffset,
-    BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace, IncreasingSequenceEnumerator,
-    ToBitvector,
+    bitvector::bitvector_collection::BitVectorCollection,
+    utils::{ceil_log2, gamma_size},
+    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
+    IncreasingSequenceEnumerator, ToBitvector,
 };
-
-use super::gamma_size;
 
 #[derive(Debug)]
 pub struct RankedBv {

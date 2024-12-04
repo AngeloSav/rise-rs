@@ -3,7 +3,9 @@ use std::mem;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage, utils::msb,
+    bitvector::bitvector_collection::BitVectorCollection,
+    space_usage::SpaceUsage,
+    utils::{gamma_size, msb},
     BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector,
 };
@@ -236,10 +238,6 @@ impl SpaceUsage for EliasFano {
     fn space_usage_byte(&self) -> usize {
         self.bv.n_bits() / 8 + 8 + 2 * mem::size_of::<usize>()
     }
-}
-
-fn gamma_size(n: u64) -> usize {
-    (msb(n + 1) * 2 + 1) as usize
 }
 
 mod tests;

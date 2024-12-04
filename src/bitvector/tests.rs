@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     gen_sequences::{gen_strictly_increasing_sequence, negate_vector, DGaps},
-    utils::msb,
+    utils::{gamma_size, msb},
 };
 
 #[test]
@@ -301,8 +301,4 @@ fn random_tests() {
     let (ru, upos) = unsafe { bv.get_gamma_unchecked(gamma_size(n)) };
     println!("U | got {:0b}, should be {:0b}", ru, u);
     assert!(ru == u);
-}
-
-fn gamma_size(n: u64) -> usize {
-    (msb(n + 1) * 2 + 1) as usize
 }

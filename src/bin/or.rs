@@ -40,10 +40,6 @@ struct Args {
     /// Path of the output index (optional)
     #[arg(short, long)]
     out_path: Option<String>,
-
-    /// Checks the index against the original files
-    #[arg(short, long, default_value_t = false)]
-    check_correctness: bool,
 }
 
 fn main() {

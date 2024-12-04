@@ -3,12 +3,14 @@ use std::{marker::PhantomData, mem};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
+    indexes::freq_index::PostingList,
+    space_usage::SpaceUsage,
+    utils::{ceil_log2, gamma_size},
     BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
     IncreasingSequenceEnumerator, ToBitvector,
 };
 
-use super::{gamma_size, EliasFano, EliasFanoIter};
+use super::{EliasFano, EliasFanoIter};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UniformPartitionedSequence<BaseSequence, BSIter, const PARTITION_SIZE: usize = 256> {
