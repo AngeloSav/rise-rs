@@ -75,19 +75,23 @@ fn main() {
             let mut timer = TimingQueries::new(1, n_queries);
             let mut check = 0;
 
-            for l in queries.lines().take(n_queries) {
-                let parsed: Vec<_> = l
-                    .split_whitespace()
-                    .map(|x| x.parse::<usize>().expect("can't parse number"))
-                    .collect();
+            let parsed: Vec<_> = queries.lines().take(n_queries).map(|l| {l
+                .split_whitespace()
+                .map(|x| x.parse::<usize>().expect("can't parse number"))
+                .collect::<Vec<_>>()}).collect();
 
-                //test and
+
+            let n_runs = 1;
+            for _ in 0..n_runs{
+                check = 0;
                 timer.start();
-                let x = boolean_and_multiterm(&idx, &parsed);
-                timer.stop();
+                for term in &parsed {
+                    //test and
+                    let x = boolean_and_multiterm(&idx, &term);
 
-                check += x.len();
-                // eprintln!("result size: {}", x.len());
+                    check += x.len();
+                }
+                timer.stop();
             }
 
             println!(
