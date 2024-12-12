@@ -1,4 +1,8 @@
-use std::{fs, time::Duration};
+use std::{
+    fs,
+    io::{BufRead, BufReader},
+    time::Duration,
+};
 
 use clap::{Parser, ValueEnum};
 use pef::{
@@ -59,36 +63,40 @@ fn main() {
         }
     };
 
-    let queries = fs::read_to_string(args.query_path).expect("can't open qury file");
+    // let queries = fs::read_to_string(args.query_path).expect("can't open qury file");
+    let queries_file =
+        BufReader::new(fs::File::open(args.query_path).expect("can't open qury file"));
 
     macro_rules! query_idx {
         ($t:path) => {{
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, false);
             println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
 
-            let n_lines = queries.lines().collect::<Vec<_>>().len();
-            let n_queries = if let Some(x) = args.n_queries {
-                x.min(n_lines)
+            let queries = if let Some(x) = args.n_queries {
+                queries_file.lines().take_while(|a| a.is_ok()).take(x).collect::<Vec<_>>()
             } else {
-                n_lines
+                queries_file.lines().collect::<Vec<_>>()
             };
-            let mut timer = TimingQueries::new(1, n_queries);
-            let mut check = 0;
-
-            let parsed: Vec<_> = queries.lines().take(n_queries).map(|l| {l
-                .split_whitespace()
-                .map(|x| x.parse::<usize>().expect("can't parse number"))
-                .collect::<Vec<_>>()}).collect();
-
+            let n_queries = queries.len();
 
             let n_runs = 1;
+            let mut timer = TimingQueries::new(n_runs, queries.len());
+            let mut check = 0;
+
+            let parsed: Vec<_> = queries.into_iter().map(|l| {
+                l.unwrap()
+                .split_whitespace()
+                .map(|x| x.parse::<usize>().expect("can't parse number"))
+                .collect::<Vec<_>>()
+            }).collect();
+
+
             for _ in 0..n_runs{
                 check = 0;
                 timer.start();
                 for term in &parsed {
                     //test or
                     let x = boolean_or(&idx, term[0], term[1]);
-
                     check += x.len();
                 }
                 timer.stop();
