@@ -87,7 +87,7 @@ fn main() {
                 timer.start();
                 for term in &parsed {
                     //test or
-                    let x = boolean_or_multiterm(&idx, &term);
+                    let x = boolean_or(&idx, term[0], term[1]);
 
                     check += x.len();
                 }
@@ -95,7 +95,7 @@ fn main() {
             }
 
             println!(
-                "RESULT {} [exp=boolean_and, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+                "RESULT {} [exp=boolean_or, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
                 check,
                 n_queries,
                 Duration::from_nanos(timer.get().0.try_into().unwrap()),
@@ -167,8 +167,9 @@ where
     v
 }
 
+#[allow(dead_code)]
 #[inline(always)]
-fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &Vec<usize>) -> Vec<u64>
+fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize]) -> Vec<u64>
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,

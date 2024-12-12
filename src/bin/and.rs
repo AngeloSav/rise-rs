@@ -87,7 +87,7 @@ fn main() {
                 timer.start();
                 for term in &parsed {
                     //test and
-                    let x = boolean_and_multiterm(&idx, &term);
+                    let x = boolean_and(&idx, term[0], term[1]);
 
                     check += x.len();
                 }
@@ -152,7 +152,9 @@ where
     v
 }
 
-fn boolean_and_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &Vec<usize>) -> Vec<u64>
+#[allow(dead_code)]
+#[inline(always)]
+fn boolean_and_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize]) -> Vec<u64>
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
