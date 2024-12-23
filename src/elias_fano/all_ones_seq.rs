@@ -66,8 +66,12 @@ impl IncreasingSequenceEnumerator for AllOnesIter {
         }
     }
 
-    fn next_geq(&mut self, i: u64) -> Option<(u64, usize)> {
-        todo!()
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        if lower_bound >= self.len as u64 {
+            None
+        } else {
+            Some((lower_bound, lower_bound as usize))
+        }
     }
 
     fn move_to_position(&mut self, pos: usize) {

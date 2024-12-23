@@ -1,9 +1,9 @@
-use num::integer::div_ceil;
+use num::{bigint, integer::div_ceil};
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection,
     utils::{ceil_log2, gamma_size},
-    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
+    AccessBin, BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector,
 };
 
@@ -26,8 +26,9 @@ impl RankedBv {
         RankedBvIter {
             data: self.bv.get(0),
             samples: self.bv.get(1),
-            pos: 0,
-            i: 0,
+            rank_sample_size: ceil_log2(self.n + 1) as usize,
+            value: 0,
+            position: 0,
             len: self.u as usize,
         }
     }
@@ -92,11 +93,10 @@ impl<'a> EnumeratorFromBitSlice<'a, RankedBvIter<'a>> for RankedBv {
         let n = unsafe { bv.get_gamma_unchecked(0) }.0;
         let u = unsafe { bv.get_gamma_unchecked(gamma_size(n)) }.0;
         let start_data = gamma_size(n) + gamma_size(u);
-        let rank_sample_size = ceil_log2(n + 1) as u64;
+        let rank_sample_size = ceil_log2(n + 1) as usize;
 
         let start_samples = start_data + u as usize + 1;
-        let end_samples =
-            start_samples + (u as usize >> LOG_RANK_SAMPLING) * rank_sample_size as usize;
+        let end_samples = start_samples + (u as usize >> LOG_RANK_SAMPLING) * rank_sample_size;
 
         let data_slice = bv.slice(start_data, start_samples); //maybe not +1?
         let sample_slice = bv.slice(start_samples, end_samples);
@@ -104,8 +104,9 @@ impl<'a> EnumeratorFromBitSlice<'a, RankedBvIter<'a>> for RankedBv {
         RankedBvIter {
             data: data_slice,
             samples: sample_slice,
-            pos: 0,
-            i: 0,
+            rank_sample_size,
+            value: 0,
+            position: 0,
             len: u as usize,
         }
     }
@@ -123,26 +124,57 @@ impl EstimateSpace for RankedBv {
 pub struct RankedBvIter<'a> {
     data: BitSliceWithOffset<'a>,
     samples: BitSliceWithOffset<'a>,
-    pos: usize,
-    i: usize,
+    rank_sample_size: usize,
+    value: usize,
+    position: usize,
     len: usize,
+}
+
+impl RankedBvIter<'_> {
+    const LINEAR_SCAN_THRESHOLD: u64 = 8;
 }
 
 impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
     fn next_val(&mut self) -> Option<(u64, usize)> {
-        if self.pos > self.len {
+        if self.value > self.len {
             None
         } else {
-            let new_pos = unsafe { self.data.next_one_unchecked(self.pos) };
-            self.pos = new_pos + 1;
+            let new_pos = unsafe { self.data.next_one_unchecked(self.value) };
+            self.value = new_pos + 1;
 
-            self.i += 1;
-            Some((new_pos as u64, self.i))
+            self.position += 1;
+            Some((new_pos as u64, self.position))
         }
     }
 
-    fn next_geq(&mut self, i: u64) -> Option<(u64, usize)> {
-        todo!()
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        let diff = lower_bound - self.value as u64;
+        if diff < Self::LINEAR_SCAN_THRESHOLD {
+            let (mut val, mut pos) = self.next_val()?;
+            while val < lower_bound {
+                (val, pos) = self.next_val()?;
+            }
+            Some((val, pos))
+        } else {
+            let skip = lower_bound - self.value as u64;
+            let begin;
+            if skip >> LOG_RANK_SAMPLING == 0 {
+                begin = self.value;
+            } else {
+                let block = (lower_bound >> LOG_RANK_SAMPLING) as usize;
+                self.position = unsafe {
+                    self.samples
+                        .get_bits_unchecked(block * self.rank_sample_size, self.rank_sample_size)
+                } as usize;
+                begin = block << LOG_RANK_SAMPLING;
+            }
+
+            self.position += self.data.rank_range(begin, lower_bound as usize);
+
+            self.value = lower_bound as usize;
+
+            self.next_val()
+        }
     }
 
     fn move_to_position(&mut self, pos: usize) {

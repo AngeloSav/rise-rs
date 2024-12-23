@@ -1,5 +1,6 @@
 #![feature(unchecked_shifts)]
 #![feature(array_chunks)]
+#![feature(core_intrinsics)]
 #![feature(iter_array_chunks)]
 
 pub mod bitvector;
@@ -63,7 +64,7 @@ pub trait SelectBin {
 
 pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
     fn next_val(&mut self) -> Option<(u64, usize)>;
-    fn next_geq(&mut self, i: u64) -> Option<(u64, usize)>;
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
     fn move_to_position(&mut self, pos: usize);
     fn position(&self) -> usize;
     fn prev_value(&mut self) -> (usize, u64) {

@@ -15,7 +15,10 @@ pub mod bitvector_collection;
 // - create a BitBoxed with fixed size (with_zeros() or with_ones())
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
+use std::intrinsics::select_unpredictable;
+
 use crate::{space_usage::SpaceUsage, AccessBin};
+use bincode::config::WithOtherTrailing;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -1647,6 +1650,34 @@ impl<'a> BitSliceWithOffset<'a> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Counts the number of ones in the range [start, end]
+    pub fn rank_range(&self, start: usize, end: usize) -> usize {
+        let actual_start = self.offset + start;
+        let actual_end = self.offset + end;
+
+        let mut begin_word = actual_start / 64;
+        let begin_shift = actual_start % 64;
+        let end_word = actual_end / 64;
+        let end_shift = actual_end % 64;
+
+        let mut word = self.data[begin_word] >> begin_shift;
+        begin_word += 1;
+        let mut count = 0;
+
+        while begin_word < end_word {
+            count += dbg!(word.count_ones()) as usize;
+
+            word = self.data[begin_word];
+            begin_word += 1;
+        }
+
+        if end_shift != 0 {
+            count += (word << (64 - end_shift)).count_ones() as usize
+        }
+
+        count
     }
 }
 

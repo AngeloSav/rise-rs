@@ -5,7 +5,7 @@ use crate::{
         EliasFano,
     },
     gen_sequences::gen_strictly_increasing_sequence,
-    utils::msb,
+    utils::{gamma_size, msb},
     EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
 };
 
@@ -62,13 +62,20 @@ fn test_ef_small() {
 
 #[test]
 fn test_ranked_bv_small() {
-    let v = vec![1, 2, 3, 4, 5, 6, 61, 127, 200, 290];
+    let v = vec![1, 2, 3, 4, 5, 6, 61, 62, 127, 200, 290];
     let a: RankedBv = RankedBv::from(v.clone());
 
     for (a, b) in a.iter().zip(v) {
         assert!(a == b);
         println!("{:?}", a);
     }
+
+    let mut it = a.iter();
+    assert_eq!(it.next_val(), Some((1, 1)));
+    assert_eq!(it.next_geq(3), Some((3, 3)));
+    assert_eq!(it.next_geq(6), Some((6, 6)));
+    assert_eq!(it.next_geq(8).unwrap().0, 61);
+    assert_eq!(it.next_geq(199).unwrap().0, 200);
 }
 
 #[test]
