@@ -79,7 +79,7 @@ fn main() {
             };
             let n_queries = queries.len();
 
-            let n_runs = 1;
+            let n_runs = 4;
             let mut timer = TimingQueries::new(n_runs, queries.len());
             let mut check = 0;
 

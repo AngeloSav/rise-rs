@@ -79,7 +79,7 @@ fn main() {
             };
             let n_queries = queries.len();
 
-            let n_runs = 1;
+            let n_runs = 4;
             let mut timer = TimingQueries::new(n_runs, queries.len());
             let mut check = 0;
 
@@ -142,7 +142,7 @@ where
     let mut posting1 = p1.next_val();
     let mut posting2 = p2.next_val();
 
-    let mut v = Vec::with_capacity(10000);
+    let mut v = Vec::new();
 
     while posting1.is_some() && posting2.is_some() {
         if posting1.unwrap().0 == posting2.unwrap().0 {

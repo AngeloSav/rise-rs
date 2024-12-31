@@ -218,20 +218,25 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
             Some((val, pos))
         } else {
             //slow next geq
-
             let to_skip;
             if lower_bound > self.cur_value && hi_diff >> LOG_SAMPLING0 == 0 {
                 to_skip = hi_diff;
             } else {
                 let ptr = hi_lower_bound >> LOG_SAMPLING0;
-                let hi_pos = unsafe {
-                    self.slice_samples
-                        .get_bits_unchecked(ptr as usize * self.pointer_size, self.pointer_size)
+                let hi_pos = if ptr == 0 {
+                    0
+                } else {
+                    unsafe {
+                        self.slice_samples.get_bits_unchecked(
+                            (ptr - 1) as usize * self.pointer_size,
+                            self.pointer_size,
+                        )
+                    }
                 };
                 let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
 
                 to_skip = hi_lower_bound - hi_rank0;
-                self.i_hi = hi_pos as usize + 1;
+                self.i_hi = hi_pos as usize;
             }
 
             //TODO: fast skip0

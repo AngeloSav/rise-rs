@@ -140,9 +140,19 @@ fn pg2() {
 
     let mut it = TY::iter_from_slice(bv.get(0));
 
+    let lb = 10000;
+
     for i in TY::iter_from_slice(bv.get(0)).take(20) {
         println!("{}", i);
     }
 
-    println!("{:?}", it.next_geq(10000))
+    let a = it.next_geq(lb);
+    println!("{:?}", a);
+
+    assert_eq!(
+        Some(a.unwrap().0),
+        TY::iter_from_slice(bv.get(0))
+            .skip_while(|x| x < &lb)
+            .next()
+    );
 }
