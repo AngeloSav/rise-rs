@@ -51,13 +51,17 @@ fn test_ef_iter_random() {
 
 #[test]
 fn test_ef_small() {
-    let v = vec![1, 2, 3, 4, 5, 6, 61, 127, 200, 290];
+    let v = vec![1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1027];
     let a: EliasFano = EliasFano::from(v.clone());
 
     for (a, b) in a.iter().zip(v) {
         assert!(a == b);
         println!("{:?}", a);
     }
+
+    let mut it = a.iter();
+    assert_eq!(it.next_val(), Some((1, 1)));
+    assert_eq!(it.next_geq(30), Some((61, 7)));
 }
 
 #[test]
@@ -114,4 +118,31 @@ fn pg() {
         println!("{:?}", a);
         assert!(a == b);
     }
+}
+
+#[test]
+fn pg2() {
+    // let v = vec![1, 2, 3, 4, 5, 6, 10, 10000];
+    // let v = (0..=4000).collect::<Vec<_>>();
+    let v = gen_strictly_increasing_sequence(1 << 12, 1 << 22)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+    // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>, 1024>;
+    type TY<'a> = EliasFano;
+
+    let x = TY::from(v.clone());
+
+    // println!("{:?}", x);
+
+    let mut bv = BitVectorCollection::with_capacity(0, 0);
+    bv.push(x.to_bv());
+
+    let mut it = TY::iter_from_slice(bv.get(0));
+
+    for i in TY::iter_from_slice(bv.get(0)).take(20) {
+        println!("{}", i);
+    }
+
+    println!("{:?}", it.next_geq(10000))
 }

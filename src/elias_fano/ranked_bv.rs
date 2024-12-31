@@ -1,9 +1,9 @@
-use num::{bigint, integer::div_ceil};
+use num::integer::div_ceil;
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection,
     utils::{ceil_log2, gamma_size},
-    AccessBin, BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
+    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector,
 };
 
@@ -14,7 +14,7 @@ pub struct RankedBv {
     u: u64,
 }
 
-const LOG_RANK_SAMPLING: usize = 6; // length of buckets
+const LOG_RANK_SAMPLING: usize = 9; // length of buckets
 
 impl RankedBv {
     /// Returns the number of elements in the sequence
@@ -156,6 +156,7 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
             }
             Some((val, pos))
         } else {
+            //slow next_geq
             let skip = lower_bound - self.value as u64;
             let begin;
             if skip >> LOG_RANK_SAMPLING == 0 {

@@ -94,11 +94,11 @@ impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
         }
     }
 
-    fn next_geq(&mut self, i: u64) -> Option<(u64, usize)> {
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         match &mut self.it {
-            IterType::EliasFanoItT(it) => it.next_geq(i),
-            IterType::RankedBvItT(it) => it.next_geq(i),
-            IterType::AllOnesItT(it) => it.next_geq(i),
+            IterType::EliasFanoItT(it) => it.next_geq(lower_bound),
+            IterType::RankedBvItT(it) => it.next_geq(lower_bound),
+            IterType::AllOnesItT(it) => it.next_geq(lower_bound),
         }
     }
 

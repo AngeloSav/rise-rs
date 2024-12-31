@@ -57,6 +57,8 @@ where
         DocumentSequence::iter_from_slice(a)
     }
 
+    const LENGTH_THRESHOLD: u64 = 1 << 12;
+
     pub fn from_files(input_path: &str) -> Self {
         let docs_file = format!("{}.docs", input_path);
         // let sizes_file = format!("{}.sizes", input_path);
@@ -82,7 +84,7 @@ where
             // println!("------------- list n {} -------------", processed);
             // println!("list n {}, size is {}", idx.n_terms, sz);
 
-            if sz > 1 << 12 {
+            if sz > Self::LENGTH_THRESHOLD {
                 let v: Vec<u64> = (&mut docs_iter).take(sz as usize).collect();
                 assert!(v.len() == sz as usize);
                 assert!(sz > 0);
@@ -120,7 +122,7 @@ where
 
         let mut processed = 0;
         while let Some(sz) = docs_iter.next() {
-            if sz > 1 << 12 {
+            if sz > Self::LENGTH_THRESHOLD {
                 let v: Vec<u64> = (&mut docs_iter).take(sz as usize).collect();
                 processed += 1;
                 let mut it = self.get_plist_iter(processed - 1);

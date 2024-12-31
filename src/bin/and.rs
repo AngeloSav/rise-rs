@@ -142,7 +142,7 @@ where
     let mut posting1 = p1.next_val();
     let mut posting2 = p2.next_val();
 
-    let mut v = Vec::new();
+    let mut v = Vec::with_capacity(10000);
 
     while posting1.is_some() && posting2.is_some() {
         if posting1.unwrap().0 == posting2.unwrap().0 {
