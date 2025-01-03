@@ -81,6 +81,22 @@ pub trait EstimateSpace {
     fn bitsize(u: u64, n: usize) -> usize;
 }
 
+pub trait CostWindow<'a> {
+    fn new(sequence: &'a [u64], cost_upper_bound: usize) -> Self;
+    fn universe(&self) -> u64;
+    fn size(&self) -> usize;
+
+    fn window_cost(&self) -> usize;
+    fn single_block_cost(sequence: &[u64]) -> usize;
+    fn minimum_cost(sequence: &[u64]) -> usize;
+
+    fn advance_start(&mut self);
+    fn advance_end(&mut self);
+    fn start(&self) -> usize;
+    fn end(&self) -> usize;
+    fn cost_upper_bound(&self) -> usize;
+}
+
 pub trait EnumeratorFromBitSlice<'a, T>
 where
     T: IncreasingSequenceEnumerator,

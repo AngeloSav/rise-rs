@@ -1,5 +1,7 @@
+use std::slice::Iter;
+
 use crate::{
-    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
+    BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector,
 };
 
@@ -116,5 +118,100 @@ impl Iterator for IndexedSequenceIter<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.next_val()?.0)
+    }
+}
+
+pub struct IndexSeqCostWindow<'a> {
+    start_it: std::iter::Peekable<Iter<'a, u64>>,
+    end_it: std::iter::Peekable<Iter<'a, u64>>,
+    start: usize,
+    end: usize,
+    min_p: u64,
+    max_p: u64,
+    cost_upper_bound: usize,
+}
+
+impl<'a> IndexSeqCostWindow<'a> {
+    const FIX_COST: usize = 128;
+}
+
+impl<'a> CostWindow<'a> for IndexSeqCostWindow<'a> {
+    fn new(sequence: &'a [u64], cost_upper_bound: usize) -> Self {
+        let mut start_it = sequence.iter().peekable();
+        let end_it = sequence.iter().peekable();
+        let min_p = **start_it.peek().unwrap();
+        let max_p = 0;
+
+        IndexSeqCostWindow {
+            start_it,
+            end_it,
+            start: 0,
+            end: 0,
+            min_p,
+            max_p,
+            cost_upper_bound,
+        }
+    }
+
+    #[inline(always)]
+    fn universe(&self) -> u64 {
+        self.max_p - self.min_p + 1
+    }
+
+    #[inline(always)]
+    fn size(&self) -> usize {
+        self.end - self.start
+    }
+
+    #[inline(always)]
+    fn window_cost(&self) -> usize {
+        IndexedSequence::bitsize(self.universe(), self.size()) + Self::FIX_COST
+    }
+
+    #[inline(always)]
+    fn single_block_cost(sequence: &[u64]) -> usize {
+        IndexedSequence::bitsize(*sequence.last().unwrap() + 1, sequence.len()) + Self::FIX_COST
+    }
+
+    #[inline(always)]
+    fn advance_start(&mut self) {
+        if let Some(&&x) = self.start_it.peek() {
+            self.min_p = x + 1;
+            self.start += 1;
+            self.start_it.next();
+        } else {
+            panic!("window advanced too far!")
+        }
+    }
+
+    #[inline(always)]
+    fn advance_end(&mut self) {
+        if let Some(&&x) = self.end_it.peek() {
+            self.max_p = x;
+            self.end += 1;
+            self.end_it.next();
+        } else {
+            panic!("window advanced too far!")
+        }
+    }
+
+    #[inline(always)]
+    fn start(&self) -> usize {
+        self.start
+    }
+
+    #[inline(always)]
+    fn end(&self) -> usize {
+        self.end
+    }
+
+    #[inline(always)]
+    fn cost_upper_bound(&self) -> usize {
+        self.cost_upper_bound
+    }
+
+    #[inline(always)]
+    fn minimum_cost(_sequence: &[u64]) -> usize {
+        IndexedSequence::bitsize(1, 1) + Self::FIX_COST
     }
 }

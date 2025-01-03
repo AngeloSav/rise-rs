@@ -1,4 +1,4 @@
-use std::mem;
+use std::{intrinsics::likely, mem};
 
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ use crate::{
 
 pub mod all_ones_seq;
 pub mod indexed_seq;
+pub mod opt_partition;
 pub mod ranked_bv;
 pub mod uniform_partitioned_seq;
 
@@ -187,12 +188,13 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
             let hi = (self.hi_ctr << self.n_bits_lo) as u64;
 
             self.cur_value = hi | lo;
-            Some((self.cur_value, self.position))
+            Some((self.cur_value, self.position - 1))
         } else {
             None
         }
     }
 
+    #[inline(always)]
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         // let lb_hi = lower_bound >> self.n_bits_lo;
         // let hi_diff = lb_hi - self.hi_ctr as u64;

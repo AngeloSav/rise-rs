@@ -1,12 +1,14 @@
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection,
     elias_fano::{
-        indexed_seq::IndexedSequenceIter, uniform_partitioned_seq::UniformPartitionedSeqIter,
+        indexed_seq::{IndexSeqCostWindow, IndexedSequenceIter},
+        opt_partition::optimal_partition,
+        uniform_partitioned_seq::UniformPartitionedSeqIter,
         EliasFano,
     },
     gen_sequences::gen_strictly_increasing_sequence,
     utils::{gamma_size, msb},
-    EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
+    CostWindow, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
 };
 
 use super::{
@@ -60,8 +62,8 @@ fn test_ef_small() {
     }
 
     let mut it = a.iter();
-    assert_eq!(it.next_val(), Some((1, 1)));
-    assert_eq!(it.next_geq(30), Some((61, 7)));
+    assert_eq!(it.next_val(), Some((1, 0)));
+    assert_eq!(it.next_geq(30), Some((61, 6)));
 }
 
 #[test]
@@ -75,9 +77,9 @@ fn test_ranked_bv_small() {
     }
 
     let mut it = a.iter();
-    assert_eq!(it.next_val(), Some((1, 1)));
-    assert_eq!(it.next_geq(3), Some((3, 3)));
-    assert_eq!(it.next_geq(6), Some((6, 6)));
+    assert_eq!(it.next_val(), Some((1, 0)));
+    assert_eq!(it.next_geq(3), Some((3, 2)));
+    assert_eq!(it.next_geq(6), Some((6, 5)));
     assert_eq!(it.next_geq(8).unwrap().0, 61);
     assert_eq!(it.next_geq(199).unwrap().0, 200);
 }
@@ -124,12 +126,14 @@ fn pg() {
 fn pg2() {
     // let v = vec![1, 2, 3, 4, 5, 6, 10, 10000];
     // let v = (0..=4000).collect::<Vec<_>>();
-    let v = gen_strictly_increasing_sequence(1 << 12, 1 << 22)
+    let mut v = gen_strictly_increasing_sequence(1 << 12, 1 << 12)
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
     // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>, 1024>;
     type TY<'a> = EliasFano;
+
+    v.extend(v.clone().iter().map(|x| x + 10000));
 
     let x = TY::from(v.clone());
 
@@ -140,7 +144,7 @@ fn pg2() {
 
     let mut it = TY::iter_from_slice(bv.get(0));
 
-    let lb = 10000;
+    let lb = 100;
 
     for i in TY::iter_from_slice(bv.get(0)).take(20) {
         println!("{}", i);
@@ -155,4 +159,11 @@ fn pg2() {
             .skip_while(|x| x < &lb)
             .next()
     );
+
+    println!(
+        "{:?}",
+        optimal_partition::<IndexSeqCostWindow>(&v, 0.0, 0.3)
+    );
+
+    println!("{:?}", IndexSeqCostWindow::single_block_cost(&v))
 }

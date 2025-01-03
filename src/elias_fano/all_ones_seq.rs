@@ -26,7 +26,7 @@ impl From<Vec<u64>> for AllOnes {
 
 impl EstimateSpace for AllOnes {
     fn bitsize(u: u64, n: usize) -> usize {
-        if u + 1 == n as u64 {
+        if u == n as u64 {
             0
         } else {
             usize::MAX

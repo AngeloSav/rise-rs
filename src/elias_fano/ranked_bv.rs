@@ -143,7 +143,7 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
             self.value = new_pos + 1;
 
             self.position += 1;
-            Some((new_pos as u64, self.position))
+            Some((new_pos as u64, self.position - 1))
         }
     }
 
