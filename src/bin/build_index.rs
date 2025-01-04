@@ -1,18 +1,12 @@
 use clap::{Parser, ValueEnum};
 use pef::{
     elias_fano::{
-        indexed_seq::IndexedSequence, uniform_partitioned_seq::UniformPartitionedSequence,
+        indexed_seq::IndexedSequence, opt_partition::OptPartitionedSequence,
+        uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::FreqIndex,
-    EliasFano,
+    EliasFano, IdxKind,
 };
-
-#[derive(ValueEnum, Clone, Debug)]
-enum IdxKind {
-    EFSingle,
-    UPEf,
-    UPIs,
-}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,6 +44,7 @@ fn main() {
                 IdxKind::EFSingle => "ef",
                 IdxKind::UPEf => "upef",
                 IdxKind::UPIs => "upis",
+                IdxKind::Opt => "opt",
             };
             format!("{}.{}.out", input_path, tail)
         }
@@ -77,6 +72,9 @@ fn main() {
             build_idx!(
                 FreqIndex<UniformPartitionedSequence<IndexedSequence, _, FIXED_BLOCK_SIZE>, _>
             )
+        }
+        IdxKind::Opt => {
+            build_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence, _>, _>)
         }
     }
 }

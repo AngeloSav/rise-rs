@@ -7,46 +7,42 @@ use crate::{
     space_usage::SpaceUsage,
     utils::{ceil_log2, gamma_size},
     BitSliceWithOffset, BitVec, BitVecCollection, CostWindow, EnumeratorFromBitSlice,
-    IncreasingSequenceEnumerator, ToBitvector,
+    IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector,
 };
 
-use super::{uniform_partitioned_seq::UniformPartitionedSeqIter, EliasFano, EliasFanoIter};
+use super::{EliasFano, EliasFanoIter};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OptPartitionedSequence<BaseSequence, BSIter, CWindow> {
+pub struct OptPartitionedSequence<BaseSequence, BSIter> {
     n: usize,
     n_partitions: usize,
     bv_upper_bounds: EliasFano,
     bv_sequences: BitVecCollection,
     endpoints: Vec<usize>,
-    _phantom: PhantomData<(BaseSequence, BSIter, CWindow)>,
+    _phantom: PhantomData<(BaseSequence, BSIter)>,
 }
 
-impl<'a, BaseSequence, BaseSequenceIter, CWindow>
-    OptPartitionedSequence<BaseSequence, BaseSequenceIter, CWindow>
+impl<'a, BaseSequence, BaseSequenceIter> OptPartitionedSequence<BaseSequence, BaseSequenceIter>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
+    BaseSequence: PostingList<'a, BaseSequenceIter> + PartitionableSequence<'a>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
-    CWindow: CostWindow<'a>,
 {
-    const EPS1: f64 = 0.0;
-    const EPS2: f64 = 0.3;
     pub fn len(&self) -> usize {
         self.n
     }
 }
-
-impl<'a, BaseSequence, BaseSequenceIter, CWindow> From<&'a [u64]>
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter, CWindow>
+const EPS1: f64 = 0.0;
+const EPS2: f64 = 0.3;
+impl<'a, 'b, BaseSequence, BaseSequenceIter> From<&'b [u64]>
+    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
+    BaseSequence: PostingList<'a, BaseSequenceIter> + PartitionableSequence<'b>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
-    CWindow: CostWindow<'a>,
 {
-    fn from(v: &'a [u64]) -> Self {
+    fn from(v: &'b [u64]) -> Self {
         let n = v.len();
 
-        let (_, partitions) = optimal_partition::<CWindow>(&v, Self::EPS1, Self::EPS2);
+        let (_, partitions) = optimal_partition::<BaseSequence::CW>(&v, EPS1, EPS2);
 
         let n_partitions = partitions.len();
 
@@ -60,7 +56,7 @@ where
 
         let mut bv_upper_bounds = Vec::new();
         if n_partitions == 1 {
-            bv_sequences.push(BaseSequence::from(v).to_bv());
+            bv_sequences.push(BaseSequence::from(&v).to_bv());
 
             Self {
                 n_partitions,
@@ -104,8 +100,8 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter, CWindow> ToBitvector
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter, CWindow>
+impl<'a, BaseSequence, BaseSequenceIter> ToBitvector
+    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
 where
     BaseSequence: PostingList<'a, BaseSequenceIter>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
@@ -148,11 +144,11 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter, CWindow>
+impl<'a, BaseSequence, BaseSequenceIter>
     EnumeratorFromBitSlice<'a, OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>>
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter, CWindow>
+    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
+    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
     fn iter_from_slice(
@@ -244,7 +240,7 @@ pub struct OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
 impl<'a, BaseSequence, BaseSequenceIter> IncreasingSequenceEnumerator
     for OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
+    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
@@ -295,7 +291,7 @@ where
 impl<'a, BaseSequence, BaseSequenceIter> Iterator
     for OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
+    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
     type Item = u64;
@@ -305,7 +301,7 @@ where
     }
 }
 
-impl<T, S, CW> SpaceUsage for OptPartitionedSequence<T, S, CW> {
+impl<T, S> SpaceUsage for OptPartitionedSequence<T, S> {
     fn space_usage_byte(&self) -> usize {
         self.bv_sequences.n_bits() / 8
             + self.bv_upper_bounds.space_usage_byte()
@@ -315,11 +311,14 @@ impl<T, S, CW> SpaceUsage for OptPartitionedSequence<T, S, CW> {
 }
 
 /// returns a pair (optimal cost, vector of positions) that are the optimal starting point for each block
-pub fn optimal_partition<'a, T: CostWindow<'a>>(
-    sequence: &'a [u64],
+pub fn optimal_partition<'a, 'b, T: CostWindow<'a>>(
+    sequence: &'b [u64],
     eps1: f64,
     eps2: f64,
-) -> (usize, Vec<usize>) {
+) -> (usize, Vec<usize>)
+where
+    'b: 'a,
+{
     assert!(!sequence.is_empty(), "sequence is empty");
     let single_block_cost = T::single_block_cost(sequence);
 

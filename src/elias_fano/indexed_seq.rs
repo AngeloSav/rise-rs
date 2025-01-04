@@ -2,7 +2,7 @@ use std::slice::Iter;
 
 use crate::{
     BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, ToBitvector,
+    IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector,
 };
 
 use super::{
@@ -215,4 +215,8 @@ impl<'a> CostWindow<'a> for IndexSeqCostWindow<'a> {
     fn minimum_cost(_sequence: &[u64]) -> usize {
         IndexedSequence::bitsize(1, 1) + Self::FIX_COST
     }
+}
+
+impl<'a> PartitionableSequence<'a> for IndexedSequence {
+    type CW = IndexSeqCostWindow<'a>;
 }

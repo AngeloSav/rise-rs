@@ -104,8 +104,7 @@ fn pg() {
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
-    type TY<'a> =
-        OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>, IndexSeqCostWindow<'a>>;
+    type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
     // type TY<'a> = AllOnes;
 
     let binding = v.clone();

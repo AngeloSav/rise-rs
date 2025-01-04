@@ -10,6 +10,7 @@ pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
 
 pub mod darray;
+use clap::ValueEnum;
 pub use darray::DArray;
 
 pub mod elias_fano;
@@ -62,6 +63,14 @@ pub trait SelectBin {
     unsafe fn select0_unchecked(&self, i: usize) -> usize;
 }
 
+#[derive(ValueEnum, Clone, Debug)]
+pub enum IdxKind {
+    EFSingle,
+    UPEf,
+    UPIs,
+    Opt,
+}
+
 pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
     fn next_val(&mut self) -> Option<(u64, usize)>;
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
@@ -102,4 +111,9 @@ where
     T: IncreasingSequenceEnumerator,
 {
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> T;
+}
+
+/// This trait contains the associated type for a cost window, if the given sequence has a partitioning method
+pub trait PartitionableSequence<'a> {
+    type CW: CostWindow<'a>;
 }
