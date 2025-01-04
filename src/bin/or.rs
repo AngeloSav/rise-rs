@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use pef::{
     elias_fano::{
         indexed_seq::IndexedSequence, opt_partition::OptPartitionedSequence,

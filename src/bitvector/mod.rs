@@ -15,10 +15,7 @@ pub mod bitvector_collection;
 // - create a BitBoxed with fixed size (with_zeros() or with_ones())
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
-use std::intrinsics::select_unpredictable;
-
-use crate::{space_usage::SpaceUsage, AccessBin};
-use bincode::config::WithOtherTrailing;
+use crate::{space_usage::SpaceUsage, utils::msb, AccessBin};
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -315,6 +312,28 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         // SAFETY: if pos was Some, then l is in bounds
         let v = (1_u64 << l) | Self::get_bits_slice(data, pos, l);
         (v - 1, pos + l)
+    }
+
+    #[inline]
+    #[must_use]
+    pub unsafe fn get_delta_unchecked(&self, index: usize) -> (u64, usize) {
+        Self::get_delta_slice_unchecked(self.data.as_ref(), index, self.n_bits)
+    }
+
+    #[inline]
+    #[must_use]
+    unsafe fn get_delta_slice_unchecked(data: &[u64], index: usize, n_bits: usize) -> (u64, usize) {
+        let pos = Self::next_bit_slice_unchecked::<true>(data, index, n_bits) + 1;
+        let l = pos - index - 1;
+
+        // SAFETY: if pos was Some, then l is in bounds
+        let v = (1_u64 << l) | Self::get_bits_slice(data, pos, l);
+
+        let gamma_part = v - 1;
+        let new_pos = pos + l;
+
+        let lo = Self::get_bits_slice(data, new_pos, gamma_part as usize);
+        ((1 << gamma_part | lo) - 1, new_pos + gamma_part as usize)
     }
 
     #[inline]
@@ -910,6 +929,16 @@ impl BitVector<Vec<u64>> {
         let hb = 1 << (n_bits - 1);
         self.append_bits(hb, n_bits);
         self.append_bits(v ^ hb, n_bits - 1);
+    }
+
+    #[inline]
+    pub fn append_delta(&mut self, v: u64) {
+        let v = v + 1;
+        let l = msb(v) as u64;
+        let hi = 1 << l;
+
+        self.append_gamma(l);
+        self.append_bits(v ^ hi, l as usize);
     }
 
     /// Shrinks the underlying vector of 64-bit words to fit the actual size of the bit vector.
@@ -1526,6 +1555,12 @@ impl<'a> BitSliceWithOffset<'a> {
     #[must_use]
     pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
         BitVector::<&[u64]>::get_gamma_slice_unchecked(self.data, index + self.offset, self.n_bits)
+    }
+
+    #[inline]
+    #[must_use]
+    pub unsafe fn get_delta_unchecked(&self, index: usize) -> (u64, usize) {
+        BitVector::<&[u64]>::get_delta_slice_unchecked(self.data, index + self.offset, self.n_bits)
     }
 
     pub fn next_one(&self, index: usize) -> Option<usize> {

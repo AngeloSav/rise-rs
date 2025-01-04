@@ -1,6 +1,5 @@
 #![feature(unchecked_shifts)]
 #![feature(array_chunks)]
-#![feature(core_intrinsics)]
 #![feature(iter_array_chunks)]
 
 pub mod bitvector;

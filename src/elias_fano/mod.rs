@@ -1,4 +1,4 @@
-use std::{intrinsics::likely, mem};
+use std::mem;
 
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};

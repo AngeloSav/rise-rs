@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     gen_sequences::{gen_strictly_increasing_sequence, negate_vector, DGaps},
-    utils::{gamma_size, msb},
+    utils::gamma_size,
 };
 
 #[test]
