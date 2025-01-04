@@ -50,8 +50,8 @@ impl EliasFano {
     }
 }
 
-impl From<Vec<u64>> for EliasFano {
-    fn from(v: Vec<u64>) -> Self {
+impl<'a> From<&'a [u64]> for EliasFano {
+    fn from(v: &'a [u64]) -> Self {
         assert!(!v.is_empty(), "Sequence is empty");
 
         let u = *v.last().unwrap();
@@ -93,7 +93,7 @@ impl From<Vec<u64>> for EliasFano {
 
         let mut prec_hi = 0;
         let mut prec = 0;
-        for (i, el) in v.into_iter().enumerate() {
+        for (i, &el) in v.into_iter().enumerate() {
             assert!(prec <= el, "Sequence must be non decreasing!");
             let to_push = el & ((1 << n_lo_bits) - 1);
             let hi = (el >> n_lo_bits) + i as u64 + 1;

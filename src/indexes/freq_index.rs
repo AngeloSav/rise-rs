@@ -17,7 +17,8 @@ pub struct FreqIndex<DocumentSequence, DSIter> {
     _phantom: PhantomData<(DocumentSequence, DSIter)>,
 }
 
-pub trait PostingList<'a, T>: ToBitvector + EnumeratorFromBitSlice<'a, T> + From<Vec<u64>>
+pub trait PostingList<'a, T>:
+    ToBitvector + EnumeratorFromBitSlice<'a, T> + for<'b> From<&'b [u64]>
 where
     T: IncreasingSequenceEnumerator,
 {
@@ -25,7 +26,7 @@ where
 
 impl<'a, T, S> PostingList<'a, S> for T
 where
-    T: ToBitvector + EnumeratorFromBitSlice<'a, S> + From<Vec<u64>>,
+    T: ToBitvector + EnumeratorFromBitSlice<'a, S> + for<'b> From<&'b [u64]>,
     S: IncreasingSequenceEnumerator,
 {
 }
@@ -88,7 +89,7 @@ where
                 let v: Vec<u64> = (&mut docs_iter).take(sz as usize).collect();
                 assert!(v.len() == sz as usize);
                 assert!(sz > 0);
-                idx.push_posting_list(DocumentSequence::from(v));
+                idx.push_posting_list(DocumentSequence::from(&v));
 
                 n_postings += sz;
             } else {

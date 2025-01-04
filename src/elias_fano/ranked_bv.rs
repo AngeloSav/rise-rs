@@ -34,8 +34,8 @@ impl RankedBv {
     }
 }
 
-impl From<Vec<u64>> for RankedBv {
-    fn from(v: Vec<u64>) -> Self {
+impl<'a> From<&'a [u64]> for RankedBv {
+    fn from(v: &'a [u64]) -> Self {
         let u = *v.last().unwrap();
         let n = v.len();
 
@@ -60,7 +60,7 @@ impl From<Vec<u64>> for RankedBv {
         };
 
         let mut prec = 0;
-        for (i, el) in v.into_iter().enumerate() {
+        for (i, &el) in v.into_iter().enumerate() {
             assert!(i == 0 || prec < el, "Sequence must be strictly increasing!");
             bv.set(el as usize, true);
 

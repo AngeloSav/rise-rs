@@ -17,8 +17,8 @@ impl AllOnes {
     }
 }
 
-impl From<Vec<u64>> for AllOnes {
-    fn from(v: Vec<u64>) -> Self {
+impl<'a> From<&'a [u64]> for AllOnes {
+    fn from(v: &'a [u64]) -> Self {
         assert!(*v.last().unwrap() + 1 == v.len() as u64);
         Self { n: v.len() }
     }

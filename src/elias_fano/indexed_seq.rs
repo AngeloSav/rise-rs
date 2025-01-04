@@ -39,8 +39,8 @@ impl EstimateSpace for IndexedSequence {
     }
 }
 
-impl From<Vec<u64>> for IndexedSequence {
-    fn from(v: Vec<u64>) -> Self {
+impl<'a> From<&'a [u64]> for IndexedSequence {
+    fn from(v: &'a [u64]) -> Self {
         let n = v.len();
         let u = *v.last().unwrap();
         let sequence = if AllOnes::bitsize(u, n) == 0 {
@@ -121,6 +121,7 @@ impl Iterator for IndexedSequenceIter<'_> {
     }
 }
 
+#[derive(Debug)]
 pub struct IndexSeqCostWindow<'a> {
     start_it: std::iter::Peekable<Iter<'a, u64>>,
     end_it: std::iter::Peekable<Iter<'a, u64>>,

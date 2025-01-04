@@ -64,13 +64,13 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter, const PARTITION_SIZE: usize> From<Vec<u64>>
+impl<'a, 'b, BaseSequence, BaseSequenceIter, const PARTITION_SIZE: usize> From<&'b [u64]>
     for UniformPartitionedSequence<BaseSequence, BaseSequenceIter, PARTITION_SIZE>
 where
     BaseSequence: PostingList<'a, BaseSequenceIter>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
-    fn from(v: Vec<u64>) -> Self {
+    fn from(v: &'b [u64]) -> Self {
         let n = v.len();
         let n_partitions = usize::div_ceil(n, PARTITION_SIZE);
         let mut bv_sequences = BitVecCollection::default();
@@ -78,8 +78,7 @@ where
         let mut cur_partition = Vec::new();
         let mut bv_upper_bounds = Vec::new();
         if n_partitions == 1 {
-            cur_partition.extend(v);
-            bv_sequences.push(BaseSequence::from(cur_partition).to_bv());
+            bv_sequences.push(BaseSequence::from(v).to_bv());
 
             Self {
                 n_partitions,
@@ -93,7 +92,7 @@ where
             let mut endpoints = Vec::new();
             let mut it = v.into_iter();
             for _ in 0..n_partitions {
-                cur_partition = (&mut it).take(PARTITION_SIZE).collect();
+                cur_partition = (&mut it).take(PARTITION_SIZE).copied().collect();
 
                 let cur_base = cur_partition[0];
                 for el in cur_partition.iter_mut() {
@@ -101,14 +100,14 @@ where
                 }
 
                 bv_upper_bounds.push(cur_base);
-                bv_sequences.push(BaseSequence::from(cur_partition).to_bv());
+                bv_sequences.push(BaseSequence::from(&cur_partition).to_bv());
                 endpoints.push(bv_sequences.n_bits());
             }
 
             Self {
                 n_partitions,
                 n,
-                bv_upper_bounds: EliasFano::from(bv_upper_bounds),
+                bv_upper_bounds: EliasFano::from(bv_upper_bounds.as_slice()),
                 bv_sequences,
                 endpoints,
                 _phantom: PhantomData,

@@ -13,7 +13,7 @@ fn ef_iter_bench(bencher: Bencher, len: usize) {
         .into_iter()
         .map(|x| x as u64)
         .collect();
-    let binding = EliasFano::from(vec);
+    let binding = EliasFano::from(vec.as_slice());
     let mut ef = binding.iter();
 
     bencher.bench_local(move || {
