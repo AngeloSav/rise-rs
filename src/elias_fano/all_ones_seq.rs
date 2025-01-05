@@ -1,6 +1,6 @@
 use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, ToBitvector,
+    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
 #[derive(Debug)]
@@ -49,7 +49,16 @@ impl<'a> EnumeratorFromBitSlice<'a, AllOnesIter> for AllOnes {
     }
 
     fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> AllOnesIter {
-        todo!()
+        AllOnesIter { len: n, pos: 0 }
+    }
+}
+
+impl WriteBitvector for AllOnes {
+    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+        assert!(*seq.last().unwrap() + 1 == u);
+        assert!(n == seq.len());
+        assert!(u == n as u64);
+        BitVec::new()
     }
 }
 

@@ -23,7 +23,7 @@ fn main() {
     let path = "/home/anglo/uni/ds2i/test/test_data/test_collection";
     // let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _, 1024>, _> =
     //     FreqIndex::from_files(path);
-    let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _, 512>, _> =
+    let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _>, _> =
         FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.u_is_pef.out"), true);
     println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
     // idx.check_correctness(path);

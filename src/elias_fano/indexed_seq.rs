@@ -1,8 +1,8 @@
 use std::slice::Iter;
 
 use crate::{
-    BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector,
+    AccessBin, BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, EstimateSpace,
+    IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector, WriteBitvector,
 };
 
 use super::{
@@ -16,6 +16,13 @@ pub enum IndexType {
     EliasFanoT(EliasFano),
     RankedBvT(RankedBv),
     AllOnesT(AllOnes),
+}
+
+#[derive(Debug)]
+pub enum IndexTypeNew {
+    EliasFanoT,
+    RankedBvT,
+    AllOnesT,
 }
 
 #[derive(Debug)]
@@ -69,6 +76,41 @@ impl ToBitvector for IndexedSequence {
     }
 }
 
+impl WriteBitvector for IndexedSequence {
+    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+        let mut bv = BitVec::new();
+        let (t, seq) = if AllOnes::bitsize(u, n) == 0 {
+            (IndexTypeNew::AllOnesT, AllOnes::write_bitvector(seq, n, u))
+        } else if RankedBv::bitsize(u, n) <= EliasFano::bitsize(u, n) {
+            (
+                IndexTypeNew::RankedBvT,
+                RankedBv::write_bitvector(seq, n, u),
+            )
+        } else {
+            (
+                IndexTypeNew::EliasFanoT,
+                EliasFano::write_bitvector(seq, n, u),
+            )
+        };
+
+        //all ones is implicit
+        println!("writing itertype: {:?}", t);
+        match t {
+            IndexTypeNew::EliasFanoT => {
+                bv.push(false);
+            }
+            IndexTypeNew::RankedBvT => {
+                bv.push(true);
+            }
+            IndexTypeNew::AllOnesT => (), //implicit ,
+        }
+
+        //all ones is implicit
+        bv.concat(seq);
+        bv
+    }
+}
+
 impl<'a> EnumeratorFromBitSlice<'a, IndexedSequenceIter<'a>> for IndexedSequence {
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> IndexedSequenceIter<'a> {
         let slice = bv.split_at(2).1;
@@ -86,7 +128,31 @@ impl<'a> EnumeratorFromBitSlice<'a, IndexedSequenceIter<'a>> for IndexedSequence
         n: usize,
         u: u64,
     ) -> IndexedSequenceIter<'a> {
-        todo!()
+        let t = if AllOnes::bitsize(u, n) == 0 {
+            IndexTypeNew::AllOnesT
+        } else {
+            match bv.get(0).unwrap() {
+                true => IndexTypeNew::RankedBvT,
+                false => IndexTypeNew::EliasFanoT,
+            }
+        };
+
+        // println!("now using itertype: {:?}", t);
+
+        let it = match t {
+            IndexTypeNew::EliasFanoT => {
+                let slice = bv.split_at(1).1;
+                IterType::EliasFanoItT(EliasFano::iter_from_slice_with_data(slice, n, u))
+            }
+            IndexTypeNew::RankedBvT => {
+                let slice = bv.split_at(1).1;
+                IterType::RankedBvItT(RankedBv::iter_from_slice_with_data(slice, n, u))
+            }
+            IndexTypeNew::AllOnesT => {
+                IterType::AllOnesItT(AllOnes::iter_from_slice_with_data(bv, n, u))
+            }
+        };
+        IndexedSequenceIter { it }
     }
 }
 

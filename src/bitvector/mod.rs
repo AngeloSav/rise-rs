@@ -588,6 +588,10 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     pub fn count_zeros(&self) -> usize {
         self.len() - self.count_ones()
     }
+
+    pub fn as_bitslice(&self) -> BitSliceWithOffset<'_> {
+        unsafe { BitSliceWithOffset::from_raw_parts(&self.data.as_ref(), self.n_bits, 0) }
+    }
 }
 
 impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
@@ -1712,7 +1716,7 @@ impl<'a> BitSliceWithOffset<'a> {
         let mut count = 0;
 
         while begin_word < end_word {
-            count += dbg!(word.count_ones()) as usize;
+            count += word.count_ones() as usize;
 
             word = self.data[begin_word];
             begin_word += 1;

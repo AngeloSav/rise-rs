@@ -86,12 +86,48 @@ fn test_ranked_bv_small() {
 }
 
 #[test]
+fn test_ranked_bv_small_new() {
+    let v = vec![1, 2, 3, 4, 5, 6, 61, 62, 127, 200, 290];
+    let a = RankedBv::write_bitvector(v.clone().as_slice(), v.len(), *v.last().unwrap() + 1);
+
+    for (a, b) in
+        RankedBv::iter_from_slice_with_data(a.as_bitslice(), v.len(), *v.last().unwrap() + 1)
+            .zip(v.clone())
+    {
+        assert!(a == b);
+        println!("{:?}", a);
+    }
+
+    let mut it =
+        RankedBv::iter_from_slice_with_data(a.as_bitslice(), v.len(), *v.last().unwrap() + 1);
+    assert_eq!(it.next_val(), Some((1, 0)));
+    assert_eq!(it.next_geq(3), Some((3, 2)));
+    assert_eq!(it.next_geq(6), Some((6, 5)));
+    assert_eq!(it.next_geq(8).unwrap().0, 61);
+    assert_eq!(it.next_geq(199).unwrap().0, 200);
+}
+
+#[test]
 fn test_all_ones_small() {
     let v = vec![0, 1, 2, 3, 4, 5, 6];
     // let v = (0..=170).collect::<Vec<_>>();
     let a: AllOnes = AllOnes::from(v.clone().as_slice());
 
     for (a, b) in a.iter().zip(v) {
+        assert!(a == b);
+        println!("{:?}", a);
+    }
+}
+
+#[test]
+fn test_all_ones_small_new() {
+    let v = vec![0, 1, 2, 3, 4, 5, 6];
+    // let v = (0..=170).collect::<Vec<_>>();
+    let a = AllOnes::write_bitvector(&v, v.len(), *v.last().unwrap() + 1);
+
+    for (a, b) in
+        AllOnes::iter_from_slice_with_data(a.as_bitslice(), v.len(), *v.last().unwrap() + 1).zip(v)
+    {
         assert!(a == b);
         println!("{:?}", a);
     }
@@ -179,7 +215,8 @@ fn pg3() {
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
     // type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
-    type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
+    // type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
+    type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
     // type TY<'a> = EliasFano;
 
     let binding = v.clone();

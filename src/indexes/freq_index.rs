@@ -4,8 +4,8 @@ use std::{fs, marker::PhantomData, mem, path::Path};
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage,
-    utils::TimingQueries, BitSliceWithOffset, BitVecCollection, EnumeratorFromBitSlice,
-    IncreasingSequenceEnumerator, ToBitvector,
+    utils::TimingQueries, BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
+    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct FreqIndex<DocumentSequence, DSIter> {
 }
 
 pub trait PostingList<'a, T>:
-    ToBitvector + EnumeratorFromBitSlice<'a, T> + for<'b> From<&'b [u64]>
+    ToBitvector + EnumeratorFromBitSlice<'a, T> + for<'b> From<&'b [u64]> + WriteBitvector
 where
     T: IncreasingSequenceEnumerator,
 {
@@ -26,7 +26,7 @@ where
 
 impl<'a, T, S> PostingList<'a, S> for T
 where
-    T: ToBitvector + EnumeratorFromBitSlice<'a, S> + for<'b> From<&'b [u64]>,
+    T: ToBitvector + EnumeratorFromBitSlice<'a, S> + for<'b> From<&'b [u64]> + WriteBitvector,
     S: IncreasingSequenceEnumerator,
 {
 }
@@ -46,16 +46,14 @@ where
         }
     }
 
-    /// Push the document sequence `s` in the document collection, can only be done at build time
-    fn push_posting_list(&mut self, s: DocumentSequence) {
-        let a = s.to_bv();
-        self.docs_sequences.push(a);
-        self.n_terms += 1;
-    }
-
     pub fn get_plist_iter(&'a self, i: usize) -> S {
         let a: BitSliceWithOffset<'a> = self.docs_sequences.get(i);
-        DocumentSequence::iter_from_slice(a)
+        let (sz, pos) = unsafe { a.get_gamma_unchecked(0) };
+        DocumentSequence::iter_from_slice_with_data(
+            a.split_at(pos).1,
+            sz as usize,
+            self._n_docs as u64,
+        )
     }
 
     const LENGTH_THRESHOLD: u64 = 1 << 12;
@@ -89,7 +87,14 @@ where
                 let v: Vec<u64> = (&mut docs_iter).take(sz as usize).collect();
                 assert!(v.len() == sz as usize);
                 assert!(sz > 0);
-                idx.push_posting_list(DocumentSequence::from(&v));
+
+                let mut bv = BitVec::new();
+                bv.append_gamma(sz);
+                // println!("sz is: {}", sz);
+                bv.concat(DocumentSequence::write_bitvector(&v, sz as usize, n_docs));
+
+                idx.docs_sequences.push(bv);
+                idx.n_terms += 1;
 
                 n_postings += sz;
             } else {
@@ -130,6 +135,7 @@ where
                 let itv = v.iter();
                 for (_i, &s) in itv.enumerate() {
                     // println!("check n {}", i);
+                    // assert!(dbg!(s) == dbg!(it.next().unwrap()));
                     assert!(s == it.next().unwrap());
                 }
             } else {

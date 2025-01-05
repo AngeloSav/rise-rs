@@ -164,8 +164,10 @@ impl<'a> From<&'a [u64]> for EliasFano {
 }
 
 impl WriteBitvector for EliasFano {
+    #[inline]
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         assert!(!seq.is_empty(), "Sequence is empty");
+        assert!(seq.len() == n, "n is incorrect");
 
         let n_lo_bits = if u > n as u64 { msb(u / n as u64) } else { 0 };
         let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
@@ -186,6 +188,7 @@ impl WriteBitvector for EliasFano {
 
             while (ptr0 << LOG_SAMPLING0) < end_zeros {
                 if ptr0 == 0 {
+                    ptr0 += 1;
                     continue;
                 }
 
