@@ -110,6 +110,11 @@ where
     T: IncreasingSequenceEnumerator,
 {
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> T;
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> T;
+}
+
+pub trait WriteBitvector {
+    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec;
 }
 
 /// This trait contains the associated type for a cost window, if the given sequence has a partitioning method

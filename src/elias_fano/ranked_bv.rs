@@ -110,6 +110,10 @@ impl<'a> EnumeratorFromBitSlice<'a, RankedBvIter<'a>> for RankedBv {
             len: u as usize,
         }
     }
+
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> RankedBvIter<'a> {
+        todo!()
+    }
 }
 
 impl EstimateSpace for RankedBv {

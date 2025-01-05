@@ -8,7 +8,8 @@ use crate::{
     },
     gen_sequences::gen_strictly_increasing_sequence,
     utils::{gamma_size, msb},
-    CostWindow, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
+    CostWindow, EliasFanoIter, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
+    WriteBitvector,
 };
 
 use super::{
@@ -53,7 +54,7 @@ fn test_ef_iter_random() {
 
 #[test]
 fn test_ef_small() {
-    let v = vec![1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1027];
+    let v = vec![0, 1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1027];
     let a: EliasFano = EliasFano::from(v.clone().as_slice());
 
     for (a, b) in a.iter().zip(v) {
@@ -62,8 +63,8 @@ fn test_ef_small() {
     }
 
     let mut it = a.iter();
-    assert_eq!(it.next_val(), Some((1, 0)));
-    assert_eq!(it.next_geq(30), Some((61, 6)));
+    assert_eq!(it.next_val(), Some((0, 0)));
+    assert_eq!(it.next_geq(30), Some((61, 7)));
 }
 
 #[test]
@@ -167,4 +168,36 @@ fn pg2() {
     );
 
     println!("{:?}", IndexSeqCostWindow::single_block_cost(&v))
+}
+
+#[test]
+fn pg3() {
+    // let v = vec![1, 2, 3, 4, 5, 6, 10, 10000];
+    // let v = (0..=4000).collect::<Vec<_>>();
+    let v = gen_strictly_increasing_sequence((1 << 12) + 100, 1 << 22)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+    // type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
+    // type TY<'a> = EliasFano;
+
+    let binding = v.clone();
+    let x = TY::write_bitvector(
+        binding.as_slice(),
+        binding.len(),
+        *binding.last().unwrap() + 1,
+    );
+
+    // println!("{:?}", x);
+
+    let mut bv = BitVectorCollection::with_capacity(0, 0);
+    bv.push(x);
+
+    let it = TY::iter_from_slice_with_data(bv.get(0), binding.len(), *binding.last().unwrap() + 1);
+
+    for (a, b) in it.zip(v) {
+        // println!("{:?} {}", a, b);
+        assert!(a == b);
+    }
 }

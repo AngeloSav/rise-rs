@@ -8,7 +8,7 @@ use crate::{
     space_usage::SpaceUsage,
     utils::{ceil_log2, gamma_size, msb},
     BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, ToBitvector,
+    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
 pub mod all_ones_seq;
@@ -47,6 +47,21 @@ impl EliasFano {
             len: self.len(),
             cur_value: 0,
         }
+    }
+
+    pub fn n_bits(u: u64, n: usize) -> usize {
+        let n_lo_bits = if u > n as u64 {
+            (msb(u / n as u64)) as u64
+        } else {
+            0
+        };
+        let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
+
+        let pointer_size = ceil_log2(higher_bits_len) as u64;
+        let n = n as u64;
+
+        (n_lo_bits * n + ((higher_bits_len - n) >> LOG_SAMPLING0) * pointer_size + higher_bits_len)
+            as usize
     }
 }
 
@@ -145,6 +160,95 @@ impl<'a> From<&'a [u64]> for EliasFano {
             pointer_size: pointer_size as usize,
             n_lo_bits: n_lo_bits as usize,
         }
+    }
+}
+
+impl WriteBitvector for EliasFano {
+    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+        assert!(!seq.is_empty(), "Sequence is empty");
+
+        let n_lo_bits = if u > n as u64 { msb(u / n as u64) } else { 0 };
+        let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
+
+        let pointer_size = ceil_log2(higher_bits_len) as u64;
+
+        let mut bv_lo = BitVec::new();
+        let mut bv_hi = BitVec::new();
+        let mut bv_ptrs = BitVec::with_zeros(
+            ((higher_bits_len as usize - n) >> LOG_SAMPLING0) * pointer_size as usize,
+        );
+
+        let mut set_ptr0 = |begin: u64, end: u64, rank_end: u64| {
+            let begin_zeros = begin - rank_end;
+            let end_zeros = end - rank_end;
+
+            let mut ptr0 = div_ceil(begin_zeros, 1 << LOG_SAMPLING0);
+
+            while (ptr0 << LOG_SAMPLING0) < end_zeros {
+                if ptr0 == 0 {
+                    continue;
+                }
+
+                let offset = (ptr0 - 1) * pointer_size;
+                bv_ptrs.set_bits(
+                    offset as usize,
+                    pointer_size as usize,
+                    (ptr0 << LOG_SAMPLING0) + rank_end,
+                );
+
+                ptr0 += 1;
+            }
+        };
+
+        let mut prec_hi = 0;
+        let mut prec = 0;
+        for (i, &el) in seq.into_iter().enumerate() {
+            assert!(prec <= el, "Sequence must be non decreasing!");
+            let to_push = el & ((1 << n_lo_bits) - 1);
+            let hi = (el >> n_lo_bits) + i as u64 + 1;
+            // println!("to push  {:0>10b}", to_push);
+            bv_lo.append_bits(to_push, n_lo_bits as usize);
+
+            bv_hi.extend_with_zeros(((el >> n_lo_bits) - (prec >> n_lo_bits)) as usize);
+            bv_hi.push(true);
+
+            set_ptr0(prec_hi + 1, hi, i as u64);
+
+            prec = el;
+            prec_hi = hi;
+        }
+
+        set_ptr0(prec_hi, higher_bits_len, n as u64);
+        bv_hi.push(false);
+
+        // println!("---------------");
+        let mut bv = BitVectorCollection::with_capacity(bv_hi.len() + bv_lo.len(), 2);
+        bv.push(bv_ptrs);
+        // println!(
+        //     "len: {} | n_bits: {} ({} u64)",
+        //     bv.bv.data.len(),
+        //     bv.bv.n_bits,
+        //     bv.bv.n_bits / 64
+        // );
+        bv.push(bv_lo);
+        // println!("pushed lo");
+        // println!(
+        //     "len: {} | n_bits: {} ({} u64)",
+        //     bv.bv.data.len(),
+        //     bv.bv.n_bits,
+        //     bv.bv.n_bits / 64
+        // );
+        bv_hi.extend_with_zeros(higher_bits_len as usize - bv_hi.len());
+        bv.push(bv_hi);
+        // println!("pushed hi");
+        // println!(
+        //     "len: {} | n_bits: {} ({} u64)",
+        //     bv.bv.data.len(),
+        //     bv.bv.n_bits,
+        //     bv.bv.n_bits / 64
+        // );
+
+        bv.bv
     }
 }
 
@@ -298,13 +402,13 @@ impl EstimateSpace for EliasFano {
 
 impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> EliasFanoIter<'a> {
-        let (n, _pos) = unsafe { bv.get_gamma_unchecked(0) };
-        let n_len = gamma_size(n);
+        let (n, pos) = unsafe { bv.get_gamma_unchecked(0) };
+        // let n_len = gamma_size(n);
 
         // println!("n: {} | n_len {} | pos {}", n, n_len, pos);
 
-        let (u, _) = unsafe { bv.get_gamma_unchecked(n_len) };
-        let u_len = gamma_size(u);
+        let (u, pos) = unsafe { bv.get_gamma_unchecked(pos) };
+        // let u_len = gamma_size(u);
 
         // println!("bv len = {}", bv.len());
         // println!("u: {} | u gamma len: {}", u, u_len);
@@ -314,10 +418,10 @@ impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
 
         let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
         let pointer_size = ceil_log2(higher_bits_len) as usize;
-        let start_bits = n_len + u_len;
+        // let start_bits = n_len + u_len;
 
         // println!("splitting at bit n {}", start_bits);
-        let (_, data) = bv.split_at(start_bits);
+        let (_, data) = bv.split_at(pos);
         // println!("ok first split");
         // println!("data len: {}", data.len());
         // println!("splitting at bit n {}", n * n_lo_bits);
@@ -325,6 +429,40 @@ impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
         let (slice_samples, slice_remainder) = data
             .split_at(((higher_bits_len as usize - n as usize) >> LOG_SAMPLING0) * pointer_size);
         let (slice_lo, slice_hi) = slice_remainder.split_at((n * n_lo_bits) as usize);
+        // println!("ok second split");
+
+        EliasFanoIter {
+            slice_samples,
+            slice_lo,
+            slice_hi,
+            n_bits_lo: n_lo_bits as usize,
+            pointer_size,
+            position: 0,
+            hi_ctr: 0,
+            i_hi: 0,
+            len: n as usize,
+            cur_value: 0,
+        }
+    }
+
+    fn iter_from_slice_with_data(
+        bv: BitSliceWithOffset<'a>,
+        n: usize,
+        u: u64,
+    ) -> EliasFanoIter<'a> {
+        let n_lo_bits = if u > n as u64 {
+            msb(u / n as u64) as u64
+        } else {
+            0
+        };
+        // println!("n_lo_bits: {}", n_lo_bits);
+
+        let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
+        let pointer_size = ceil_log2(higher_bits_len) as usize;
+
+        let (slice_samples, slice_remainder) =
+            bv.split_at(((higher_bits_len as usize - n as usize) >> LOG_SAMPLING0) * pointer_size);
+        let (slice_lo, slice_hi) = slice_remainder.split_at((n as u64 * n_lo_bits) as usize);
         // println!("ok second split");
 
         EliasFanoIter {

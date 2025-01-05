@@ -114,12 +114,10 @@ fn main() {
     match args.idx_kind {
         IdxKind::EFSingle => query_idx!(FreqIndex<EliasFano, _>),
         IdxKind::UPEf => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano, _, FIXED_BLOCK_SIZE>, _>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano, _>, _>)
         }
         IdxKind::UPIs => {
-            query_idx!(
-                FreqIndex<UniformPartitionedSequence<IndexedSequence, _, FIXED_BLOCK_SIZE>, _>
-            )
+            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence, _>, _>)
         }
         IdxKind::Opt => {
             query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence, _>, _>)

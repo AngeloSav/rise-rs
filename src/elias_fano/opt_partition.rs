@@ -222,6 +222,14 @@ where
             }
         }
     }
+
+    fn iter_from_slice_with_data(
+        bv: BitSliceWithOffset<'a>,
+        n: usize,
+        u: u64,
+    ) -> OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+        todo!()
+    }
 }
 
 pub struct OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {

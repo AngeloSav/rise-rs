@@ -80,6 +80,14 @@ impl<'a> EnumeratorFromBitSlice<'a, IndexedSequenceIter<'a>> for IndexedSequence
         };
         IndexedSequenceIter { it }
     }
+
+    fn iter_from_slice_with_data(
+        bv: BitSliceWithOffset<'a>,
+        n: usize,
+        u: u64,
+    ) -> IndexedSequenceIter<'a> {
+        todo!()
+    }
 }
 
 #[derive(Debug)]

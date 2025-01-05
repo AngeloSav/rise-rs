@@ -1554,13 +1554,23 @@ impl<'a> BitSliceWithOffset<'a> {
     #[inline]
     #[must_use]
     pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
-        BitVector::<&[u64]>::get_gamma_slice_unchecked(self.data, index + self.offset, self.n_bits)
+        let (v, pos) = BitVector::<&[u64]>::get_gamma_slice_unchecked(
+            self.data,
+            index + self.offset,
+            self.n_bits,
+        );
+        (v, pos - self.offset)
     }
 
     #[inline]
     #[must_use]
     pub unsafe fn get_delta_unchecked(&self, index: usize) -> (u64, usize) {
-        BitVector::<&[u64]>::get_delta_slice_unchecked(self.data, index + self.offset, self.n_bits)
+        let (v, pos) = BitVector::<&[u64]>::get_delta_slice_unchecked(
+            self.data,
+            index + self.offset,
+            self.n_bits,
+        );
+        (v, pos - self.offset)
     }
 
     pub fn next_one(&self, index: usize) -> Option<usize> {

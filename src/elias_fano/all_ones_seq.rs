@@ -47,6 +47,10 @@ impl<'a> EnumeratorFromBitSlice<'a, AllOnesIter> for AllOnes {
         let n = unsafe { bv.get_gamma_unchecked(0).0 as usize };
         AllOnesIter { len: n, pos: 0 }
     }
+
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> AllOnesIter {
+        todo!()
+    }
 }
 
 #[derive(Debug)]
