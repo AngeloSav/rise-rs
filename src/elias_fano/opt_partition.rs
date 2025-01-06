@@ -179,9 +179,9 @@ where
             }
 
             bv.concat(BaseSequence::write_bitvector(
-                seq,
+                &cur_partition,
                 cur_partition.len(),
-                *cur_partition.last().unwrap(),
+                *cur_partition.last().unwrap() + 1,
             ));
         } else {
             let mut cur_partition: Vec<u64>;
@@ -380,8 +380,8 @@ where
 
             return OptPartitionedSeqIter {
                 position: 0,
-                cur_base: 0,
-                cur_ub: u,
+                cur_base,
+                cur_ub: cur_base + ub,
                 cur_begin: 0,
                 cur_end: n,
                 cur_partition: 0,

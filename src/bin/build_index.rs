@@ -61,8 +61,6 @@ fn main() {
         }};
     }
 
-    const FIXED_BLOCK_SIZE: usize = 512;
-
     match args.idx_kind {
         IdxKind::EFSingle => build_idx!(FreqIndex<EliasFano, _>),
         IdxKind::UPEf => {

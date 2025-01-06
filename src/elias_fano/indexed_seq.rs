@@ -79,7 +79,7 @@ impl ToBitvector for IndexedSequence {
 impl WriteBitvector for IndexedSequence {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         let mut bv = BitVec::new();
-        let (t, seq) = if AllOnes::bitsize(u, n) == 0 {
+        let (t, bv_data) = if AllOnes::bitsize(u, n) == 0 {
             (IndexTypeNew::AllOnesT, AllOnes::write_bitvector(seq, n, u))
         } else if RankedBv::bitsize(u, n) <= EliasFano::bitsize(u, n) {
             (
@@ -94,7 +94,7 @@ impl WriteBitvector for IndexedSequence {
         };
 
         //all ones is implicit
-        println!("writing itertype: {:?}", t);
+        // println!("writing itertype: {:?}", t);
         match t {
             IndexTypeNew::EliasFanoT => {
                 bv.push(false);
@@ -106,7 +106,7 @@ impl WriteBitvector for IndexedSequence {
         }
 
         //all ones is implicit
-        bv.concat(seq);
+        bv.concat(bv_data);
         bv
     }
 }

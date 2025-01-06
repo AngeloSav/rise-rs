@@ -204,7 +204,7 @@ where
             }
 
             bv.concat(BaseSequence::write_bitvector(
-                seq,
+                &cur_partition,
                 cur_partition.len(),
                 *cur_partition.last().unwrap() + 1,
             ));

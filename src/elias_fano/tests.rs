@@ -145,14 +145,14 @@ fn pg() {
     // type TY<'a> = AllOnes;
 
     let binding = v.clone();
-    let x = TY::from(binding.as_slice());
+    let x = TY::write_bitvector(binding.as_slice(), v.len(), *v.last().unwrap());
 
     println!("{:?}", x);
 
     let mut bv = BitVectorCollection::with_capacity(0, 0);
-    bv.push(x.to_bv());
+    bv.push(x);
 
-    let it = TY::iter_from_slice(bv.get(0));
+    let it = TY::iter_from_slice_with_data(bv.get(0), v.len(), *v.last().unwrap());
 
     for (a, b) in it.zip(v) {
         println!("{:?}", a);
