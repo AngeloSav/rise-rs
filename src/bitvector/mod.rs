@@ -15,7 +15,13 @@ pub mod bitvector_collection;
 // - create a BitBoxed with fixed size (with_zeros() or with_ones())
 // - add a function to get a BitSlice from a starting word of a given bitlength
 
-use crate::{space_usage::SpaceUsage, utils::msb, AccessBin};
+use std::u64;
+
+use crate::{
+    space_usage::SpaceUsage,
+    utils::{msb, select_in_word},
+    AccessBin,
+};
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -292,6 +298,48 @@ impl<V: AsRef<[u64]>> BitVector<V> {
 
         if w != 0 {
             return (last_block << 6) + w.trailing_zeros() as usize;
+        }
+
+        n_bits
+    }
+
+    // Private function that returns the position of the next k-th (0-indexed) bit in the bit vector starting
+    // from position `index` (included). If such bit does not exist, the function returns a value larger
+    // than or equal to the number of bits in the bit vector.
+    //
+    // UB: if `index` is out of bounds.
+    #[inline]
+    #[must_use]
+    unsafe fn skip_bits_slice_unchecked<const BIT: bool>(
+        data: &[u64],
+        index: usize,
+        n_bits: usize,
+        k: usize,
+    ) -> usize {
+        let block = index >> 6;
+        let shift = index & 63;
+        let mut k = k;
+
+        let w = if BIT {
+            *data.get_unchecked(block)
+        } else {
+            !*data.get_unchecked(block)
+        } >> shift;
+
+        if w.count_ones() as usize > k {
+            return index + select_in_word(w, k as u64) as usize;
+        }
+        k -= w.count_ones() as usize;
+
+        for (i, &w) in data[block + 1..].iter().enumerate() {
+            let w = if BIT { w } else { !w };
+            // println!("k is {} | w is {:0>64b}", k, w);
+            // println!("k is {} | popcount is {}", k, w.count_ones());
+
+            if w.count_ones() as usize > k {
+                return ((block + i + 1) << 6) + select_in_word(w, k as u64) as usize;
+            }
+            k -= w.count_ones() as usize;
         }
 
         n_bits
@@ -1620,6 +1668,53 @@ impl<'a> BitSliceWithOffset<'a> {
             self.n_bits + self.offset,
         ) - self.offset
     }
+
+    pub fn skip_zeros(&self, index: usize, k: usize) -> Option<usize> {
+        if index >= self.n_bits {
+            return None;
+        }
+        // SAFETY: safe access due to the above checks
+        let p = unsafe { self.skip_zeros_unchecked(index, k) };
+
+        if p < self.n_bits {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn skip_zeros_unchecked(&self, index: usize, k: usize) -> usize {
+        BitVector::<&[u64]>::skip_bits_slice_unchecked::<false>(
+            self.data,
+            index + self.offset,
+            self.n_bits + self.offset,
+            k,
+        ) - self.offset
+    }
+
+    pub fn skip_ones(&self, index: usize, k: usize) -> Option<usize> {
+        if index >= self.n_bits {
+            return None;
+        }
+        // SAFETY: safe access due to the above checks
+        let p = unsafe { self.skip_ones_unchecked(index, k) };
+
+        if p < self.n_bits {
+            Some(p)
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn skip_ones_unchecked(&self, index: usize, k: usize) -> usize {
+        BitVector::<&[u64]>::skip_bits_slice_unchecked::<true>(
+            self.data,
+            index + self.offset,
+            self.n_bits + self.offset,
+            k,
+        ) - self.offset
+    }
+
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.
     ///
     /// # Examples

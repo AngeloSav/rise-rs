@@ -7,7 +7,7 @@ use crate::{
     bitvector::bitvector_collection::BitVectorCollection,
     space_usage::SpaceUsage,
     utils::{ceil_log2, gamma_size, msb},
-    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
+    AccessBin, BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
@@ -271,6 +271,54 @@ pub struct EliasFanoIter<'a> {
 
 impl EliasFanoIter<'_> {
     const LINEAR_SCAN_THRESHOLD: usize = 8;
+
+    #[cold]
+    #[inline(never)]
+    fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
+        let cur_hi = self.hi_ctr;
+        let hi_diff = hi_lower_bound as usize - cur_hi;
+
+        let to_skip;
+        if lower_bound > self.cur_value && hi_diff >> LOG_SAMPLING0 == 0 {
+            to_skip = hi_diff
+        } else {
+            let ptr = hi_lower_bound >> LOG_SAMPLING0;
+            let hi_pos = if ptr == 0 {
+                0
+            } else {
+                unsafe {
+                    self.slice_samples.get_bits_unchecked(
+                        (ptr - 1) as usize * self.pointer_size,
+                        self.pointer_size,
+                    )
+                }
+            };
+            let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
+
+            to_skip = hi_lower_bound - hi_rank0;
+            self.i_hi = hi_pos as usize;
+        }
+
+        // this is the old, slow way to skip zeros
+        // for _ in 0..to_skip {
+        //     self.i_hi = self.slice_hi.next_zero(self.i_hi)? + 1;
+        // }
+
+        if to_skip != 0 {
+            self.i_hi = self.slice_hi.skip_zeros(self.i_hi, to_skip - 1)? + 1
+        };
+
+        self.position = self.i_hi - hi_lower_bound;
+        self.hi_ctr = hi_lower_bound;
+
+        let (mut val, mut pos) = self.next_val()?;
+        while val < lower_bound {
+            (val, pos) = self.next_val()?;
+        }
+
+        Some((val, pos))
+    }
 }
 
 impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
@@ -301,7 +349,7 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         // let lb_hi = lower_bound >> self.n_bits_lo;
         // let hi_diff = lb_hi - self.hi_ctr as u64;
@@ -327,41 +375,7 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
             Some((val, pos))
         } else {
             //slow next geq
-            let to_skip;
-            if lower_bound > self.cur_value && hi_diff >> LOG_SAMPLING0 == 0 {
-                to_skip = hi_diff;
-            } else {
-                let ptr = hi_lower_bound >> LOG_SAMPLING0;
-                let hi_pos = if ptr == 0 {
-                    0
-                } else {
-                    unsafe {
-                        self.slice_samples.get_bits_unchecked(
-                            (ptr - 1) as usize * self.pointer_size,
-                            self.pointer_size,
-                        )
-                    }
-                };
-                let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
-
-                to_skip = hi_lower_bound - hi_rank0;
-                self.i_hi = hi_pos as usize;
-            }
-
-            //TODO: fast skip0
-            for _ in 0..to_skip {
-                self.i_hi = self.slice_hi.next_zero(self.i_hi)? + 1;
-            }
-
-            self.position = self.i_hi - hi_lower_bound;
-            self.hi_ctr = hi_lower_bound;
-
-            let (mut val, mut pos) = self.next_val()?;
-            while val < lower_bound {
-                (val, pos) = self.next_val()?;
-            }
-
-            Some((val, pos))
+            self.slow_next_geq(lower_bound)
         }
     }
 

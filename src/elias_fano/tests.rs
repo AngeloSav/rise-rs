@@ -7,9 +7,9 @@ use crate::{
         EliasFano,
     },
     gen_sequences::gen_strictly_increasing_sequence,
-    utils::{gamma_size, msb},
-    CostWindow, EliasFanoIter, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
-    WriteBitvector,
+    utils::{gamma_size, msb, select_in_word},
+    BitVec, CostWindow, EliasFanoIter, EnumeratorFromBitSlice, IncreasingSequenceEnumerator,
+    ToBitvector, WriteBitvector,
 };
 
 use super::{
