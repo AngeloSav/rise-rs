@@ -549,11 +549,11 @@ where
         Some((val, self.position))
     }
 
-    fn move_to_position(&mut self, pos: usize) {
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
         todo!()
     }
 
-    fn position(&self) -> usize {
+    fn current_position(&self) -> usize {
         todo!()
     }
 }

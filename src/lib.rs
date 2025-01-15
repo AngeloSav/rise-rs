@@ -4,6 +4,8 @@
 
 pub mod bitvector;
 
+use std::mem::uninitialized;
+
 pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
 pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
@@ -73,8 +75,8 @@ pub enum IdxKind {
 pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
     fn next_val(&mut self) -> Option<(u64, usize)>;
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
-    fn move_to_position(&mut self, pos: usize);
-    fn position(&self) -> usize;
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)>;
+    fn current_position(&self) -> usize;
     fn prev_value(&mut self) -> (usize, u64) {
         unimplemented!();
     }

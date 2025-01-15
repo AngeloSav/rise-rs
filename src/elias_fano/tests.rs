@@ -168,7 +168,7 @@ fn pg2() {
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
-    // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>, 1024>;
+    // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
     type TY<'a> = EliasFano;
 
     v.extend(v.clone().iter().map(|x| x + 10000));
@@ -237,4 +237,115 @@ fn pg3() {
         // println!("{:?} {}", a, b);
         assert!(a == b);
     }
+}
+
+#[test]
+fn pg4() {
+    // let v = vec![1, 2, 3, 4, 5, 6, 10, 10000];
+    // let v = (0..=4000).collect::<Vec<_>>();
+    let v = gen_strictly_increasing_sequence((1 << 12) + 100, 1 << 22)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+    // type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
+    // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    // type TY<'a> = EliasFano;
+    // type TY<'a> = RankedBv;
+
+    let binding = v.clone();
+    let x = TY::write_bitvector(
+        binding.as_slice(),
+        binding.len(),
+        *binding.last().unwrap() + 1,
+    );
+
+    // println!("{:?}", x);
+
+    let mut bv = BitVectorCollection::with_capacity(0, 0);
+    bv.push(x);
+
+    let mut it =
+        TY::iter_from_slice_with_data(bv.get(0), binding.len(), *binding.last().unwrap() + 1);
+
+    println!("{:?}", &v[0..15]);
+
+    // println!("{:?}", it.next_geq(4));
+
+    // let i = 0;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 3;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 230;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 256;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 220;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 222;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 1050;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let i = 1700;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // println!("back to zero");
+    // let i = 0;
+    // println!("{:?}", it.move_to_position(i));
+    // println!("{:?}", v[i]);
+
+    // let res = it.next_geq(7000).unwrap();
+    // println!("ngeq {:?}", res);
+    // println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+
+    // let res = it.next_geq(7000).unwrap();
+    // println!("ngeq {:?}", res);
+    // println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+
+    let res = it.next_geq(300000).unwrap();
+    println!("ngeq {:?}", res);
+    println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+
+    // let res = it.next_geq(7000).unwrap();
+    // println!("ngeq {:?}", res);
+    // println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+}
+
+#[test]
+fn pg5() {
+    let v = vec![7, 8, 9, 12, 17, 500, 530, 10000];
+    type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+
+    let binding = v.clone();
+    let x = TY::write_bitvector(
+        binding.as_slice(),
+        binding.len(),
+        *binding.last().unwrap() + 1,
+    );
+
+    // println!("{:?}", x);
+
+    let mut bv = BitVectorCollection::with_capacity(0, 0);
+    bv.push(x);
+
+    let mut it =
+        TY::iter_from_slice_with_data(bv.get(0), binding.len(), *binding.last().unwrap() + 1);
+
+    println!("{:?}", it.next_geq(10000));
+    println!("{:?}", it.next_geq(30));
 }

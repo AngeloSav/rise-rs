@@ -22,6 +22,7 @@ use crate::{
     utils::{msb, select_in_word},
     AccessBin,
 };
+use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -1803,10 +1804,10 @@ impl<'a> BitSliceWithOffset<'a> {
 
         let mut begin_word = actual_start / 64;
         let begin_shift = actual_start % 64;
-        let end_word = actual_end / 64;
+        let end_word = div_ceil(actual_end, 64);
         let end_shift = actual_end % 64;
 
-        let mut word = self.data[begin_word] >> begin_shift;
+        let mut word = (self.data[begin_word] >> begin_shift) << begin_shift;
         begin_word += 1;
         let mut count = 0;
 
