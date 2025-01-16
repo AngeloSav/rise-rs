@@ -197,6 +197,7 @@ impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
 impl Iterator for IndexedSequenceIter<'_> {
     type Item = u64;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         Some(self.next_val()?.0)
     }

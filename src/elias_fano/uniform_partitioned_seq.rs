@@ -325,6 +325,7 @@ where
     BaseSequence: PostingList<'a, BaseSequenceIter>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
+    #[cold]
     fn switch_partition(&mut self, part: usize) {
         assert!(self.n_partitions > 1);
 
@@ -435,7 +436,7 @@ where
     BaseSequence: PostingList<'a, BaseSequenceIter>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
-    #[inline]
+    #[inline(always)]
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
 

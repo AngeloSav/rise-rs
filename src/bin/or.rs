@@ -91,7 +91,7 @@ fn main() {
                 timer.start();
                 for term in &parsed {
                     //test or
-                    let x = boolean_or(&idx, term[0], term[1]);
+                    let x = boolean_or_multiterm(&idx, term);
                     check += x.len();
                 }
                 timer.stop();
@@ -169,41 +169,45 @@ where
     v
 }
 
-#[allow(dead_code)]
-#[inline(always)]
 fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize]) -> Vec<u64>
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
 {
-    let mut plists: Vec<_> = terms
-        .iter()
-        .map(|&i| {
-            let mut a = idx.get_plist_iter(i);
-            (a.next_val(), a)
-        })
-        .collect();
+    //contains pairs (cur_val, iterator)
+    let mut enums = Vec::with_capacity(terms.len());
+    for &term in terms {
+        let mut it = idx.get_plist_iter(term);
+        enums.push((it.next_val(), it));
+    }
 
+    let mut cur_doc = enums.iter().filter_map(|(x, _)| Some((*x)?.0)).min();
     let mut v = Vec::new();
 
-    while !plists.is_empty() {
-        // push min to v
-        let min = plists.iter().map(|(x, _)| x.unwrap().0).min().unwrap();
-        v.push(min);
+    while cur_doc.is_some() {
+        // println!("new round ---------------------");
+        // println!("pushing {:?}", cur_doc);
+        v.push(cur_doc.unwrap());
+        let mut next_doc = None;
+        for (cur, it) in enums.iter_mut() {
+            // println!("new term ---");
+            let cur_term_docid = cur.map(|x| x.0);
+            // println!("cur_docid = {:?}", cur_term_docid);
+            if cur_term_docid == cur_doc {
+                // println!("update cur!");
+                *cur = it.next_val();
+            }
 
-        // inc all that are min
-        plists
-            .iter_mut()
-            .filter(|(x, _)| x.unwrap().0 == min)
-            .for_each(|(x, it)| {
-                *x = it.next_val();
-            });
-
-        // remove finished lists
-        plists = plists
-            .into_iter()
-            .filter(|(x, _)| x.is_some())
-            .collect::<Vec<_>>();
+            let cur_term_docid = cur.map(|x| x.0);
+            // println!("check less ---");
+            // println!("cur_doc = {:?}", cur_doc);
+            // println!("cur_term_docid = {:?}", cur_term_docid);
+            if cur_term_docid.is_some() && (next_doc.is_none() || cur_term_docid < next_doc) {
+                next_doc = cur_term_docid
+            }
+        }
+        cur_doc = next_doc;
+        // println!("nextdoc is {:?}", cur_doc);
     }
     v
 }
