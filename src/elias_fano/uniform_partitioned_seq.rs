@@ -348,41 +348,7 @@ where
         );
     }
 
-    // fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
-    //     if lower_bound >= self.universe {
-    //         self.position = self.len;
-    //         return None;
-    //     }
-
-    //     if self.n_partitions == 1 {
-    //         return self
-    //             .cur_sequence
-    //             .next_geq(0.max(lower_bound as i64 - self.cur_base as i64) as u64);
-    //     }
-
-    //     // println!("looking for {}", lower_bound);
-    //     let (_ub_val, ub_pos) = self.upper_bounds.next_geq(lower_bound)?;
-    //     // println!("val, pos: {} {}", ub_val, ub_pos);
-
-    //     if ub_pos >= self.n_partitions {
-    //         self.position = self.len;
-    //         return None;
-    //     }
-
-    //     self.switch_partition(ub_pos);
-
-    //     let (val, pos) = self
-    //         .cur_sequence
-    //         .next_geq(0.max(lower_bound as i64 - self.cur_base as i64) as u64)?;
-
-    //     // println!(
-    //     //     "got val, pos: {} {} | cur_base = {}",
-    //     //     val, pos, self.cur_base
-    //     // );
-    //     self.position = self.cur_begin + pos + 1;
-    //     Some((val + self.cur_base, self.position - 1))
-    // }
-
+    #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if self.n_partitions == 1 {
             if lower_bound < self.cur_base {
@@ -414,6 +380,7 @@ where
         // self.next_geq(lower_bound)
     }
 
+    #[cold]
     fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {
         if pos >= self.len {
             if self.n_partitions > 1 {
@@ -436,7 +403,6 @@ where
     BaseSequence: PostingList<'a, BaseSequenceIter>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
-    #[inline(always)]
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
 
@@ -455,14 +421,6 @@ where
     }
 
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
-        // let mut val = self.cur_value;
-        // if i > self.cur_value {
-        //     while val < i {
-        //         val = self.next_val()?.0
-        //     }
-        // }
-        // Some((val, self.position))
-
         if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
             let (val, pos) = self.cur_sequence.next_geq(lower_bound - self.cur_base)?;
             self.position = self.cur_begin + pos as usize;
@@ -475,14 +433,6 @@ where
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
         self.position = pos;
 
-        // if (m_position >= m_cur_begin && m_position < m_cur_end) {
-        //     uint64_t val =
-        //         m_cur_base +
-        //         m_partition_enum.move(m_position - m_cur_begin).second;
-        //     return value_type(m_position, val);
-        // }
-
-        // return slow_move();
         if self.position >= self.cur_begin && self.position < self.cur_end {
             let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
             return Some((self.cur_base + val, self.position));

@@ -287,9 +287,8 @@ impl EliasFanoIter<'_> {
 }
 
 impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
-    #[inline]
     fn next_val(&mut self) -> Option<(u64, usize)> {
-        if self.position < self.len {
+        if core::intrinsics::likely(self.position < self.len) {
             let lo = self
                 .slice_lo
                 .get_bits(self.position * self.n_bits_lo, self.n_bits_lo)
@@ -315,7 +314,6 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
         }
     }
 
-    #[inline]
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         // let lb_hi = lower_bound >> self.n_bits_lo;
         // let hi_diff = lb_hi - self.hi_ctr as u64;

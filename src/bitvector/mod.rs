@@ -19,7 +19,7 @@ use std::u64;
 
 use crate::{
     space_usage::SpaceUsage,
-    utils::{msb, select_in_word},
+    utils::{msb, prefetch_read_NTA, select_in_word},
     AccessBin,
 };
 use num::integer::div_ceil;
@@ -272,7 +272,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     ) -> usize {
         let block = index >> 6;
         let shift = index & 63;
-        let last_block = n_bits >> 6;
+        // let last_block = n_bits >> 6;
 
         let w = if BIT {
             *data.get_unchecked(block)
@@ -280,7 +280,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
             !*data.get_unchecked(block)
         } >> shift;
 
-        if w != 0 {
+        if core::intrinsics::likely(w != 0) {
             return index + w.trailing_zeros() as usize;
         }
 
@@ -291,15 +291,15 @@ impl<V: AsRef<[u64]>> BitVector<V> {
             }
         }
 
-        let w = if BIT {
-            *data.get_unchecked(last_block)
-        } else {
-            !*data.get_unchecked(last_block)
-        } & compute_mask(n_bits & 63);
+        // let w = if BIT {
+        //     *data.get_unchecked(last_block)
+        // } else {
+        //     !*data.get_unchecked(last_block)
+        // } & compute_mask(n_bits & 63);
 
-        if w != 0 {
-            return (last_block << 6) + w.trailing_zeros() as usize;
-        }
+        // if w != 0 {
+        //     return (last_block << 6) + w.trailing_zeros() as usize;
+        // }
 
         n_bits
     }
@@ -1823,6 +1823,10 @@ impl<'a> BitSliceWithOffset<'a> {
         }
 
         count
+    }
+
+    pub fn prefetch_index(&self, pos: usize) {
+        prefetch_read_NTA(self.data, (self.offset + pos) / 64);
     }
 }
 

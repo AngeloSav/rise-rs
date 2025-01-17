@@ -162,7 +162,6 @@ pub struct IndexedSequenceIter<'a> {
 }
 
 impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
-    #[inline]
     fn next_val(&mut self) -> Option<(u64, usize)> {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.next_val(),
@@ -171,7 +170,6 @@ impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
         }
     }
 
-    #[inline]
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.next_geq(lower_bound),
@@ -180,7 +178,6 @@ impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
         }
     }
 
-    #[inline]
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.move_to_position(pos),

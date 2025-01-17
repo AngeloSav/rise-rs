@@ -1,10 +1,9 @@
 #![feature(unchecked_shifts)]
 #![feature(array_chunks)]
 #![feature(iter_array_chunks)]
+#![feature(core_intrinsics)]
 
 pub mod bitvector;
-
-use std::mem::uninitialized;
 
 pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
 pub use bitvector::BitVector;

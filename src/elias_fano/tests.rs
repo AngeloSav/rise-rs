@@ -247,8 +247,8 @@ fn pg4() {
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
-    // type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
-    type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
+    type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    // type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
     // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
     // type TY<'a> = EliasFano;
     // type TY<'a> = RankedBv;
@@ -270,60 +270,60 @@ fn pg4() {
 
     println!("{:?}", &v[0..15]);
 
-    // println!("{:?}", it.next_geq(4));
+    println!("{:?}", it.next_geq(4));
 
-    // let i = 0;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 0;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 3;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 3;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 230;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 230;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 256;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 256;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 220;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 220;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 222;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 222;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 1050;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 1050;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let i = 1700;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    let i = 1700;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // println!("back to zero");
-    // let i = 0;
-    // println!("{:?}", it.move_to_position(i));
-    // println!("{:?}", v[i]);
+    println!("back to zero");
+    let i = 0;
+    println!("{:?}", it.move_to_position(i));
+    println!("{:?}", v[i]);
 
-    // let res = it.next_geq(7000).unwrap();
-    // println!("ngeq {:?}", res);
-    // println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+    let res = it.next_geq(7000).unwrap();
+    println!("ngeq {:?}", res);
+    println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
 
-    // let res = it.next_geq(7000).unwrap();
-    // println!("ngeq {:?}", res);
-    // println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+    let res = it.next_geq(7000).unwrap();
+    println!("ngeq {:?}", res);
+    println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
 
     let res = it.next_geq(300000).unwrap();
     println!("ngeq {:?}", res);
     println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
 
-    // let res = it.next_geq(7000).unwrap();
-    // println!("ngeq {:?}", res);
-    // println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
+    let res = it.next_geq(7000).unwrap();
+    println!("ngeq {:?}", res);
+    println!("check: [{} {} {}]", v[res.1 - 1], v[res.1], v[res.1 + 1]);
 }
 
 #[test]

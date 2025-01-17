@@ -196,7 +196,6 @@ impl RankedBvIter<'_> {
 }
 
 impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
-    #[inline]
     fn next_val(&mut self) -> Option<(u64, usize)> {
         if self.value >= self.u as usize {
             None

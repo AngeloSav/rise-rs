@@ -69,7 +69,6 @@ pub struct AllOnesIter {
 }
 
 impl IncreasingSequenceEnumerator for AllOnesIter {
-    #[inline]
     fn next_val(&mut self) -> Option<(u64, usize)> {
         if self.pos < self.len {
             let tmp = self.pos;
