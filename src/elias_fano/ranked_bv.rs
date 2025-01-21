@@ -211,7 +211,7 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         // println!("lower bound is {}", lower_bound);
         // println!("self.value {}", self.value);
-        if lower_bound == self.value as u64 - 1 {
+        if lower_bound + 1 == self.value as u64 {
             // println!("here 1");
             return Some((self.value as u64 - 1, self.position - 1));
         }
@@ -285,6 +285,10 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
 
     fn current_position(&self) -> usize {
         self.position - 1
+    }
+
+    fn len(&self) -> usize {
+        self.n
     }
 }
 

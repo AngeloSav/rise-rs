@@ -53,7 +53,7 @@ fn main() {
     macro_rules! build_idx {
         ($t:path) => {{
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, args.force_rebuild);
-            println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
+            println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
             if args.check_correctness {
                 idx.check_correctness(&input_path)

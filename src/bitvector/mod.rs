@@ -23,6 +23,7 @@ use crate::{
     AccessBin,
 };
 use num::integer::div_ceil;
+use rand::seq::index;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -272,36 +273,27 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     ) -> usize {
         let block = index >> 6;
         let shift = index & 63;
-        // let last_block = n_bits >> 6;
 
-        let w = if BIT {
+        let mut w = (if BIT {
             *data.get_unchecked(block)
         } else {
             !*data.get_unchecked(block)
-        } >> shift;
+        } >> shift)
+            << shift;
 
-        if core::intrinsics::likely(w != 0) {
-            return index + w.trailing_zeros() as usize;
+        let mut index = index;
+
+        while w == 0 && (index / 64) < (n_bits / 64) {
+            //take next word
+            index += 64;
+            w = if BIT {
+                *data.get_unchecked(index >> 6)
+            } else {
+                !*data.get_unchecked(index >> 6)
+            };
         }
 
-        for (i, &w) in data[block + 1..].iter().enumerate() {
-            let w = if BIT { w } else { !w };
-            if w != 0 {
-                return ((block + i + 1) << 6) + w.trailing_zeros() as usize;
-            }
-        }
-
-        // let w = if BIT {
-        //     *data.get_unchecked(last_block)
-        // } else {
-        //     !*data.get_unchecked(last_block)
-        // } & compute_mask(n_bits & 63);
-
-        // if w != 0 {
-        //     return (last_block << 6) + w.trailing_zeros() as usize;
-        // }
-
-        n_bits
+        (index & !63) + w.trailing_zeros() as usize
     }
 
     // Private function that returns the position of the next k-th (0-indexed) bit in the bit vector starting

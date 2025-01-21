@@ -95,6 +95,10 @@ impl IncreasingSequenceEnumerator for AllOnesIter {
     fn current_position(&self) -> usize {
         todo!()
     }
+
+    fn len(&self) -> usize {
+        self.len
+    }
 }
 
 impl Iterator for AllOnesIter {

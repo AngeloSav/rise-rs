@@ -24,7 +24,7 @@ fn main() {
     // let idx: FreqIndex<EliasFano, _> = FreqIndex::from_files(path);
     let idx: FreqIndex<EliasFano, _> =
         FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.ef.out"), true);
-    println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
+    println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
     // idx.check_correctness(path);
 
     println!("size of idx = {} MiB", idx.space_usage_MiB());

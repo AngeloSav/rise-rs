@@ -3,9 +3,7 @@ use std::{marker::PhantomData, mem};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    indexes::freq_index::PostingList,
-    space_usage::SpaceUsage,
-    utils::{ceil_log2, gamma_size},
+    indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
     BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
     IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
@@ -443,6 +441,10 @@ where
 
     fn current_position(&self) -> usize {
         todo!()
+    }
+
+    fn len(&self) -> usize {
+        self.len
     }
 }
 

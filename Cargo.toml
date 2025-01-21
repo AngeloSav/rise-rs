@@ -33,6 +33,7 @@ harness = false
 lto = true
 debug = true
 overflow-checks = false # Enable this checks for debugging in release mode
+codegen-units = 1
 
 [toolchain]
 channel = "nightly"

@@ -185,7 +185,6 @@ pub struct EliasFanoIter<'a> {
     n_bits_lo: usize,
     pointer_size: usize,
     position: usize,
-    hi_ctr: usize,
     i_hi: usize,
     len: usize,
     u: u64,
@@ -203,7 +202,7 @@ impl EliasFanoIter<'_> {
         }
 
         let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
-        let cur_hi = self.hi_ctr;
+        let cur_hi = self.i_hi - self.position;
 
         let to_skip;
         if lower_bound > self.cur_value && (hi_lower_bound as usize - cur_hi) >> LOG_SAMPLING0 == 0
@@ -237,7 +236,7 @@ impl EliasFanoIter<'_> {
         };
 
         self.position = self.i_hi - hi_lower_bound;
-        self.hi_ctr = hi_lower_bound;
+        // self.hi_ctr = hi_lower_bound;
 
         let (mut val, mut pos) = self.next_val()?;
         while val < lower_bound {
@@ -281,7 +280,7 @@ impl EliasFanoIter<'_> {
         }
         self.position = pos;
 
-        self.hi_ctr = self.i_hi - self.position;
+        // self.hi_ctr = self.i_hi - self.position;
         self.next_val()
     }
 }
@@ -294,18 +293,12 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
                 .get_bits(self.position * self.n_bits_lo, self.n_bits_lo)
                 .unwrap();
 
-            // while !self.slice_hi.get(self.i_hi + self.hi_ctr).expect("hi") {
-            //     self.hi_ctr += 1;
-            // }
+            self.i_hi = unsafe { self.slice_hi.next_one_unchecked(self.i_hi) };
 
-            let new_pos = unsafe { self.slice_hi.next_one_unchecked(self.i_hi) };
-            self.hi_ctr += new_pos - self.i_hi;
-            self.i_hi = new_pos;
+            let hi = ((self.i_hi - self.position) << self.n_bits_lo) as u64;
 
             self.position += 1;
             self.i_hi += 1;
-
-            let hi = (self.hi_ctr << self.n_bits_lo) as u64;
 
             self.cur_value = hi | lo;
             Some((self.cur_value, self.position - 1))
@@ -318,21 +311,12 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
         // let lb_hi = lower_bound >> self.n_bits_lo;
         // let hi_diff = lb_hi - self.hi_ctr as u64;
 
-        // naive way
-        // let mut val = self.cur_value;
-        // if i > self.cur_value {
-        //     while val < i {
-        //         val = self.next_val()?.0
-        //     }
-        // }
-        // Some((val, self.i))
-
         if lower_bound == self.cur_value && self.position != 0 {
             return Some((self.cur_value, self.position - 1));
         }
 
         let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
-        let cur_hi = self.hi_ctr;
+        let cur_hi = self.i_hi - self.position;
 
         if self.position == 0
             || (self.cur_value < lower_bound
@@ -366,6 +350,10 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
 
     fn current_position(&self) -> usize {
         self.position - 1
+    }
+
+    fn len(&self) -> usize {
+        self.len
     }
 }
 
@@ -435,7 +423,6 @@ impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
             n_bits_lo: n_lo_bits as usize,
             pointer_size,
             position: 0,
-            hi_ctr: 0,
             i_hi: 0,
             len: n as usize,
             cur_value: 0,

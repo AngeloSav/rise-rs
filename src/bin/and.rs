@@ -65,7 +65,7 @@ fn main() {
     macro_rules! query_idx {
         ($t:path) => {{
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, false);
-            println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
+            println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
             let queries = if let Some(x) = args.n_queries {
                 queries_file.lines().take_while(|a| a.is_ok()).take(x).collect::<Vec<_>>()
@@ -85,14 +85,14 @@ fn main() {
                 .collect::<Vec<_>>()
             }).collect();
 
-
+            let mut res_vec = Vec::with_capacity(idx.n_docs);
             for _ in 0..n_runs{
                 check = 0;
                 timer.start();
                 for term in &parsed {
                     //test and
-                    let x = boolean_and(&idx, term[0], term[1]);
-                    check += x.len();
+                    boolean_and(&idx, term[0], term[1], &mut res_vec);
+                    check += res_vec.len();
                 }
                 timer.stop();
             }
@@ -125,7 +125,7 @@ fn main() {
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
+fn boolean_and<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize, v: &mut Vec<u64>)
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
@@ -136,7 +136,7 @@ where
     let mut posting1 = p1.next_val();
     let mut posting2 = p2.next_val();
 
-    let mut v = Vec::new();
+    v.clear();
 
     while posting1.is_some() && posting2.is_some() {
         if posting1.unwrap().0 == posting2.unwrap().0 {
@@ -151,7 +151,6 @@ where
             posting2 = p2.next_geq(posting1.unwrap().0)
         }
     }
-    v
 }
 
 #[allow(dead_code)]
@@ -161,36 +160,38 @@ where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
 {
-    let mut plists: Vec<_> = terms
-        .iter()
-        .map(|&i| {
-            let mut a = idx.get_plist_iter(i);
-            (a.next_val(), a)
-        })
-        .collect();
+    //contains pairs (cur_val, iterator)
+    let mut enums = Vec::with_capacity(terms.len());
+    for &term in terms {
+        let mut it = idx.get_plist_iter(term);
+        enums.push((it.next(), it));
+    }
 
-    let mut v = Vec::new();
+    // sort by non-decreasing size
+    enums.sort_by_key(|(_, it)| it.len());
 
-    while plists.iter().all(|x| x.0.is_some()) {
-        if plists
-            .iter()
-            .all(|(x, _)| x.unwrap().0 == plists[0].0.unwrap().0)
-        {
-            //push common value
-            v.push(plists[0].0.unwrap().0);
+    let mut candidate = enums[0].0;
 
-            //increment all plists
-            for (x, it) in plists.iter_mut() {
-                *x = it.next_val();
+    let mut v = Vec::with_capacity(idx.n_docs);
+
+    let mut i = 1;
+
+    while candidate.is_some() {
+        for (cur_term_docid, it) in enums.iter_mut().skip(i) {
+            *cur_term_docid = it.next_geq(candidate.unwrap()).map(|x| x.0);
+            if *cur_term_docid != candidate {
+                candidate = *cur_term_docid;
+                i = 0;
+                break;
             }
-        } else {
-            //take max and nextgeq
-            let max = plists.iter().map(|(x, _)| x.unwrap().0).max().unwrap();
+            i += 1;
+        }
 
-            //increment all plists
-            for (x, it) in plists.iter_mut().filter(|(x, _)| x.unwrap().0 != max) {
-                *x = it.next_geq(max);
-            }
+        if i == enums.len() {
+            v.push(candidate.unwrap());
+            enums[0].0 = enums[0].1.next();
+            candidate = enums[0].0;
+            i = 1;
         }
     }
     v

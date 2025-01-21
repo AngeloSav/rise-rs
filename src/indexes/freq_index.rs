@@ -10,7 +10,7 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FreqIndex<DocumentSequence, DSIter> {
-    pub _n_docs: usize,
+    pub n_docs: usize,
     pub n_terms: usize,
     docs_sequences: BitVecCollection,
     _freqs_sequences: BitVecCollection,
@@ -38,7 +38,7 @@ where
 {
     pub fn new(n_docs: usize) -> Self {
         Self {
-            _n_docs: n_docs,
+            n_docs,
             n_terms: 0,
             docs_sequences: BitVectorCollection::with_capacity(0, 0),
             _freqs_sequences: BitVectorCollection::with_capacity(0, 0),
@@ -52,7 +52,7 @@ where
         DocumentSequence::iter_from_slice_with_data(
             a.split_at(pos).1,
             sz as usize,
-            self._n_docs as u64,
+            self.n_docs as u64,
         )
     }
 

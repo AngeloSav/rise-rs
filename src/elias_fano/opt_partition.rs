@@ -1,11 +1,9 @@
-use std::{fmt::Write, marker::PhantomData, mem};
+use std::{marker::PhantomData, mem};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    indexes::freq_index::PostingList,
-    space_usage::SpaceUsage,
-    utils::{ceil_log2, gamma_size},
+    indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
     BitSliceWithOffset, BitVec, BitVecCollection, CostWindow, EnumeratorFromBitSlice,
     IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector, WriteBitvector,
 };
@@ -31,6 +29,7 @@ where
         self.n
     }
 }
+
 const EPS1: f64 = 0.0;
 const EPS2: f64 = 0.3;
 
@@ -41,61 +40,7 @@ where
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
     fn from(v: &'b [u64]) -> Self {
-        let n = v.len();
-
-        let (_, partitions) = optimal_partition::<BaseSequence::CW>(&v, EPS1, EPS2);
-
-        let n_partitions = partitions.len();
-
-        assert!(n_partitions > 0);
-        assert!(partitions[0] != 0);
-        assert!(*partitions.last().unwrap() as usize == n);
-
-        let mut bv_sequences = BitVecCollection::default();
-
-        let mut bv_upper_bounds = Vec::new();
-        if n_partitions == 1 {
-            bv_sequences.push(BaseSequence::from(&v).to_bv());
-
-            Self {
-                n_partitions,
-                n,
-                bv_upper_bounds: EliasFano::default(),
-                bv_sequences,
-                endpoints: vec![0],
-                _phantom: PhantomData,
-            }
-        } else {
-            let mut cur_partition = Vec::new();
-            let mut endpoints = Vec::new();
-            let mut it = v.into_iter();
-
-            for part_size in partitions.iter().scan(0u64, |s, &x| {
-                let t = x - *s;
-                *s = x;
-                Some(t as usize)
-            }) {
-                cur_partition = (&mut it).take(part_size).copied().collect();
-
-                let cur_base = cur_partition[0];
-                for el in cur_partition.iter_mut() {
-                    *el -= cur_base;
-                }
-
-                bv_upper_bounds.push(cur_base);
-                bv_sequences.push(BaseSequence::from(&cur_partition).to_bv());
-                endpoints.push(bv_sequences.n_bits());
-            }
-
-            Self {
-                n_partitions,
-                n,
-                bv_upper_bounds: EliasFano::from(bv_upper_bounds.as_slice()),
-                bv_sequences,
-                endpoints,
-                _phantom: PhantomData,
-            }
-        }
+        todo!()
     }
 }
 
@@ -105,41 +50,8 @@ where
     BaseSequence: PostingList<'a, BaseSequenceIter>,
     BaseSequenceIter: IncreasingSequenceEnumerator,
 {
-    // serialization is done in the following way:
-    // If only 1 partition:  | 1 | serialized  BaseSequence |
-    // Else:                 | n partitions | bitlen of endpoints | list of endpoints | len of (upper bounds sequence) | elias_fano encoded upper bounds | serialized BaseSequences |
-
-    // the number of partitions is encoded using delta (for now i use gamma)
-    // each endpoint is expressed using `bitlen` bits
     fn to_bv(&self) -> BitVec {
-        let mut bv = BitVec::new();
-        // println!("n_partititions: {}", self.n_partitions);
-
-        if self.n_partitions == 1 {
-            bv.append_gamma(self.n_partitions as u64);
-            bv.concat(&self.bv_sequences.bv);
-        } else {
-            let endpoint_bitlen = ceil_log2(*self.endpoints.last().unwrap() + 1);
-
-            // println!("endpoint last = {}", *self.endpoints.last().unwrap());
-            // println!("bitlen = {}", endpoint_bitlen);
-            bv.append_gamma(self.n_partitions as u64);
-            bv.append_gamma(endpoint_bitlen as u64);
-            for &e in &self.endpoints {
-                // println!("writing {}", e);
-                bv.append_bits(e as u64, endpoint_bitlen as usize);
-            }
-            // println!("done");
-            let upper_bounds_bv = self.bv_upper_bounds.to_bv();
-            bv.append_gamma(upper_bounds_bv.len() as u64);
-            // println!("ub start at: {} bits", bv.len());
-            bv.concat(upper_bounds_bv);
-            // println!("sequences start at: {} bits", bv.len());
-            bv.concat(&self.bv_sequences.bv);
-        }
-        // println!("final len: {}", bv.len());
-
-        bv
+        todo!()
     }
 }
 
@@ -159,7 +71,7 @@ where
         let mut bv = BitVec::new();
 
         let (_, partitions) = optimal_partition::<BaseSequence::CW>(&seq, EPS1, EPS2);
-        println!("{:?}", partitions);
+        // println!("{:?}", partitions);
         let n_partitions = partitions.len();
 
         bv.append_gamma(n_partitions as u64);
@@ -272,85 +184,7 @@ where
     fn iter_from_slice(
         bv: BitSliceWithOffset<'a>,
     ) -> OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
-        let (n_partitions, _) = unsafe { bv.get_gamma_unchecked(0) };
-        // println!("n_parts: {}", n_partitions);
-        if n_partitions == 1 {
-            let cur_sequence =
-                BaseSequence::iter_from_slice(bv.split_at(gamma_size(n_partitions)).1);
-
-            OptPartitionedSeqIter {
-                position: 0,
-                cur_base: 0,
-                cur_partition: 0,
-                upper_bounds: EliasFanoIter::default(),
-                n_partitions: 1,
-                endpoints: Vec::default(),
-                sequences: BitSliceWithOffset::default(),
-                cur_sequence,
-                cur_value: 0,
-                _phantom: PhantomData,
-                cur_ub: todo!(),
-                cur_begin: todo!(),
-                cur_end: todo!(),
-                len: todo!(),
-                universe: todo!(),
-                sizes: todo!(),
-            }
-        } else {
-            let (endpoint_bitlen, _) = unsafe { bv.get_gamma_unchecked(gamma_size(n_partitions)) };
-
-            let start_endpoints = gamma_size(n_partitions) + gamma_size(endpoint_bitlen);
-
-            let mut endpoints = vec![0];
-            for idx in (start_endpoints..)
-                .step_by(endpoint_bitlen as usize)
-                .take(n_partitions as usize)
-            {
-                endpoints.push(bv.get_bits(idx, endpoint_bitlen as usize).unwrap() as usize);
-            }
-
-            let (ef_ub_size, _) = unsafe {
-                bv.get_gamma_unchecked(start_endpoints + (n_partitions * endpoint_bitlen) as usize)
-            };
-            // println!("endpoints bitlen :{:?}", endpoint_bitlen);
-            // println!("endpoints:{:?}", endpoints);
-
-            let sep = start_endpoints
-                + (n_partitions * endpoint_bitlen) as usize
-                + gamma_size(ef_ub_size);
-            // println!("ub: {} - {}", sep, sep + ef_ub_size as usize);
-
-            let mut upper_bounds =
-                EliasFano::iter_from_slice(bv.slice(sep, sep + ef_ub_size as usize));
-            // println!("ub: {:?}", upper_bounds);
-
-            let start_sequences = sep + ef_ub_size as usize;
-            // println!("sequences start at: {}", start_sequences);
-
-            let sequences = bv.split_at(start_sequences).1;
-            // println!("sequences: {:?}", sequences);
-            let cur_sequence =
-                BaseSequence::iter_from_slice(sequences.slice(endpoints[0], endpoints[1]));
-
-            OptPartitionedSeqIter {
-                position: 0,
-                cur_partition: 0,
-                cur_base: upper_bounds.next().unwrap(),
-                upper_bounds,
-                n_partitions: n_partitions as usize,
-                endpoints,
-                sequences,
-                cur_sequence,
-                cur_value: 0,
-                _phantom: PhantomData,
-                cur_ub: todo!(),
-                cur_begin: todo!(),
-                cur_end: todo!(),
-                len: todo!(),
-                universe: todo!(),
-                sizes: todo!(),
-            }
-        }
+        todo!()
     }
 
     fn iter_from_slice_with_data(
@@ -514,7 +348,7 @@ where
 
         self.cur_partition = part;
 
-        if core::intrinsics::unlikely(part == 0) {
+        if part == 0 {
             self.cur_begin = 0;
             self.cur_end = self.sizes.move_to_position(part).unwrap().0 as usize;
         } else {
@@ -631,6 +465,10 @@ where
 
     fn current_position(&self) -> usize {
         todo!()
+    }
+
+    fn len(&self) -> usize {
+        self.len
     }
 }
 

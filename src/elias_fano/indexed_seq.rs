@@ -189,6 +189,14 @@ impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
     fn current_position(&self) -> usize {
         todo!()
     }
+
+    fn len(&self) -> usize {
+        match &self.it {
+            IterType::EliasFanoItT(it) => it.len(),
+            IterType::RankedBvItT(it) => it.len(),
+            IterType::AllOnesItT(it) => it.len(),
+        }
+    }
 }
 
 impl Iterator for IndexedSequenceIter<'_> {

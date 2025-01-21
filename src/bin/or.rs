@@ -65,7 +65,7 @@ fn main() {
     macro_rules! query_idx {
         ($t:path) => {{
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, false);
-            println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
+            println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
             let queries = if let Some(x) = args.n_queries {
                 queries_file.lines().take_while(|a| a.is_ok()).take(x).collect::<Vec<_>>()
@@ -86,13 +86,14 @@ fn main() {
             }).collect();
 
 
+            let mut res_vec = Vec::with_capacity(idx.n_docs);
             for _ in 0..n_runs{
                 check = 0;
                 timer.start();
                 for term in &parsed {
                     //test or
-                    let x = boolean_or_multiterm(&idx, term);
-                    check += x.len();
+                    boolean_or_multiterm(&idx, term, &mut res_vec);
+                    check += res_vec.len();
                 }
                 timer.stop();
             }
@@ -123,53 +124,7 @@ fn main() {
     }
 }
 
-#[allow(dead_code)]
-#[inline(always)]
-fn boolean_or<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
-where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
-{
-    let mut p1 = idx.get_plist_iter(t1);
-    let mut p2 = idx.get_plist_iter(t2);
-
-    let mut posting1 = p1.next_val();
-    let mut posting2 = p2.next_val();
-
-    let mut v = Vec::new();
-
-    while posting1.is_some() && posting2.is_some() {
-        if posting1.unwrap().0 == posting2.unwrap().0 {
-            v.push(posting1.unwrap().0);
-            //increment both
-            posting1 = p1.next_val();
-            posting2 = p2.next_val();
-        } else if posting1.unwrap().0 < posting2.unwrap().0 {
-            v.push(posting1.unwrap().0);
-            posting1 = p1.next_val()
-        } else {
-            v.push(posting2.unwrap().0);
-            posting2 = p2.next_val()
-        }
-    }
-
-    //flush last list
-    if let Some(posting1) = posting1 {
-        v.push(posting1.0);
-        while let Some(posting1) = p1.next_val() {
-            v.push(posting1.0);
-        }
-    }
-    if let Some(posting2) = posting2 {
-        v.push(posting2.0);
-        while let Some(posting2) = p2.next_val() {
-            v.push(posting2.0);
-        }
-    }
-    v
-}
-
-fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize]) -> Vec<u64>
+fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut Vec<u64>)
 where
     T: PostingList<'a, S>,
     S: IncreasingSequenceEnumerator,
@@ -178,36 +133,34 @@ where
     let mut enums = Vec::with_capacity(terms.len());
     for &term in terms {
         let mut it = idx.get_plist_iter(term);
-        enums.push((it.next_val(), it));
+        enums.push((it.next(), it));
     }
 
-    let mut cur_doc = enums.iter().filter_map(|(x, _)| Some((*x)?.0)).min();
-    let mut v = Vec::new();
+    let mut cur_doc = enums.iter().filter_map(|(x, _)| x.map(|x1| x1)).min();
+    //we clear the vec
+    v.clear();
 
     while cur_doc.is_some() {
         // println!("new round ---------------------");
         // println!("pushing {:?}", cur_doc);
         v.push(cur_doc.unwrap());
         let mut next_doc = None;
-        for (cur, it) in enums.iter_mut() {
+        for (cur_term_docid, it) in enums.iter_mut() {
             // println!("new term ---");
-            let cur_term_docid = cur.map(|x| x.0);
             // println!("cur_docid = {:?}", cur_term_docid);
-            if cur_term_docid == cur_doc {
+            if *cur_term_docid == cur_doc {
                 // println!("update cur!");
-                *cur = it.next_val();
+                *cur_term_docid = it.next();
             }
 
-            let cur_term_docid = cur.map(|x| x.0);
             // println!("check less ---");
             // println!("cur_doc = {:?}", cur_doc);
             // println!("cur_term_docid = {:?}", cur_term_docid);
-            if cur_term_docid.is_some() && (next_doc.is_none() || cur_term_docid < next_doc) {
-                next_doc = cur_term_docid
+            if cur_term_docid.is_some() && (next_doc.is_none() || *cur_term_docid < next_doc) {
+                next_doc = *cur_term_docid
             }
         }
         cur_doc = next_doc;
         // println!("nextdoc is {:?}", cur_doc);
     }
-    v
 }

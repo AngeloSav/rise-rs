@@ -25,7 +25,7 @@ fn main() {
     //     FreqIndex::from_files(path);
     let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _>, _> =
         FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.u_is_pef.out"), true);
-    println!("Index contains {} docs, {} terms", idx._n_docs, idx.n_terms);
+    println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
     // idx.check_correctness(path);
 
     // let mut p = idx.get_plist_iter(0);
