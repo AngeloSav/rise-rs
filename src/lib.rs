@@ -1,6 +1,7 @@
 #![feature(unchecked_shifts)]
 #![feature(array_chunks)]
 #![feature(iter_array_chunks)]
+#![allow(internal_features)]
 #![feature(core_intrinsics)]
 
 pub mod bitvector;
@@ -75,11 +76,7 @@ pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
     fn next_val(&mut self) -> Option<(u64, usize)>;
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)>;
-    fn current_position(&self) -> usize;
     fn len(&self) -> usize;
-    fn prev_value(&mut self) -> (usize, u64) {
-        unimplemented!();
-    }
 }
 
 /// Serializer class, this result can be appended to a bitvectorCollection

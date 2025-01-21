@@ -347,10 +347,6 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
         return self.slow_move(pos);
     }
 
-    fn current_position(&self) -> usize {
-        self.position - 1
-    }
-
     fn len(&self) -> usize {
         self.len
     }

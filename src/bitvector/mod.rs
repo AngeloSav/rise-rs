@@ -23,7 +23,6 @@ use crate::{
     AccessBin,
 };
 use num::integer::div_ceil;
-use rand::seq::index;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.

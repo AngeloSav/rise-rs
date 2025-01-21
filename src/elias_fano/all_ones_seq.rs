@@ -51,6 +51,7 @@ impl<'a> EnumeratorFromBitSlice<'a> for AllOnes {
     }
 
     fn iter_from_slice_with_data(_bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
+        assert!(n as u64 == u);
         AllOnesIter { len: n, pos: 0 }
     }
 }
@@ -92,10 +93,6 @@ impl IncreasingSequenceEnumerator for AllOnesIter {
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
         self.pos = pos;
         self.next_val()
-    }
-
-    fn current_position(&self) -> usize {
-        todo!()
     }
 
     fn len(&self) -> usize {

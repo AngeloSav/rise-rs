@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
-    BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
-    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector,
+    WriteBitvector,
 };
 
 use super::{EliasFano, EliasFanoIter};
@@ -13,10 +13,8 @@ use super::{EliasFano, EliasFanoIter};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UniformPartitionedSequence<BaseSequence> {
     n: usize,
-    n_partitions: usize,
-    bv_upper_bounds: EliasFano,
-    bv_sequences: BitVecCollection,
-    endpoints: Vec<usize>,
+    u: u64,
+    bv: BitVec,
     _phantom: PhantomData<BaseSequence>,
 }
 
@@ -31,7 +29,7 @@ where
     }
 
     pub fn iter(&'a self) -> UniformPartitionedSeqIter<'a, BaseSequence> {
-        todo!()
+        Self::iter_from_slice_with_data(self.bv.as_bitslice(), self.n, self.u)
     }
 }
 
@@ -40,7 +38,16 @@ where
     BaseSequence: PostingList<'a>,
 {
     fn from(v: &'b [u64]) -> Self {
-        todo!()
+        let n = v.len();
+        let u = *v.last().unwrap() + 1;
+        let bv = Self::write_bitvector(v, n, u);
+
+        Self {
+            bv,
+            n,
+            u,
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -49,7 +56,11 @@ where
     BaseSequence: PostingList<'a>,
 {
     fn to_bv(&self) -> BitVec {
-        todo!()
+        let mut bv = BitVec::new();
+        bv.append_gamma(self.n as u64);
+        bv.append_gamma(self.u);
+        bv.concat(&self.bv);
+        bv
     }
 }
 
@@ -159,7 +170,9 @@ where
     type IterType = UniformPartitionedSeqIter<'a, BaseSequence>;
 
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
-        todo!()
+        let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
+        let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };
+        Self::iter_from_slice_with_data(bv.split_at(next_pos).1, n as usize, u)
     }
 
     fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
@@ -424,10 +437,6 @@ where
         self.slow_move(pos)
     }
 
-    fn current_position(&self) -> usize {
-        todo!()
-    }
-
     fn len(&self) -> usize {
         self.len
     }
@@ -446,9 +455,6 @@ where
 
 impl<T> SpaceUsage for UniformPartitionedSequence<T> {
     fn space_usage_byte(&self) -> usize {
-        self.bv_sequences.n_bits() / 8
-            + self.bv_upper_bounds.space_usage_byte()
-            + mem::size_of::<usize>() * self.endpoints.len()
-            + 2 * mem::size_of::<usize>()
+        self.bv.len() / 8 + mem::size_of::<usize>() + mem::size_of::<u64>()
     }
 }

@@ -283,10 +283,6 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
         self.slow_move(pos)
     }
 
-    fn current_position(&self) -> usize {
-        self.position - 1
-    }
-
     fn len(&self) -> usize {
         self.n
     }

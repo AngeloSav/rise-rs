@@ -294,11 +294,11 @@ fn random_tests() {
     println!("gamma size n = {} bits", gamma_size(n));
     println!("gamma size u = {} bits", gamma_size(u));
 
-    let (rn, npos) = unsafe { bv.get_gamma_unchecked(0) };
+    let (rn, _npos) = unsafe { bv.get_gamma_unchecked(0) };
     println!("N | got {:0b}, should be {:0b}", rn, n);
     assert!(rn == n);
 
-    let (ru, upos) = unsafe { bv.get_gamma_unchecked(gamma_size(n)) };
+    let (ru, _upos) = unsafe { bv.get_gamma_unchecked(gamma_size(n)) };
     println!("U | got {:0b}, should be {:0b}", ru, u);
     assert!(ru == u);
 }
