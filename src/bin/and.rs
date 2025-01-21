@@ -110,25 +110,24 @@ fn main() {
     }
 
     match args.idx_kind {
-        IdxKind::EFSingle => query_idx!(FreqIndex<EliasFano, _>),
+        IdxKind::EFSingle => query_idx!(FreqIndex<EliasFano>),
         IdxKind::UPEf => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano, _>, _>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano>>)
         }
         IdxKind::UPIs => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence, _>, _>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence>>)
         }
         IdxKind::Opt => {
-            query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence, _>, _>)
+            query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence>>)
         }
     }
 }
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize, v: &mut Vec<u64>)
+fn boolean_and<'a, T>(idx: &'a FreqIndex<T>, t1: usize, t2: usize, v: &mut Vec<u64>)
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     let mut p1 = idx.get_plist_iter(t1);
     let mut p2 = idx.get_plist_iter(t2);
@@ -155,10 +154,9 @@ where
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize]) -> Vec<u64>
+fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize]) -> Vec<u64>
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     //contains pairs (cur_val, iterator)
     let mut enums = Vec::with_capacity(terms.len());

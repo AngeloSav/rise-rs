@@ -11,19 +11,18 @@ use crate::{
 use super::{EliasFano, EliasFanoIter};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OptPartitionedSequence<BaseSequence, BSIter> {
+pub struct OptPartitionedSequence<BaseSequence> {
     n: usize,
     n_partitions: usize,
     bv_upper_bounds: EliasFano,
     bv_sequences: BitVecCollection,
     endpoints: Vec<usize>,
-    _phantom: PhantomData<(BaseSequence, BSIter)>,
+    _phantom: PhantomData<BaseSequence>,
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> OptPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + PartitionableSequence<'a>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + PartitionableSequence<'a>,
 {
     pub fn len(&self) -> usize {
         self.n
@@ -33,34 +32,27 @@ where
 const EPS1: f64 = 0.0;
 const EPS2: f64 = 0.3;
 
-impl<'a, 'b, BaseSequence, BaseSequenceIter> From<&'b [u64]>
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, 'b, BaseSequence> From<&'b [u64]> for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + PartitionableSequence<'b>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + PartitionableSequence<'b>,
 {
     fn from(v: &'b [u64]) -> Self {
         todo!()
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> ToBitvector
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> ToBitvector for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     fn to_bv(&self) -> BitVec {
         todo!()
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> WriteBitvector
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> WriteBitvector for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence:
-        PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b> + WriteBitvector,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b> + WriteBitvector,
 {
     // serialization is done in the following way:
     // If only 1 partition:  | 1 | serialized  BaseSequence |
@@ -174,24 +166,16 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter>
-    EnumeratorFromBitSlice<'a, OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>>
-    for OptPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
 {
-    fn iter_from_slice(
-        bv: BitSliceWithOffset<'a>,
-    ) -> OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+    type IterType = OptPartitionedSeqIter<'a, BaseSequence>;
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
         todo!()
     }
 
-    fn iter_from_slice_with_data(
-        bv: BitSliceWithOffset<'a>,
-        n: usize,
-        u: u64,
-    ) -> OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let (n_partitions, mut next_pos) = unsafe { bv.get_gamma_unchecked(0) };
         let n_partitions = n_partitions as usize;
 
@@ -318,7 +302,10 @@ where
     }
 }
 
-pub struct OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+pub struct OptPartitionedSeqIter<'a, BaseSequence>
+where
+    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+{
     position: usize,
     cur_partition: usize,
     cur_base: u64,
@@ -326,7 +313,7 @@ pub struct OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
     n_partitions: usize,
     endpoints: Vec<usize>,
     sequences: BitSliceWithOffset<'a>,
-    cur_sequence: BaseSequenceIter,
+    cur_sequence: BaseSequence::IterType,
     cur_value: u64,
     _phantom: PhantomData<BaseSequence>,
     cur_ub: u64,
@@ -337,10 +324,9 @@ pub struct OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
     sizes: EliasFanoIter<'a>,
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
@@ -395,7 +381,7 @@ where
         self.switch_partition(ub_pos - 1);
         let (val, pos) = self
             .cur_sequence
-            .next_geq(0.max(lower_bound as i64 - self.cur_base as i64) as u64)?;
+            .next_geq(std::cmp::max(0, lower_bound as i64 - self.cur_base as i64) as u64)?;
 
         self.position = self.cur_begin + pos + 1;
         Some((val + self.cur_base, self.position - 1))
@@ -419,11 +405,9 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> IncreasingSequenceEnumerator
-    for OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> IncreasingSequenceEnumerator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
@@ -472,11 +456,9 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> Iterator
-    for OptPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> Iterator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + for<'b> PartitionableSequence<'b>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
 {
     type Item = u64;
 
@@ -485,7 +467,7 @@ where
     }
 }
 
-impl<T, S> SpaceUsage for OptPartitionedSequence<T, S> {
+impl<T> SpaceUsage for OptPartitionedSequence<T> {
     fn space_usage_byte(&self) -> usize {
         self.bv_sequences.n_bits() / 8
             + self.bv_upper_bounds.space_usage_byte()

@@ -5,36 +5,31 @@ use std::{fs, marker::PhantomData, mem, path::Path};
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection, space_usage::SpaceUsage,
     utils::TimingQueries, BitSliceWithOffset, BitVec, BitVecCollection, EnumeratorFromBitSlice,
-    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
+    ToBitvector, WriteBitvector,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FreqIndex<DocumentSequence, DSIter> {
+pub struct FreqIndex<DocumentSequence> {
     pub n_docs: usize,
     pub n_terms: usize,
     docs_sequences: BitVecCollection,
     _freqs_sequences: BitVecCollection,
-    _phantom: PhantomData<(DocumentSequence, DSIter)>,
+    _phantom: PhantomData<DocumentSequence>,
 }
 
-pub trait PostingList<'a, T>:
-    ToBitvector + EnumeratorFromBitSlice<'a, T> + for<'b> From<&'b [u64]> + WriteBitvector
-where
-    T: IncreasingSequenceEnumerator,
+pub trait PostingList<'a>:
+    ToBitvector + EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector
 {
 }
 
-impl<'a, T, S> PostingList<'a, S> for T
-where
-    T: ToBitvector + EnumeratorFromBitSlice<'a, S> + for<'b> From<&'b [u64]> + WriteBitvector,
-    S: IncreasingSequenceEnumerator,
+impl<'a, T> PostingList<'a> for T where
+    T: ToBitvector + EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector
 {
 }
 
-impl<'a, DocumentSequence, S> FreqIndex<DocumentSequence, S>
+impl<'a, DocumentSequence> FreqIndex<DocumentSequence>
 where
-    DocumentSequence: PostingList<'a, S> + 'a,
-    S: IncreasingSequenceEnumerator + 'a,
+    DocumentSequence: PostingList<'a> + 'a,
 {
     pub fn new(n_docs: usize) -> Self {
         Self {
@@ -42,11 +37,11 @@ where
             n_terms: 0,
             docs_sequences: BitVectorCollection::with_capacity(0, 0),
             _freqs_sequences: BitVectorCollection::with_capacity(0, 0),
-            _phantom: PhantomData::<(DocumentSequence, S)>,
+            _phantom: PhantomData::<DocumentSequence>,
         }
     }
 
-    pub fn get_plist_iter(&'a self, i: usize) -> S {
+    pub fn get_plist_iter(&'a self, i: usize) -> DocumentSequence::IterType {
         let a: BitSliceWithOffset<'a> = self.docs_sequences.get(i);
         let (sz, pos) = unsafe { a.get_gamma_unchecked(0) };
         DocumentSequence::iter_from_slice_with_data(
@@ -189,7 +184,7 @@ fn pb_with_message(len: u64, msg: String) -> ProgressBar {
     ))
 }
 
-impl<T, S> SpaceUsage for FreqIndex<T, S> {
+impl<T> SpaceUsage for FreqIndex<T> {
     fn space_usage_byte(&self) -> usize {
         self.docs_sequences.n_bits() / 8
             + self._freqs_sequences.n_bits() / 8

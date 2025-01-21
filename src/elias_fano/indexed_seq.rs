@@ -12,21 +12,21 @@ use super::{
 };
 
 #[derive(Debug)]
-pub enum IndexType {
+enum IndexType {
     EliasFanoT(EliasFano),
     RankedBvT(RankedBv),
     AllOnesT(AllOnes),
 }
 
 #[derive(Debug)]
-pub enum IndexTypeNew {
+enum IndexTypeNew {
     EliasFanoT,
     RankedBvT,
     AllOnesT,
 }
 
 #[derive(Debug)]
-pub enum IterType<'a> {
+enum IterType<'a> {
     EliasFanoItT(EliasFanoIter<'a>),
     RankedBvItT(RankedBvIter<'a>),
     AllOnesItT(AllOnesIter),
@@ -111,8 +111,10 @@ impl WriteBitvector for IndexedSequence {
     }
 }
 
-impl<'a> EnumeratorFromBitSlice<'a, IndexedSequenceIter<'a>> for IndexedSequence {
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> IndexedSequenceIter<'a> {
+impl<'a> EnumeratorFromBitSlice<'a> for IndexedSequence {
+    type IterType = IndexedSequenceIter<'a>;
+
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
         let slice = bv.split_at(2).1;
         let it = match bv.get_bits(0, 2) {
             Some(0) => IterType::AllOnesItT(AllOnes::iter_from_slice(slice)),
@@ -123,11 +125,7 @@ impl<'a> EnumeratorFromBitSlice<'a, IndexedSequenceIter<'a>> for IndexedSequence
         IndexedSequenceIter { it }
     }
 
-    fn iter_from_slice_with_data(
-        bv: BitSliceWithOffset<'a>,
-        n: usize,
-        u: u64,
-    ) -> IndexedSequenceIter<'a> {
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let t = if AllOnes::bitsize(u, n) == 0 {
             IndexTypeNew::AllOnesT
         } else {

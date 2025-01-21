@@ -23,7 +23,7 @@ fn main() {
     let path = "/home/anglo/uni/ds2i/test/test_data/test_collection";
     // let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _, 1024>, _> =
     //     FreqIndex::from_files(path);
-    let idx: FreqIndex<UniformPartitionedSequence<EliasFano, _>, _> =
+    let idx: FreqIndex<UniformPartitionedSequence<EliasFano>> =
         FreqIndex::load_or_build_and_save(path, &format!("{}{}", path, ".idx.u_is_pef.out"), true);
     println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
     // idx.check_correctness(path);
@@ -95,10 +95,9 @@ fn main() {
         .for_each(|s| assert!(s[0] < s[1]));
 }
 
-fn boolean_and<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
+fn boolean_and<'a, T>(idx: &'a FreqIndex<T>, t1: usize, t2: usize) -> Vec<u64>
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     let mut p1 = idx.get_plist_iter(t1);
     let mut p2 = idx.get_plist_iter(t2);
@@ -124,10 +123,9 @@ where
     v
 }
 
-fn boolean_or<'a, T, S>(idx: &'a FreqIndex<T, S>, t1: usize, t2: usize) -> Vec<u64>
+fn boolean_or<'a, T>(idx: &'a FreqIndex<T>, t1: usize, t2: usize) -> Vec<u64>
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     let mut p1 = idx.get_plist_iter(t1);
     let mut p2 = idx.get_plist_iter(t2);
@@ -168,10 +166,9 @@ where
     v
 }
 
-fn boolean_and_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &Vec<usize>) -> Vec<u64>
+fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &Vec<usize>) -> Vec<u64>
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     let mut plists: Vec<_> = terms
         .iter()
@@ -208,10 +205,9 @@ where
     v
 }
 
-fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &Vec<usize>) -> Vec<u64>
+fn boolean_or_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &Vec<usize>) -> Vec<u64>
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     let mut plists: Vec<_> = terms
         .iter()

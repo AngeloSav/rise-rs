@@ -107,12 +107,10 @@ pub trait CostWindow<'a> {
     fn cost_upper_bound(&self) -> usize;
 }
 
-pub trait EnumeratorFromBitSlice<'a, T>
-where
-    T: IncreasingSequenceEnumerator,
-{
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> T;
-    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> T;
+pub trait EnumeratorFromBitSlice<'a> {
+    type IterType: IncreasingSequenceEnumerator;
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType;
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType;
 }
 
 pub trait WriteBitvector {

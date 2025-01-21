@@ -1,4 +1,3 @@
-use core::slice;
 use std::mem;
 
 use num::integer::div_ceil;
@@ -384,18 +383,16 @@ impl EstimateSpace for EliasFano {
     }
 }
 
-impl<'a> EnumeratorFromBitSlice<'a, EliasFanoIter<'a>> for EliasFano {
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> EliasFanoIter<'a> {
+impl<'a> EnumeratorFromBitSlice<'a> for EliasFano {
+    type IterType = EliasFanoIter<'a>;
+
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
         let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
         let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };
         Self::iter_from_slice_with_data(bv.split_at(next_pos).1, n as usize, u)
     }
 
-    fn iter_from_slice_with_data(
-        bv: BitSliceWithOffset<'a>,
-        n: usize,
-        u: u64,
-    ) -> EliasFanoIter<'a> {
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let n_lo_bits = if u > n as u64 {
             msb(u / n as u64) as u64
         } else {

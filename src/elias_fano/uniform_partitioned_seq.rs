@@ -11,58 +11,51 @@ use crate::{
 use super::{EliasFano, EliasFanoIter};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UniformPartitionedSequence<BaseSequence, BSIter> {
+pub struct UniformPartitionedSequence<BaseSequence> {
     n: usize,
     n_partitions: usize,
     bv_upper_bounds: EliasFano,
     bv_sequences: BitVecCollection,
     endpoints: Vec<usize>,
-    _phantom: PhantomData<(BaseSequence, BSIter)>,
+    _phantom: PhantomData<BaseSequence>,
 }
 
 const PARTITION_SIZE: usize = 512;
 
-impl<'a, BaseSequence, BaseSequenceIter> UniformPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     pub fn len(&self) -> usize {
         self.n
     }
 
-    pub fn iter(&'a self) -> UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+    pub fn iter(&'a self) -> UniformPartitionedSeqIter<'a, BaseSequence> {
         todo!()
     }
 }
 
-impl<'a, 'b, BaseSequence, BaseSequenceIter> From<&'b [u64]>
-    for UniformPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, 'b, BaseSequence> From<&'b [u64]> for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     fn from(v: &'b [u64]) -> Self {
         todo!()
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> ToBitvector
-    for UniformPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> ToBitvector for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     fn to_bv(&self) -> BitVec {
         todo!()
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> WriteBitvector
-    for UniformPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> WriteBitvector for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter> + WriteBitvector,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a> + WriteBitvector,
 {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         assert!(n > 0);
@@ -159,24 +152,17 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter>
-    EnumeratorFromBitSlice<'a, UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>>
-    for UniformPartitionedSequence<BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
-    fn iter_from_slice(
-        bv: BitSliceWithOffset<'a>,
-    ) -> UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+    type IterType = UniformPartitionedSeqIter<'a, BaseSequence>;
+
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
         todo!()
     }
 
-    fn iter_from_slice_with_data(
-        bv: BitSliceWithOffset<'a>,
-        n: usize,
-        u: u64,
-    ) -> UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let (n_partitions, mut next_pos) = unsafe { bv.get_gamma_unchecked(0) };
         let n_partitions = n_partitions as usize;
 
@@ -299,7 +285,10 @@ where
     }
 }
 
-pub struct UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
+pub struct UniformPartitionedSeqIter<'a, BaseSequence>
+where
+    BaseSequence: PostingList<'a>,
+{
     position: usize,
     cur_partition: usize,
     cur_base: u64,
@@ -307,7 +296,7 @@ pub struct UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
     n_partitions: usize,
     endpoints: Vec<usize>,
     sequences: BitSliceWithOffset<'a>,
-    cur_sequence: BaseSequenceIter,
+    cur_sequence: BaseSequence::IterType,
     cur_value: u64,
     _phantom: PhantomData<BaseSequence>,
     cur_ub: u64,
@@ -317,11 +306,9 @@ pub struct UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter> {
     universe: u64,
 }
 
-impl<'a, BaseSequence, BaseSequenceIter>
-    UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
@@ -395,11 +382,9 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> IncreasingSequenceEnumerator
-    for UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> IncreasingSequenceEnumerator for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
@@ -448,11 +433,9 @@ where
     }
 }
 
-impl<'a, BaseSequence, BaseSequenceIter> Iterator
-    for UniformPartitionedSeqIter<'a, BaseSequence, BaseSequenceIter>
+impl<'a, BaseSequence> Iterator for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, BaseSequenceIter>,
-    BaseSequenceIter: IncreasingSequenceEnumerator,
+    BaseSequence: PostingList<'a>,
 {
     type Item = u64;
 
@@ -461,7 +444,7 @@ where
     }
 }
 
-impl<T, S> SpaceUsage for UniformPartitionedSequence<T, S> {
+impl<T> SpaceUsage for UniformPartitionedSequence<T> {
     fn space_usage_byte(&self) -> usize {
         self.bv_sequences.n_bits() / 8
             + self.bv_upper_bounds.space_usage_byte()

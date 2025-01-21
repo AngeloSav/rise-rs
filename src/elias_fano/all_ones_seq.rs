@@ -42,13 +42,15 @@ impl ToBitvector for AllOnes {
     }
 }
 
-impl<'a> EnumeratorFromBitSlice<'a, AllOnesIter> for AllOnes {
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> AllOnesIter {
+impl<'a> EnumeratorFromBitSlice<'a> for AllOnes {
+    type IterType = AllOnesIter;
+
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
         let n = unsafe { bv.get_gamma_unchecked(0).0 as usize };
         AllOnesIter { len: n, pos: 0 }
     }
 
-    fn iter_from_slice_with_data(_bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> AllOnesIter {
+    fn iter_from_slice_with_data(_bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         AllOnesIter { len: n, pos: 0 }
     }
 }

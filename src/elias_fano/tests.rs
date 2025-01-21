@@ -141,7 +141,7 @@ fn pg() {
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
-    type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    type TY<'a> = OptPartitionedSequence<IndexedSequence>;
     // type TY<'a> = AllOnes;
 
     let binding = v.clone();
@@ -216,7 +216,7 @@ fn pg3() {
         .collect::<Vec<_>>();
     // type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
     // type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
-    type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    type TY<'a> = UniformPartitionedSequence<IndexedSequence>;
     // type TY<'a> = EliasFano;
 
     let binding = v.clone();
@@ -247,7 +247,7 @@ fn pg4() {
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
-    type TY<'a> = OptPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    type TY<'a> = OptPartitionedSequence<IndexedSequence>;
     // type TY<'a> = UniformPartitionedSequence<EliasFano, EliasFanoIter<'a>>;
     // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
     // type TY<'a> = EliasFano;
@@ -329,7 +329,7 @@ fn pg4() {
 #[test]
 fn pg5() {
     let v = vec![7, 8, 9, 12, 17, 500, 530, 10000];
-    type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
+    type TY<'a> = UniformPartitionedSequence<IndexedSequence>;
 
     let binding = v.clone();
     let x = TY::write_bitvector(

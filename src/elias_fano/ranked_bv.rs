@@ -1,11 +1,9 @@
-use std::str::SplitInclusive;
-
 use num::integer::div_ceil;
 
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection, utils::ceil_log2, AccessBin,
-    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
+    bitvector::bitvector_collection::BitVectorCollection, utils::ceil_log2, BitSliceWithOffset,
+    BitVec, EnumeratorFromBitSlice, EstimateSpace, IncreasingSequenceEnumerator, ToBitvector,
+    WriteBitvector,
 };
 
 #[derive(Debug)]
@@ -101,7 +99,9 @@ impl WriteBitvector for RankedBv {
     }
 }
 
-impl<'a> EnumeratorFromBitSlice<'a, RankedBvIter<'a>> for RankedBv {
+impl<'a> EnumeratorFromBitSlice<'a> for RankedBv {
+    type IterType = RankedBvIter<'a>;
+
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> RankedBvIter<'a> {
         let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
         let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };

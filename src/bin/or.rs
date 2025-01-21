@@ -13,7 +13,7 @@ use pef::{
     indexes::freq_index::{FreqIndex, PostingList},
     space_usage::SpaceUsage,
     utils::TimingQueries,
-    EliasFano, IdxKind, IncreasingSequenceEnumerator,
+    EliasFano, IdxKind,
 };
 
 #[derive(Parser, Debug)]
@@ -111,23 +111,22 @@ fn main() {
     }
 
     match args.idx_kind {
-        IdxKind::EFSingle => query_idx!(FreqIndex<EliasFano, _>),
+        IdxKind::EFSingle => query_idx!(FreqIndex<EliasFano>),
         IdxKind::UPEf => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano, _>, _>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano>>)
         }
         IdxKind::UPIs => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence, _>, _>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence>>)
         }
         IdxKind::Opt => {
-            query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence, _>, _>)
+            query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence>>)
         }
     }
 }
 
-fn boolean_or_multiterm<'a, T, S>(idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut Vec<u64>)
+fn boolean_or_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut Vec<u64>)
 where
-    T: PostingList<'a, S>,
-    S: IncreasingSequenceEnumerator,
+    T: PostingList<'a>,
 {
     //contains pairs (cur_val, iterator)
     let mut enums = Vec::with_capacity(terms.len());
