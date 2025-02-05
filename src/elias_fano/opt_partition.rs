@@ -1,3 +1,4 @@
+use core::panic;
 use std::{marker::PhantomData, mem};
 
 use serde::{Deserialize, Serialize};
@@ -319,6 +320,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct OptPartitionedSeqIter<'a, BaseSequence>
 where
     BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
@@ -389,19 +391,21 @@ where
             return self.move_to_position(self.len);
         }
 
-        let (_ub_val, ub_pos) = ub_res.unwrap();
+        let (_ub_val, ub_pos) = unsafe { ub_res.unwrap_unchecked() };
 
         if ub_pos == 0 {
             return self.move_to_position(0);
         }
 
         self.switch_partition(ub_pos - 1);
-        let (val, pos) = self
-            .cur_sequence
-            .next_geq(std::cmp::max(0, lower_bound as i64 - self.cur_base as i64) as u64)?;
+        // let (val, pos) = self
+        //     .cur_sequence
+        //     .next_geq(lower_bound - self.cur_base)
+        //     .unwrap();
 
-        self.position = self.cur_begin + pos + 1;
-        Some((val + self.cur_base, self.position - 1))
+        // self.position = self.cur_begin + pos + 1;
+        // Some((val + self.cur_base, self.position - 1))
+        self.next_geq(lower_bound)
     }
 
     #[cold]
@@ -417,8 +421,8 @@ where
         // println!("got partition {}", part);
         self.switch_partition(part);
 
-        let (val, pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-        Some((val + self.cur_base, pos + self.cur_begin))
+        let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
+        Some((val + self.cur_base, self.position - 1))
     }
 }
 
@@ -427,38 +431,64 @@ where
     BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
+        // println!("next");
         self.position += 1;
 
         if let Some(x) = self.cur_sequence.next() {
             self.cur_value = x + self.cur_base;
-            Some((self.cur_value, self.position))
-        } else if self.cur_partition < self.n_partitions - 1 && self.n_partitions != 1 {
+            Some((self.cur_value, self.position - 1))
+        } else if self.cur_partition < self.n_partitions - 1 {
             // go to next partition, if any
             self.switch_partition(self.cur_partition + 1);
 
             self.cur_value = self.cur_base + self.cur_sequence.next().unwrap();
-            Some((self.cur_value, self.position))
+            Some((self.cur_value, self.position - 1))
         } else {
             None
         }
     }
 
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        // println!("nextgeq");
         if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
-            let (val, pos) = self.cur_sequence.next_geq(lower_bound - self.cur_base)?;
-            self.position = self.cur_begin + pos as usize;
-            Some((val + self.cur_base, pos))
+            // println!("here");
+            let (val, pos) = self
+                .cur_sequence
+                .next_geq(lower_bound - self.cur_base)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "partition {}/{}
+                sequence len {}
+                lower bound: {}
+                cur_base: {}
+                cur_ub: {}
+                cur_sequence: {:?}
+                serching lb in seq: {}
+                ",
+                        self.cur_partition,
+                        self.n_partitions,
+                        self.len,
+                        lower_bound,
+                        self.cur_base,
+                        self.cur_ub,
+                        self.cur_sequence,
+                        lower_bound - self.cur_base
+                    );
+                });
+            self.position = self.cur_begin + pos as usize + 1;
+            Some((val + self.cur_base, self.position - 1))
         } else {
+            // println!("here2");
             self.slow_next_geq(lower_bound)
         }
     }
 
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
-        self.position = pos;
+        self.position = pos + 1;
 
         if self.position >= self.cur_begin && self.position < self.cur_end {
             let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-            return Some((self.cur_base + val, self.position));
+            return Some((self.cur_base + val, self.position - 1));
         }
 
         self.slow_move(pos)

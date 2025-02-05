@@ -1,3 +1,4 @@
+#![feature(core_intrinsics)]
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -38,6 +39,10 @@ struct Args {
     /// Path of the output index (optional)
     #[arg(short, long)]
     out_path: Option<String>,
+
+    /// Rebuilds the index
+    #[arg(short, long, default_value_t = false)]
+    force_rebuild: bool,
 }
 
 fn main() {
@@ -86,14 +91,14 @@ fn main() {
             }).collect();
 
 
-            let mut res_vec = Vec::with_capacity(idx.n_docs);
+            let mut res_vec = vec![0; idx.n_docs];
             for _ in 0..n_runs{
                 check = 0;
                 timer.start();
                 for term in &parsed {
                     //test or
-                    boolean_or_multiterm(&idx, term, &mut res_vec);
-                    check += res_vec.len();
+                    let x = boolean_or_multiterm(&idx, term, &mut res_vec);
+                    check += x;
                 }
                 timer.stop();
             }
@@ -124,7 +129,7 @@ fn main() {
     }
 }
 
-fn boolean_or_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut Vec<u64>)
+fn boolean_or_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut [u64]) -> usize
 where
     T: PostingList<'a>,
 {
@@ -136,18 +141,20 @@ where
     }
 
     let mut cur_doc = enums.iter().filter_map(|(x, _)| x.map(|x1| x1)).min();
-    //we clear the vec
-    v.clear();
+    let mut size = 0;
 
     while cur_doc.is_some() {
         // println!("new round ---------------------");
         // println!("pushing {:?}", cur_doc);
-        v.push(cur_doc.unwrap());
+        v[size] = unsafe { cur_doc.unwrap_unchecked() };
+        size += 1;
+
         let mut next_doc = None;
+
         for (cur_term_docid, it) in enums.iter_mut() {
             // println!("new term ---");
             // println!("cur_docid = {:?}", cur_term_docid);
-            if *cur_term_docid == cur_doc {
+            if core::intrinsics::likely(*cur_term_docid == cur_doc) {
                 // println!("update cur!");
                 *cur_term_docid = it.next();
             }
@@ -155,11 +162,14 @@ where
             // println!("check less ---");
             // println!("cur_doc = {:?}", cur_doc);
             // println!("cur_term_docid = {:?}", cur_term_docid);
-            if cur_term_docid.is_some() && (next_doc.is_none() || *cur_term_docid < next_doc) {
+            if core::intrinsics::likely(
+                cur_term_docid.is_some() && (next_doc.is_none() || *cur_term_docid < next_doc),
+            ) {
                 next_doc = *cur_term_docid
             }
         }
         cur_doc = next_doc;
         // println!("nextdoc is {:?}", cur_doc);
     }
+    size
 }

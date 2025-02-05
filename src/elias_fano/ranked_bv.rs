@@ -197,6 +197,7 @@ impl RankedBvIter<'_> {
 
 impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
     fn next_val(&mut self) -> Option<(u64, usize)> {
+        // println!("next");
         if self.value >= self.u as usize {
             None
         } else {
@@ -209,6 +210,9 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
     }
 
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        // println!("nextgeq");
+        // println!("cur_pos: {} | lower bound: {}", self.position, lower_bound);
+        // println!("cur value: {}", self.value);
         // println!("lower bound is {}", lower_bound);
         // println!("self.value {}", self.value);
         if lower_bound + 1 == self.value as u64 {
@@ -230,6 +234,7 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
             // println!("here 3");
             //slow next_geq
             if lower_bound >= self.u as u64 {
+                // println!("moving");
                 return self.move_to_position(self.n);
             }
 
@@ -258,9 +263,12 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
                 // println!("ones up until {} : {}", begin, self.position);
             }
 
-            self.position += self.data.rank_range(begin, lower_bound as usize);
-
+            // println!("rank range: {} - {}", begin, lower_bound);
+            if begin as u64 != lower_bound {
+                self.position += self.data.rank_range(begin, lower_bound as usize - 1);
+            }
             self.value = lower_bound as usize;
+            // println!("position now {}", self.position);
 
             self.next_val()
         }

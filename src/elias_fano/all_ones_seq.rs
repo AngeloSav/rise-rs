@@ -86,7 +86,9 @@ impl IncreasingSequenceEnumerator for AllOnesIter {
         if lower_bound >= self.len as u64 {
             None
         } else {
-            Some((lower_bound, lower_bound as usize))
+            // Some((lower_bound, lower_bound as usize))
+            self.pos = lower_bound as usize;
+            self.next_val()
         }
     }
 

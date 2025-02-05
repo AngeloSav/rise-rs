@@ -18,7 +18,7 @@ pub struct UniformPartitionedSequence<BaseSequence> {
     _phantom: PhantomData<BaseSequence>,
 }
 
-const PARTITION_SIZE: usize = 512;
+const PARTITION_SIZE: usize = 128;
 
 impl<'a, BaseSequence> UniformPartitionedSequence<BaseSequence>
 where
@@ -298,6 +298,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub struct UniformPartitionedSeqIter<'a, BaseSequence>
 where
     BaseSequence: PostingList<'a>,
@@ -369,13 +370,13 @@ where
         }
 
         self.switch_partition(ub_pos - 1);
-        let (val, pos) = self
-            .cur_sequence
-            .next_geq(0.max(lower_bound as i64 - self.cur_base as i64) as u64)?;
+        // let (val, pos) = self
+        //     .cur_sequence
+        //     .next_geq(0.max(lower_bound as i64 - self.cur_base as i64) as u64)?;
 
-        self.position = self.cur_begin + pos + 1;
-        Some((val + self.cur_base, self.position - 1))
-        // self.next_geq(lower_bound)
+        // self.position = self.cur_begin + pos + 1;
+        // Some((val + self.cur_base, self.position - 1))
+        self.next_geq(lower_bound)
     }
 
     #[cold]
@@ -391,7 +392,8 @@ where
         self.switch_partition(part);
 
         let (val, pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-        Some((val + self.cur_base, pos + self.cur_begin))
+        self.position = pos + self.cur_begin;
+        Some((val + self.cur_base, self.position - 1))
     }
 }
 
@@ -404,7 +406,7 @@ where
 
         if let Some(x) = self.cur_sequence.next() {
             self.cur_value = x + self.cur_base;
-            Some((self.cur_value, self.position))
+            Some((self.cur_value, self.position - 1))
         } else if self.cur_partition < self.n_partitions - 1 && self.n_partitions != 1 {
             // go to next partition, if any
             self.switch_partition(self.cur_partition + 1);
@@ -419,8 +421,8 @@ where
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
             let (val, pos) = self.cur_sequence.next_geq(lower_bound - self.cur_base)?;
-            self.position = self.cur_begin + pos as usize;
-            Some((val + self.cur_base, pos))
+            self.position = self.cur_begin + pos as usize + 1;
+            Some((val + self.cur_base, self.position - 1))
         } else {
             self.slow_next_geq(lower_bound)
         }

@@ -1,4 +1,4 @@
-use std::mem;
+use std::{intrinsics::saturating_sub, mem};
 
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
@@ -175,7 +175,7 @@ impl WriteBitvector for EliasFano {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct EliasFanoIter<'a> {
     slice_samples: BitSliceWithOffset<'a>,
     slice_samples1: BitSliceWithOffset<'a>,
@@ -208,6 +208,8 @@ impl EliasFanoIter<'_> {
         {
             to_skip = hi_lower_bound as usize - cur_hi;
         } else {
+            // println!("lower bound is {}", lower_bound);
+            // println!("hi lower bound is {}", hi_lower_bound);
             let ptr = hi_lower_bound >> LOG_SAMPLING0;
             let hi_pos = if ptr == 0 {
                 0
@@ -220,6 +222,7 @@ impl EliasFanoIter<'_> {
                 }
             };
             let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
+            // println!("hi_pos {hi_pos}");
 
             to_skip = hi_lower_bound - hi_rank0;
             self.i_hi = hi_pos as usize;
@@ -227,14 +230,16 @@ impl EliasFanoIter<'_> {
 
         // this is the old, slow way to skip zeros
         // for _ in 0..to_skip {
-        //     self.i_hi = self.slice_hi.next_zero(self.i_hi)? + 1;
+        //     self.i_hi = dbg!(self.slice_hi.next_zero(self.i_hi)?) + 1;
         // }
 
         if to_skip != 0 {
-            self.i_hi = self.slice_hi.skip_zeros(self.i_hi, to_skip - 1)? + 1
-        };
-
+            self.i_hi = self.slice_hi.skip_zeros(self.i_hi, to_skip - 1)? + 1;
+        }
         self.position = self.i_hi - hi_lower_bound;
+        // self.i_hi += 1;
+
+        // println!("new position: {}", self.position);
         // self.hi_ctr = hi_lower_bound;
 
         let (mut val, mut pos) = self.next_val()?;
@@ -243,6 +248,8 @@ impl EliasFanoIter<'_> {
         }
 
         Some((val, pos))
+
+        // self.next_geq(lower_bound)
     }
 
     fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {

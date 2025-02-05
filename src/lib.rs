@@ -1,10 +1,11 @@
 #![feature(unchecked_shifts)]
 #![feature(array_chunks)]
 #![feature(iter_array_chunks)]
-#![allow(internal_features)]
 #![feature(core_intrinsics)]
 
 pub mod bitvector;
+
+use std::fmt::Debug;
 
 pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
 pub use bitvector::BitVector;
@@ -105,7 +106,7 @@ pub trait CostWindow<'a> {
 }
 
 pub trait EnumeratorFromBitSlice<'a> {
-    type IterType: IncreasingSequenceEnumerator;
+    type IterType: IncreasingSequenceEnumerator + Debug;
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType;
     fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType;
 }

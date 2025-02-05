@@ -20,6 +20,7 @@ divan = "0.1.14"
 num = "0.4.2"
 indicatif = "0.17.9"
 likely_stable = "0.1.3"
+rayon = "1.10.0"
 
 [[bench]]
 name = "bit_vector_access"
@@ -32,8 +33,9 @@ harness = false
 [profile.release]
 lto = true
 debug = true
-overflow-checks = false # Enable this checks for debugging in release mode
+overflow-checks = true # Enable this checks for debugging in release mode
 codegen-units = 1
+debug-assertions = false
 
 [toolchain]
 channel = "nightly"

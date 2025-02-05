@@ -67,6 +67,9 @@ fn main() {
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, false);
             println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
+            // let idx_check = FreqIndex::<EliasFano>::load_or_build_and_save(&input_path, format!("{}.ef.out", input_path).as_str(), false);
+
+
             let queries = if let Some(x) = args.n_queries {
                 queries_file.lines().take_while(|a| a.is_ok()).take(x).collect::<Vec<_>>()
             } else {
@@ -86,12 +89,17 @@ fn main() {
             }).collect();
 
             let mut res_vec = Vec::with_capacity(idx.n_docs);
+
+            println!("starting testing!");
             for _ in 0..n_runs{
                 check = 0;
                 timer.start();
                 for term in &parsed {
                     //test and
+                    res_vec.clear();
                     boolean_and(&idx, term[0], term[1], &mut res_vec);
+                    // boolean_and_check(&idx, &idx_check, term[0], term[1], &mut res_vec);
+                    // boolean_and_multiterm(&idx, term, &mut res_vec);
                     check += res_vec.len();
                 }
                 timer.stop();
@@ -135,8 +143,6 @@ where
     let mut posting1 = p1.next_val();
     let mut posting2 = p2.next_val();
 
-    v.clear();
-
     while posting1.is_some() && posting2.is_some() {
         if posting1.unwrap().0 == posting2.unwrap().0 {
             v.push(posting1.unwrap().0);
@@ -145,16 +151,61 @@ where
             posting1 = p1.next_val();
             posting2 = p2.next_val();
         } else if posting1.unwrap().0 < posting2.unwrap().0 {
-            posting1 = p1.next_geq(posting2.unwrap().0)
+            posting1 = p1.next_geq(posting2.unwrap().0);
         } else {
-            posting2 = p2.next_geq(posting1.unwrap().0)
+            posting2 = p2.next_geq(posting1.unwrap().0);
         }
     }
 }
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize]) -> Vec<u64>
+// used to check against an index `index_check` that we know is correct
+fn boolean_and_check<'a, T, S>(
+    idx: &'a FreqIndex<T>,
+    idx_check: &'a FreqIndex<S>,
+    t1: usize,
+    t2: usize,
+    v: &mut Vec<u64>,
+) where
+    T: PostingList<'a>,
+    S: PostingList<'a>,
+{
+    let mut p1 = idx.get_plist_iter(t1);
+    let mut p2 = idx.get_plist_iter(t2);
+
+    let mut p1_check = idx_check.get_plist_iter(t1);
+    let mut p2_check = idx_check.get_plist_iter(t2);
+
+    p1_check.next_val();
+    p2_check.next_val();
+
+    let mut posting1 = p1.next_val();
+    let mut posting2 = p2.next_val();
+
+    while posting1.is_some() && posting2.is_some() {
+        if posting1.unwrap().0 == posting2.unwrap().0 {
+            v.push(posting1.unwrap().0);
+
+            //increment both
+            posting1 = p1.next_val();
+            posting2 = p2.next_val();
+
+            assert_eq!(posting1, p1_check.next_val());
+            assert_eq!(posting2, p2_check.next_val());
+        } else if posting1.unwrap().0 < posting2.unwrap().0 {
+            posting1 = p1.next_geq(posting2.unwrap().0);
+            assert_eq!(posting1, p1_check.next_geq(posting2.unwrap().0));
+        } else {
+            posting2 = p2.next_geq(posting1.unwrap().0);
+            assert_eq!(posting2, p2_check.next_geq(posting1.unwrap().0));
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[inline(always)]
+fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut Vec<u64>)
 where
     T: PostingList<'a>,
 {
@@ -169,8 +220,6 @@ where
     enums.sort_by_key(|(_, it)| it.len());
 
     let mut candidate = enums[0].0;
-
-    let mut v = Vec::with_capacity(idx.n_docs);
 
     let mut i = 1;
 
@@ -192,5 +241,4 @@ where
             i = 1;
         }
     }
-    v
 }

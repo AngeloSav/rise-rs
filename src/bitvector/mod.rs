@@ -23,6 +23,7 @@ use crate::{
     AccessBin,
 };
 use num::integer::div_ceil;
+use rand::seq::index;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -1449,9 +1450,9 @@ impl<V: AsRef<[u64]>> std::fmt::Debug for BitVector<V> {
 // The bit vector may start at an offset (in bits) in the first word (i.e., the first word may contain some bits that are not part of the bit vector). This is useful for the implementation of the [`BitVecCollection`] where we concatenate several binary vectors and we want to avoid padding.
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct BitSliceWithOffset<'a> {
-    data: &'a [u64],
-    n_bits: usize,
-    offset: usize,
+    pub(crate) data: &'a [u64],
+    pub(crate) n_bits: usize,
+    pub(crate) offset: usize,
 }
 
 impl<'a> BitSliceWithOffset<'a> {
@@ -1795,23 +1796,22 @@ impl<'a> BitSliceWithOffset<'a> {
 
         let mut begin_word = actual_start / 64;
         let begin_shift = actual_start % 64;
-        let end_word = div_ceil(actual_end, 64);
+        let end_word = actual_end / 64;
         let end_shift = actual_end % 64;
 
-        let mut word = (self.data[begin_word] >> begin_shift) << begin_shift;
-        begin_word += 1;
+        let mut word = self.data[begin_word] & (u64::MAX << begin_shift);
+        // begin_word += 1;
         let mut count = 0;
 
         while begin_word < end_word {
             count += word.count_ones() as usize;
 
-            word = self.data[begin_word];
             begin_word += 1;
+            word = self.data[begin_word];
         }
 
-        if end_shift != 0 {
-            count += (word << (64 - end_shift)).count_ones() as usize
-        }
+        word = word & (u64::MAX >> (63 - end_shift));
+        count += word.count_ones() as usize;
 
         count
     }

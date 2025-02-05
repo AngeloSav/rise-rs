@@ -5,6 +5,7 @@ use pef::{
         uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::FreqIndex,
+    space_usage::SpaceUsage,
     EliasFano, IdxKind,
 };
 
@@ -53,7 +54,12 @@ fn main() {
     macro_rules! build_idx {
         ($t:path) => {{
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, args.force_rebuild);
-            println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
+            println!(
+                "Index contains {} docs, {} terms, size: {} bytes",
+                idx.n_docs,
+                idx.n_terms,
+                idx.space_usage_byte()
+            );
 
             if args.check_correctness {
                 idx.check_correctness(&input_path)
