@@ -33,9 +33,6 @@ harness = false
 [profile.release]
 lto = true
 debug = true
-overflow-checks = true # Enable this checks for debugging in release mode
+overflow-checks = false
 codegen-units = 1
 debug-assertions = false
-
-[toolchain]
-channel = "nightly"

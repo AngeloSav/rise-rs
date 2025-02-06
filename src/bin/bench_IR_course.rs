@@ -6,6 +6,7 @@ use rand::{distributions::uniform::SampleUniform, Rng};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+#[allow(dead_code)]
 fn random_permutation(n: usize) -> Vec<usize> {
     let mut v: Vec<usize> = (0..n).collect(); // Create a vector with numbers from 0 to n-1
     let mut rng = thread_rng(); // Random number generator

@@ -1,4 +1,4 @@
-use std::{intrinsics::saturating_sub, mem};
+use std::mem;
 
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
@@ -406,4 +406,5 @@ impl SpaceUsage for EliasFano {
     }
 }
 
+#[cfg(test)]
 mod tests;

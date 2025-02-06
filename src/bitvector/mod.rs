@@ -22,8 +22,6 @@ use crate::{
     utils::{msb, prefetch_read_NTA, select_in_word},
     AccessBin,
 };
-use num::integer::div_ceil;
-use rand::seq::index;
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -377,6 +375,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         ((1 << gamma_part | lo) - 1, new_pos + gamma_part as usize)
     }
 
+    #[allow(dead_code)]
     #[inline]
     #[must_use]
     unsafe fn get_gamma_with_table_slice_unchecked(

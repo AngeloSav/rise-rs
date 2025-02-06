@@ -1,16 +1,13 @@
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection,
     elias_fano::{
-        indexed_seq::{IndexSeqCostWindow, IndexedSequenceIter},
+        indexed_seq::IndexSeqCostWindow,
         opt_partition::{optimal_partition, OptPartitionedSequence},
-        uniform_partitioned_seq::UniformPartitionedSeqIter,
         EliasFano,
     },
     gen_sequences::gen_strictly_increasing_sequence,
     indexes::freq_index::PostingList,
-    utils::{gamma_size, msb, select_in_word},
-    BitSliceWithOffset, BitVec, CostWindow, EliasFanoIter, EnumeratorFromBitSlice,
-    IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector, WriteBitvector,
+    CostWindow, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
 use super::{
