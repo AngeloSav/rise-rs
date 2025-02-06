@@ -79,7 +79,6 @@ where
         let mut bv = BitVec::new();
 
         let (_, partitions) = optimal_partition::<BaseSequence::CW>(&seq, EPS1, EPS2);
-        // println!("{:?}", partitions);
         let n_partitions = partitions.len();
 
         bv.append_gamma(n_partitions as u64);
@@ -130,11 +129,6 @@ where
                     *el -= cur_base;
                 }
 
-                // println!(
-                //     "NEW SEQ n {} | u {}",
-                //     cur_partition.len(),
-                //     *cur_partition.last().unwrap() + 1
-                // );
                 bv_sequences.concat(BaseSequence::write_bitvector(
                     &cur_partition,
                     cur_partition.len(),
@@ -146,34 +140,18 @@ where
                 endpoints.push(bv_sequences.len());
             }
 
-            // println!("ubs : {:?}", upper_bounds);
-            // println!("ubs len: {:?}", upper_bounds.len());
             let bv_upper_bounds = EliasFano::write_bitvector(&upper_bounds, n_partitions + 1, u);
             let endpoint_bits = ceil_log2(bv_sequences.len() + 1);
             bv.append_gamma(endpoint_bits as u64);
 
-            // println!(
-            //     "ubs START: {:?} | n {} | u {}",
-            //     bv.len(),
-            //     n_partitions,
-            //     u + 1
-            // );
             bv.concat(bv_upper_bounds);
 
-            // println!("sizes start: {}", bv.len());
-            // println!("{:?} | n {} | u {}", partitions, n_partitions, n + 1);
             let bv_sizes = EliasFano::write_bitvector(&partitions, n_partitions, n as u64 + 1);
-            // unreachable!();
             bv.concat(bv_sizes);
 
-            // println!("bvlen so far: {}", bv.len());
-
-            // println!("endpoints: {:?}", endpoints);
             for e in endpoints {
                 bv.append_bits(e as u64, endpoint_bits as usize);
             }
-
-            // println!("sequences start @ {}", bv.len());
 
             bv.concat(bv_sequences);
         }
@@ -236,12 +214,7 @@ where
         } else {
             let (endpoint_bits, np) = unsafe { bv.get_gamma_unchecked(next_pos) };
             next_pos = np;
-            // println!(
-            //     "ubs START: {:?} | n {} | u {}",
-            //     next_pos,
-            //     n_partitions,
-            //     u + 1
-            // );
+
             let mut upper_bounds =
                 EliasFano::iter_from_slice_with_data(bv.split_at(next_pos).1, n_partitions + 1, u);
             next_pos += EliasFano::n_bits(u, n_partitions + 1);
@@ -254,8 +227,6 @@ where
             );
             next_pos += EliasFano::n_bits(n as u64 + 1, n_partitions);
 
-            // println!("next_pos {:?}", next_pos);
-
             let mut endpoints = vec![0];
             for idx in (next_pos..)
                 .step_by(endpoint_bits as usize)
@@ -264,39 +235,20 @@ where
                 endpoints.push(bv.get_bits(idx, endpoint_bits as usize).unwrap() as usize);
             }
 
-            // println!("endpoints: {:?}", endpoints);
-
-            // println!(
-            //     "sequences start @ {}",
-            //     next_pos + endpoint_bits as usize * (n_partitions)
-            // );
             let sequences = bv
                 .split_at(next_pos + endpoint_bits as usize * (n_partitions))
                 .1;
-
-            // println!("sequences len: {:?}", sequences.len());
-
-            // println!("ubs: {:?}", upper_bounds.collect::<Vec<_>>());
-            // todo!();
 
             let cur_base = upper_bounds.next().unwrap();
             let cur_ub = upper_bounds.next().unwrap();
             let cur_begin = 0 as usize;
             let cur_end = sizes.next().unwrap() as usize;
 
-            // println!(
-            //     "NEW SEQ n {} | u {}",
-            //     cur_end - cur_begin,
-            //     cur_ub - cur_base + 1
-            // );
             let cur_sequence = BaseSequence::iter_from_slice_with_data(
                 sequences.slice(endpoints[0], endpoints[1]),
                 cur_end as usize,
                 cur_ub - cur_base + 1,
             );
-
-            // println!("cur seq: {:?}", cur_sequence.collect::<Vec<_>>());
-            // todo!();
 
             OptPartitionedSeqIter {
                 position: 0,
@@ -398,13 +350,7 @@ where
         }
 
         self.switch_partition(ub_pos - 1);
-        // let (val, pos) = self
-        //     .cur_sequence
-        //     .next_geq(lower_bound - self.cur_base)
-        //     .unwrap();
 
-        // self.position = self.cur_begin + pos + 1;
-        // Some((val + self.cur_base, self.position - 1))
         self.next_geq(lower_bound)
     }
 
@@ -418,7 +364,6 @@ where
         }
 
         let (_end, part) = self.sizes.next_geq(pos as u64 + 1).unwrap();
-        // println!("got partition {}", part);
         self.switch_partition(part);
 
         let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
@@ -431,7 +376,6 @@ where
     BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
-        // println!("next");
         self.position += 1;
 
         if let Some(x) = self.cur_sequence.next() {
@@ -576,17 +520,13 @@ where
     }
 
     let mut partition = Vec::new();
-    // let mut partition_costs = Vec::new();
 
     let mut cur_pos = sequence.len() as u64;
     while cur_pos != 0 {
         partition.push(cur_pos);
-        // partition_costs.push(min_cost[cur_pos as usize]);
         cur_pos = path[cur_pos as usize] as u64;
     }
 
     partition.reverse();
-    // partition_costs.reverse();
-    // println!("{:?}", partition_costs);
     (min_cost[sequence.len()], partition)
 }

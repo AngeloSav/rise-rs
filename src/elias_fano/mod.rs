@@ -131,45 +131,21 @@ impl WriteBitvector for EliasFano {
             prec_hi = hi;
         }
 
-        set_ptr0(prec_hi, higher_bits_len, n as u64);
+        set_ptr0(prec_hi + 1, higher_bits_len, n as u64);
         bv_hi.push(false);
 
-        // println!("---------------");
         let mut bv = BitVectorCollection::with_capacity(
             bv_hi.len() + bv_lo.len() + bv_0ptrs.len() + bv_1ptrs.len(),
             4,
         );
         bv.push(bv_0ptrs);
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
+
         bv.push(bv_1ptrs);
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
+
         bv.push(bv_lo);
-        // println!("pushed lo");
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
+
         bv_hi.extend_with_zeros(higher_bits_len as usize - bv_hi.len());
         bv.push(bv_hi);
-        // println!("pushed hi");
-        // println!(
-        //     "len: {} | n_bits: {} ({} u64)",
-        //     bv.bv.data.len(),
-        //     bv.bv.n_bits,
-        //     bv.bv.n_bits / 64
-        // );
 
         bv.bv
     }
@@ -208,8 +184,6 @@ impl EliasFanoIter<'_> {
         {
             to_skip = hi_lower_bound as usize - cur_hi;
         } else {
-            // println!("lower bound is {}", lower_bound);
-            // println!("hi lower bound is {}", hi_lower_bound);
             let ptr = hi_lower_bound >> LOG_SAMPLING0;
             let hi_pos = if ptr == 0 {
                 0
@@ -222,7 +196,6 @@ impl EliasFanoIter<'_> {
                 }
             };
             let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
-            // println!("hi_pos {hi_pos}");
 
             to_skip = hi_lower_bound - hi_rank0;
             self.i_hi = hi_pos as usize;
@@ -239,7 +212,6 @@ impl EliasFanoIter<'_> {
         self.position = self.i_hi - hi_lower_bound;
         // self.i_hi += 1;
 
-        // println!("new position: {}", self.position);
         // self.hi_ctr = hi_lower_bound;
 
         let (mut val, mut pos) = self.next_val()?;
@@ -314,9 +286,6 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
     }
 
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
-        // let lb_hi = lower_bound >> self.n_bits_lo;
-        // let hi_diff = lb_hi - self.hi_ctr as u64;
-
         if lower_bound == self.cur_value && self.position != 0 {
             return Some((self.cur_value, self.position - 1));
         }

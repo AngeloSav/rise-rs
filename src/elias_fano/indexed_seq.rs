@@ -94,7 +94,6 @@ impl WriteBitvector for IndexedSequence {
         };
 
         //all ones is implicit
-        // println!("writing itertype: {:?}", t);
         match t {
             IndexTypeNew::EliasFanoT => {
                 bv.push(false);
@@ -134,8 +133,6 @@ impl<'a> EnumeratorFromBitSlice<'a> for IndexedSequence {
                 false => IndexTypeNew::EliasFanoT,
             }
         };
-
-        // println!("now using itertype: {:?}", t);
 
         let it = match t {
             IndexTypeNew::EliasFanoT => {
