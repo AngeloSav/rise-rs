@@ -88,7 +88,7 @@ fn main() {
                 .collect::<Vec<_>>()
             }).collect();
 
-            let mut res_vec = Vec::with_capacity(idx.n_docs);
+            let mut res_vec = vec![0; idx.n_docs];
 
             println!("starting testing!");
             for _ in 0..n_runs{
@@ -96,11 +96,9 @@ fn main() {
                 timer.start();
                 for term in &parsed {
                     //test and
-                    res_vec.clear();
-                    boolean_and(&idx, term[0], term[1], &mut res_vec);
+                    check += boolean_and(&idx, term[0], term[1], &mut res_vec);
                     // boolean_and_check(&idx, &idx_check, term[0], term[1], &mut res_vec);
-                    // boolean_and_multiterm(&idx, term, &mut res_vec);
-                    check += res_vec.len();
+                    // check += boolean_and_multiterm(&idx, term, &mut res_vec);
                 }
                 timer.stop();
             }
@@ -133,29 +131,35 @@ fn main() {
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and<'a, T>(idx: &'a FreqIndex<T>, t1: usize, t2: usize, v: &mut Vec<u64>)
+fn boolean_and<'a, T>(idx: &'a FreqIndex<T>, t1: usize, t2: usize, v: &mut Vec<u64>) -> usize
 where
     T: PostingList<'a>,
 {
     let mut p1 = idx.get_plist_iter(t1);
     let mut p2 = idx.get_plist_iter(t2);
 
-    let mut posting1 = p1.next_val();
-    let mut posting2 = p2.next_val();
+    let max = idx.n_docs as u64;
 
-    while posting1.is_some() && posting2.is_some() {
-        if posting1.unwrap().0 == posting2.unwrap().0 {
-            v.push(posting1.unwrap().0);
+    let mut posting1 = p1.next_val().unwrap_or((max, 0)).0;
+    let mut posting2 = p2.next_val().unwrap_or((max, 0)).0;
+
+    let mut size = 0;
+
+    while posting1 < max && posting2 < max {
+        if posting1 == posting2 {
+            unsafe { *v.get_unchecked_mut(size) = posting1 };
+            size += 1;
 
             //increment both
-            posting1 = p1.next_val();
-            posting2 = p2.next_val();
-        } else if posting1.unwrap().0 < posting2.unwrap().0 {
-            posting1 = p1.next_geq(posting2.unwrap().0);
+            posting1 = p1.next_val().unwrap_or((max, 0)).0;
+            posting2 = p2.next_val().unwrap_or((max, 0)).0;
+        } else if posting1 < posting2 {
+            posting1 = p1.next_geq(posting2).unwrap_or((max, 0)).0;
         } else {
-            posting2 = p2.next_geq(posting1.unwrap().0);
+            posting2 = p2.next_geq(posting1).unwrap_or((max, 0)).0;
         }
     }
+    size
 }
 
 #[allow(dead_code)]
@@ -205,7 +209,7 @@ fn boolean_and_check<'a, T, S>(
 
 #[allow(dead_code)]
 #[inline(always)]
-fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut Vec<u64>)
+fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut [u64]) -> usize
 where
     T: PostingList<'a>,
 {
@@ -213,7 +217,7 @@ where
     let mut enums = Vec::with_capacity(terms.len());
     for &term in terms {
         let mut it = idx.get_plist_iter(term);
-        enums.push((it.next(), it));
+        enums.push((it.next().unwrap_or(idx.n_docs as u64), it));
     }
 
     // sort by non-decreasing size
@@ -222,10 +226,11 @@ where
     let mut candidate = enums[0].0;
 
     let mut i = 1;
+    let mut size = 0;
 
-    while candidate.is_some() {
+    while candidate < idx.n_docs as u64 {
         for (cur_term_docid, it) in enums.iter_mut().skip(i) {
-            *cur_term_docid = it.next_geq(candidate.unwrap()).map(|x| x.0);
+            *cur_term_docid = it.next_geq(candidate).unwrap_or((idx.n_docs as u64, 0)).0;
             if *cur_term_docid != candidate {
                 candidate = *cur_term_docid;
                 i = 0;
@@ -235,10 +240,12 @@ where
         }
 
         if i == enums.len() {
-            v.push(candidate.unwrap());
-            enums[0].0 = enums[0].1.next();
+            v[size] = candidate;
+            size += 1;
+            enums[0].0 = enums[0].1.next().unwrap_or(idx.n_docs as u64);
             candidate = enums[0].0;
             i = 1;
         }
     }
+    size
 }

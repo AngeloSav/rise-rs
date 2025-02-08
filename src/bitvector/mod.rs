@@ -336,6 +336,16 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         n_bits
     }
 
+    /// helper function to avoid boundchecks + double access to an array
+    /// old version causes a panic if assertions are off, because of misaligned pointer read
+    /// this alternative should compile the same: https://godbolt.org/z/WbKePqxK9
+    #[inline(always)]
+    pub unsafe fn get_word56_slice(data: &[u64], index: usize) -> u64 {
+        let ptr = data.as_ptr() as *const u8;
+        let ptr = *(ptr.add(index / 8) as *const [u8; 8]);
+        u64::from_ne_bytes(ptr) >> (index % 8)
+    }
+
     #[inline]
     #[must_use]
     pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
@@ -1705,6 +1715,14 @@ impl<'a> BitSliceWithOffset<'a> {
             self.n_bits + self.offset,
             k,
         ) - self.offset
+    }
+
+    /// This function retrieves a word containing `index` by doing an unaligned read
+    ///
+    /// UB: if the index is in the last word of the array
+    #[inline]
+    pub unsafe fn get_word56(&self, index: usize) -> u64 {
+        BitVector::<&[u64]>::get_word56_slice(self.data, self.offset + index)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.

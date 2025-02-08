@@ -1,8 +1,5 @@
 use std::mem;
 
-use num::integer::div_ceil;
-use serde::{Deserialize, Serialize};
-
 use crate::{
     bitvector::bitvector_collection::BitVectorCollection,
     space_usage::SpaceUsage,
@@ -10,6 +7,8 @@ use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
     IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
 };
+use num::integer::div_ceil;
+use serde::{Deserialize, Serialize};
 
 pub mod all_ones_seq;
 pub mod indexed_seq;
@@ -158,6 +157,7 @@ pub struct EliasFanoIter<'a> {
     slice_lo: BitSliceWithOffset<'a>,
     slice_hi: BitSliceWithOffset<'a>,
     n_bits_lo: usize,
+    lo_bitmask: u64,
     pointer_size: usize,
     position: usize,
     i_hi: usize,
@@ -189,10 +189,13 @@ impl EliasFanoIter<'_> {
                 0
             } else {
                 unsafe {
-                    self.slice_samples.get_bits_unchecked(
-                        (ptr - 1) as usize * self.pointer_size,
-                        self.pointer_size,
-                    )
+                    // self.slice_samples.get_bits_unchecked(
+                    //     (ptr - 1) as usize * self.pointer_size,
+                    //     self.pointer_size,
+                    // )
+                    self.slice_samples
+                        .get_word56((ptr - 1) as usize * self.pointer_size)
+                        & ((1 << self.pointer_size) - 1)
                 }
             };
             let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
@@ -214,12 +217,15 @@ impl EliasFanoIter<'_> {
 
         // self.hi_ctr = hi_lower_bound;
 
-        let (mut val, mut pos) = self.next_val()?;
-        while val < lower_bound {
-            (val, pos) = self.next_val()?;
-        }
+        let mut res = self.next_val();
+        while let Some((val, _pos)) = res {
+            if val >= lower_bound {
+                break;
+            }
 
-        Some((val, pos))
+            res = self.next_val();
+        }
+        res
 
         // self.next_geq(lower_bound)
     }
@@ -241,10 +247,15 @@ impl EliasFanoIter<'_> {
                 0
             } else {
                 unsafe {
-                    self.slice_samples1.get_bits_unchecked(
-                        (ptr - 1) as usize * self.pointer_size,
-                        self.pointer_size,
-                    ) - 1
+                    // self.slice_samples1.get_bits_unchecked(
+                    //     (ptr - 1) as usize * self.pointer_size,
+                    //     self.pointer_size,
+                    // ) - 1
+                    (self
+                        .slice_samples1
+                        .get_word56((ptr - 1) as usize * self.pointer_size)
+                        & ((1 << self.pointer_size) - 1))
+                        - 1
                 }
             };
             let hi_rank = (ptr as usize) << LOG_SAMPLING1;
@@ -254,7 +265,7 @@ impl EliasFanoIter<'_> {
         }
 
         if to_skip != 0 {
-            self.i_hi = self.slice_hi.skip_ones(self.i_hi, to_skip - 1)? + 1;
+            self.i_hi = unsafe { self.slice_hi.skip_ones_unchecked(self.i_hi, to_skip - 1) } + 1;
         }
         self.position = pos;
 
@@ -266,13 +277,23 @@ impl EliasFanoIter<'_> {
 impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         if core::intrinsics::likely(self.position < self.len) {
-            let lo = self
-                .slice_lo
-                .get_bits(self.position * self.n_bits_lo, self.n_bits_lo)
-                .unwrap();
+            // prefetch_read_NTA(self.slice_lo.data, (self.position * self.n_bits_lo) >> 6);
+            // prefetch_read_NTA(
+            //     self.slice_lo.data,
+            //     ((self.position * self.n_bits_lo) >> 6) + 1,
+            // );
 
+            // old way, here we now do an unaligned read for no bound check + 1 access
+            // let lo = unsafe {
+            //     self.slice_lo
+            //         .get_bits_unchecked(self.position * self.n_bits_lo, self.n_bits_lo)
+            // };
+
+            let idx = self.position * self.n_bits_lo;
+            let lo = unsafe { self.slice_lo.get_word56(idx) } & self.lo_bitmask;
+
+            //currently we get some misses here: maybe buffering can help?
             self.i_hi = unsafe { self.slice_hi.next_one_unchecked(self.i_hi) };
-
             let hi = ((self.i_hi - self.position) << self.n_bits_lo) as u64;
 
             self.position += 1;
@@ -286,7 +307,7 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
     }
 
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
-        if lower_bound == self.cur_value && self.position != 0 {
+        if core::intrinsics::unlikely(lower_bound == self.cur_value && self.position != 0) {
             return Some((self.cur_value, self.position - 1));
         }
 
@@ -297,11 +318,22 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
             || (self.cur_value < lower_bound
                 && (hi_lower_bound as usize - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD)
         {
-            let (mut val, mut pos) = self.next_val()?;
-            while val < lower_bound {
-                (val, pos) = self.next_val()?;
+            // let (mut val, mut pos) = self.next_val()?;
+            // while val < lower_bound {
+            //     (val, pos) = self.next_val()?;
+            // }
+            // Some((val, pos))
+
+            let mut res = self.next_val();
+            while let Some((val, _pos)) = res {
+                if val >= lower_bound {
+                    break;
+                }
+
+                res = self.next_val();
             }
-            Some((val, pos))
+
+            res
         } else {
             //slow next geq
             self.slow_next_geq(lower_bound)
@@ -384,12 +416,15 @@ impl<'a> EnumeratorFromBitSlice<'a> for EliasFano {
         let (slice_lo, slice_hi) = slice_remainder.split_at((n as u64 * n_lo_bits) as usize);
         // println!("ok second split");
 
+        let lo_bitmask = (1 << n_lo_bits) - 1;
+
         EliasFanoIter {
             slice_samples,
             slice_samples1,
             slice_lo,
             slice_hi,
             n_bits_lo: n_lo_bits as usize,
+            lo_bitmask,
             pointer_size,
             position: 0,
             i_hi: 0,

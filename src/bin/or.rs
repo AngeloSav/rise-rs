@@ -106,7 +106,7 @@ fn main() {
                     let x = boolean_or_multiterm(&idx, term, &mut res_vec);
                     check += x;
                     if EST_LEN {
-                        let est_len = estimate_res_len::<_, 128, 32>(&idx, term);
+                        let est_len = estimate_res_len::<_, 1, 24622347>(&idx, term);
                         error += est_len;
                     }
                 }
@@ -150,34 +150,32 @@ where
     let mut enums = Vec::with_capacity(terms.len());
     for &term in terms {
         let mut it = idx.get_plist_iter(term);
-        enums.push((it.next(), it));
+        enums.push((it.next().unwrap_or(idx.n_docs as u64), it));
     }
 
-    let mut cur_doc = enums.iter().filter_map(|(x, _)| x.map(|x1| x1)).min();
+    let mut cur_doc = enums.iter().map(|x| x.0).min().unwrap();
     let mut size = 0;
 
-    while cur_doc.is_some() {
+    while cur_doc < idx.n_docs as u64 {
         // println!("new round ---------------------");
         // println!("pushing {:?}", cur_doc);
-        v[size] = unsafe { cur_doc.unwrap_unchecked() };
+        unsafe { *v.get_unchecked_mut(size) = cur_doc };
         size += 1;
 
-        let mut next_doc = None;
+        let mut next_doc = idx.n_docs as u64;
 
         for (cur_term_docid, it) in enums.iter_mut() {
             // println!("new term ---");
             // println!("cur_docid = {:?}", cur_term_docid);
             if core::intrinsics::likely(*cur_term_docid == cur_doc) {
                 // println!("update cur!");
-                *cur_term_docid = it.next();
+                *cur_term_docid = it.next().unwrap_or(idx.n_docs as u64);
             }
 
             // println!("check less ---");
             // println!("cur_doc = {:?}", cur_doc);
             // println!("cur_term_docid = {:?}", cur_term_docid);
-            if core::intrinsics::likely(
-                cur_term_docid.is_some() && (next_doc.is_none() || *cur_term_docid < next_doc),
-            ) {
+            if core::intrinsics::likely(*cur_term_docid < next_doc) {
                 next_doc = *cur_term_docid
             }
         }
@@ -221,7 +219,7 @@ fn do_or_rounds<T: IncreasingSequenceEnumerator>(
         cur_doc = next_doc;
     }
     //maybe size+1
-    (size, *v.last().unwrap_or(&limit).min(&limit))
+    (size + 1, *v.last().unwrap_or(&limit).min(&limit))
 }
 
 fn estimate_res_len<'a, T, const N_SPLITS: usize, const N_ROUNDS: usize>(
@@ -239,9 +237,11 @@ where
 
     let longest_seq = enums.iter().map(|(_, x)| x.len()).max().unwrap();
 
-    let round_starting_points = (0..longest_seq)
+    let mut round_starting_points = (0..longest_seq)
         .step_by(longest_seq / N_SPLITS)
         .collect::<Vec<_>>();
+
+    round_starting_points.push(longest_seq);
 
     let mut expected_len = 0;
 
@@ -252,12 +252,15 @@ where
         }
 
         // now do or rounds
-        let (len, last_res) = dbg!(do_or_rounds(&mut enums, sp_end as u64, N_ROUNDS));
+        let (len, last_res) = do_or_rounds(&mut enums, sp_end as u64, N_ROUNDS);
 
         //get density of section
         let d = len as f64 / (last_res + 1 - sp_start as u64) as f64;
 
-        expected_len += dbg!(d * (sp_end - sp_start) as f64) as usize;
+        // println!("in range [{sp_start}, {sp_end}]");
+        // println!("last got: {last_res} | got {len} | density is {d}");
+
+        expected_len += (d * (sp_end - sp_start) as f64).ceil() as usize;
     }
 
     expected_len
