@@ -10,9 +10,7 @@ pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
 pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
 
-pub mod darray;
 use clap::ValueEnum;
-pub use darray::DArray;
 
 pub mod elias_fano;
 pub use elias_fano::{EliasFano, EliasFanoIter};

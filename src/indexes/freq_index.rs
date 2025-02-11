@@ -27,6 +27,7 @@ pub struct FreqIndex<DocumentSequence> {
     pub _phantom: PhantomData<DocumentSequence>,
 }
 
+// once we build them, they are immutable
 unsafe impl Send for EliasFano {}
 unsafe impl Send for IndexedSequence {}
 unsafe impl<'a, T> Send for UniformPartitionedSeqIter<'a, T> where T: PostingList<'a> {}
@@ -52,7 +53,7 @@ impl<'a, T> PostingList<'a> for T where
 
 impl<'a, DocumentSequence> FreqIndex<DocumentSequence>
 where
-    DocumentSequence: PostingList<'a> + 'a,
+    DocumentSequence: PostingList<'a>,
 {
     pub fn new(n_docs: usize) -> Self {
         Self {

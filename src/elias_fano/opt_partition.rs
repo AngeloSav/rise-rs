@@ -318,6 +318,31 @@ where
             self.upper_bounds.move_to_position(part).unwrap().0 + if part == 0 { 0 } else { 1 };
         self.cur_ub = self.upper_bounds.next().unwrap_or(self.universe);
 
+        // without using a vec for endpoints
+        // let mask = (1 << self.endpoint_bits) - 1;
+
+        // let start_p = if self.cur_partition == 0 {
+        //     0
+        // } else {
+        //     unsafe {
+        //         self.endpoints_slice
+        //             .get_word56((self.cur_partition - 1) * self.endpoint_bits)
+        //             & mask
+        //     }
+        // };
+        // let end_p = unsafe {
+        //     self.endpoints_slice
+        //         .get_word56((self.cur_partition) * self.endpoint_bits)
+        //         & mask
+        // };
+
+        // self.cur_sequence = BaseSequence::iter_from_slice_with_data(
+        //     self.sequences.slice(start_p as usize, end_p as usize),
+        //     self.cur_end - self.cur_begin,
+        //     self.cur_ub - self.cur_base + 1,
+        // );
+
+        //using a vec saves ~1ms from execution times of or
         self.cur_sequence = BaseSequence::iter_from_slice_with_data(
             self.sequences.slice(
                 self.endpoints[self.cur_partition],
