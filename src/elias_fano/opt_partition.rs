@@ -146,7 +146,11 @@ where
 
             bv.concat(bv_upper_bounds);
 
-            let bv_sizes = EliasFano::write_bitvector(&partitions, n_partitions, n as u64 + 1);
+            let bv_sizes = EliasFano::write_bitvector(
+                &partitions[0..&partitions.len() - 1], // we dont need the last element
+                n_partitions - 1,
+                n as u64,
+            );
             bv.concat(bv_sizes);
 
             for e in endpoints {
@@ -222,10 +226,10 @@ where
             // println!("sizes start : {}", next_pos);
             let mut sizes = EliasFano::iter_from_slice_with_data(
                 bv.split_at(next_pos).1,
-                n_partitions,
-                n as u64 + 1,
+                n_partitions - 1,
+                n as u64,
             );
-            next_pos += EliasFano::n_bits(n as u64 + 1, n_partitions);
+            next_pos += EliasFano::n_bits(n as u64, n_partitions - 1);
 
             let mut endpoints = vec![0];
             for idx in (next_pos..)
@@ -310,7 +314,7 @@ where
             self.cur_end = self.sizes.move_to_position(part).unwrap().0 as usize;
         } else {
             self.cur_begin = self.sizes.move_to_position(part - 1).unwrap().0 as usize;
-            self.cur_end = self.sizes.next().unwrap() as usize;
+            self.cur_end = self.sizes.next().unwrap_or(self.len as u64) as usize;
         }
 
         //get bounds of this
