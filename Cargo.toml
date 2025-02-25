@@ -20,6 +20,8 @@ divan = "0.1.14"
 num = "0.4.2"
 indicatif = "0.17.9"
 rayon = "1.10.0"
+pariter = "0.5.1"
+memmap2 = "0.9.5"
 
 [[bench]]
 name = "bit_vector_access"

@@ -1,19 +1,25 @@
-use std::slice::Iter;
+use std::{marker::PhantomData, slice::Iter};
 
 use crate::{
-    AccessBin, BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, PartitionableSequence, ToBitvector, WriteBitvector,
+    indexes::freq_index::PostingList, AccessBin, BitSliceWithOffset, BitVec, CostWindow,
+    EnumeratorFromBitSlice, EstimateSpace, NextGEQ, PartitionableSequence, SequenceEnumerator,
+    ToBitvector, WriteBitvector,
 };
 
 use super::{
     all_ones_seq::{AllOnes, AllOnesIter},
     ranked_bv::{RankedBv, RankedBvIter},
-    EliasFano, EliasFanoIter,
+    strict_ef::StrictEliasFano,
+    EliasFano,
 };
 
+pub trait EFVariant: for<'a> PostingList<'a> + EstimateSpace {}
+impl EFVariant for EliasFano {}
+impl EFVariant for StrictEliasFano {}
+
 #[derive(Debug)]
-enum IndexType {
-    EliasFanoT(EliasFano),
+enum IndexType<EF: EFVariant> {
+    EliasFanoT(EF),
     RankedBvT(RankedBv),
     AllOnesT(AllOnes),
 }
@@ -26,43 +32,47 @@ enum IndexTypeNew {
 }
 
 #[derive(Debug)]
-enum IterType<'a> {
-    EliasFanoItT(EliasFanoIter<'a>),
+enum IterType<'a, EF: EFVariant> {
+    EliasFanoItT(<EF as EnumeratorFromBitSlice<'a>>::IterType),
     RankedBvItT(RankedBvIter<'a>),
     AllOnesItT(AllOnesIter),
 }
 
+pub type IndexSequence = IndexedSequence<EliasFano>;
+pub type StrictSequence = IndexedSequence<StrictEliasFano>;
+
+// now you can chose which ef to use but not define others
 #[derive(Debug)]
-pub struct IndexedSequence {
-    sequence: IndexType,
+pub struct IndexedSequence<EF: EFVariant = EliasFano> {
+    sequence: IndexType<EF>,
 }
 
-impl EstimateSpace for IndexedSequence {
+impl<EF: EFVariant> EstimateSpace for IndexedSequence<EF> {
     fn bitsize(u: u64, n: usize) -> usize {
         let mut best_type = AllOnes::bitsize(u, n);
         best_type = best_type.min(RankedBv::bitsize(u, n));
-        best_type = best_type.min(AllOnes::bitsize(u, n));
+        best_type = best_type.min(EF::bitsize(u, n));
         best_type
     }
 }
 
-impl<'a> From<&'a [u64]> for IndexedSequence {
+impl<'a, EF: EFVariant> From<&'a [u64]> for IndexedSequence<EF> {
     fn from(v: &'a [u64]) -> Self {
         let n = v.len();
         let u = *v.last().unwrap();
         let sequence = if AllOnes::bitsize(u, n) == 0 {
             IndexType::AllOnesT(AllOnes::from(v))
-        } else if RankedBv::bitsize(u, n) <= EliasFano::bitsize(u, n) {
+        } else if RankedBv::bitsize(u, n) <= EF::bitsize(u, n) {
             IndexType::RankedBvT(RankedBv::from(v))
         } else {
-            IndexType::EliasFanoT(EliasFano::from(v))
+            IndexType::EliasFanoT(EF::from(v))
         };
 
         Self { sequence }
     }
 }
 
-impl ToBitvector for IndexedSequence {
+impl<EF: EFVariant> ToBitvector for IndexedSequence<EF> {
     fn to_bv(&self) -> BitVec {
         let mut bv = BitVec::new();
         let (t, bvs) = match &self.sequence {
@@ -76,21 +86,18 @@ impl ToBitvector for IndexedSequence {
     }
 }
 
-impl WriteBitvector for IndexedSequence {
+impl<EF: EFVariant> WriteBitvector for IndexedSequence<EF> {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         let mut bv = BitVec::new();
         let (t, bv_data) = if AllOnes::bitsize(u, n) == 0 {
             (IndexTypeNew::AllOnesT, AllOnes::write_bitvector(seq, n, u))
-        } else if RankedBv::bitsize(u, n) <= EliasFano::bitsize(u, n) {
+        } else if RankedBv::bitsize(u, n) <= EF::bitsize(u, n) {
             (
                 IndexTypeNew::RankedBvT,
                 RankedBv::write_bitvector(seq, n, u),
             )
         } else {
-            (
-                IndexTypeNew::EliasFanoT,
-                EliasFano::write_bitvector(seq, n, u),
-            )
+            (IndexTypeNew::EliasFanoT, EF::write_bitvector(seq, n, u))
         };
 
         //all ones is implicit
@@ -110,15 +117,15 @@ impl WriteBitvector for IndexedSequence {
     }
 }
 
-impl<'a> EnumeratorFromBitSlice<'a> for IndexedSequence {
-    type IterType = IndexedSequenceIter<'a>;
+impl<'a, EF: EFVariant> EnumeratorFromBitSlice<'a> for IndexedSequence<EF> {
+    type IterType = IndexedSequenceIter<'a, EF>;
 
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
         let slice = bv.split_at(2).1;
         let it = match bv.get_bits(0, 2) {
             Some(0) => IterType::AllOnesItT(AllOnes::iter_from_slice(slice)),
             Some(1) => IterType::RankedBvItT(RankedBv::iter_from_slice(slice)),
-            Some(2) => IterType::EliasFanoItT(EliasFano::iter_from_slice(slice)),
+            Some(2) => IterType::EliasFanoItT(EF::iter_from_slice(slice)),
             _ => unreachable!(),
         };
         IndexedSequenceIter { it }
@@ -137,7 +144,7 @@ impl<'a> EnumeratorFromBitSlice<'a> for IndexedSequence {
         let it = match t {
             IndexTypeNew::EliasFanoT => {
                 let slice = bv.split_at(1).1;
-                IterType::EliasFanoItT(EliasFano::iter_from_slice_with_data(slice, n, u))
+                IterType::EliasFanoItT(EF::iter_from_slice_with_data(slice, n, u))
             }
             IndexTypeNew::RankedBvT => {
                 let slice = bv.split_at(1).1;
@@ -152,24 +159,16 @@ impl<'a> EnumeratorFromBitSlice<'a> for IndexedSequence {
 }
 
 #[derive(Debug)]
-pub struct IndexedSequenceIter<'a> {
-    it: IterType<'a>,
+pub struct IndexedSequenceIter<'a, EF: EFVariant> {
+    it: IterType<'a, EF>,
 }
 
-impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
+impl<EF: EFVariant> SequenceEnumerator for IndexedSequenceIter<'_, EF> {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.next_val(),
             IterType::RankedBvItT(it) => it.next_val(),
             IterType::AllOnesItT(it) => it.next_val(),
-        }
-    }
-
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
-        match &mut self.it {
-            IterType::EliasFanoItT(it) => it.next_geq(lower_bound),
-            IterType::RankedBvItT(it) => it.next_geq(lower_bound),
-            IterType::AllOnesItT(it) => it.next_geq(lower_bound),
         }
     }
 
@@ -190,7 +189,17 @@ impl IncreasingSequenceEnumerator for IndexedSequenceIter<'_> {
     }
 }
 
-impl Iterator for IndexedSequenceIter<'_> {
+impl<EF: EFVariant<IterType: NextGEQ>> NextGEQ for IndexedSequenceIter<'_, EF> {
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        match &mut self.it {
+            IterType::EliasFanoItT(it) => it.next_geq(lower_bound),
+            IterType::RankedBvItT(it) => it.next_geq(lower_bound),
+            IterType::AllOnesItT(it) => it.next_geq(lower_bound),
+        }
+    }
+}
+
+impl<EF: EFVariant> Iterator for IndexedSequenceIter<'_, EF> {
     type Item = u64;
 
     #[inline]
@@ -200,7 +209,7 @@ impl Iterator for IndexedSequenceIter<'_> {
 }
 
 #[derive(Debug)]
-pub struct IndexSeqCostWindow<'a> {
+pub struct IndexSeqCostWindow<'a, EF: EFVariant> {
     start_it: std::iter::Peekable<Iter<'a, u64>>,
     end_it: std::iter::Peekable<Iter<'a, u64>>,
     start: usize,
@@ -208,13 +217,14 @@ pub struct IndexSeqCostWindow<'a> {
     min_p: u64,
     max_p: u64,
     cost_upper_bound: usize,
+    _phantom: PhantomData<EF>,
 }
 
-impl<'a> IndexSeqCostWindow<'a> {
+impl<'a, EF: EFVariant> IndexSeqCostWindow<'a, EF> {
     const FIX_COST: usize = 128;
 }
 
-impl<'a> CostWindow<'a> for IndexSeqCostWindow<'a> {
+impl<'a, EF: EFVariant> CostWindow<'a> for IndexSeqCostWindow<'a, EF> {
     fn new(sequence: &'a [u64], cost_upper_bound: usize) -> Self {
         let mut start_it = sequence.iter().peekable();
         let end_it = sequence.iter().peekable();
@@ -229,6 +239,7 @@ impl<'a> CostWindow<'a> for IndexSeqCostWindow<'a> {
             min_p,
             max_p,
             cost_upper_bound,
+            _phantom: PhantomData,
         }
     }
 
@@ -244,12 +255,13 @@ impl<'a> CostWindow<'a> for IndexSeqCostWindow<'a> {
 
     #[inline(always)]
     fn window_cost(&self) -> usize {
-        IndexedSequence::bitsize(self.universe(), self.size()) + Self::FIX_COST
+        IndexedSequence::<EF>::bitsize(self.universe(), self.size()) + Self::FIX_COST
     }
 
     #[inline(always)]
     fn single_block_cost(sequence: &[u64]) -> usize {
-        IndexedSequence::bitsize(*sequence.last().unwrap() + 1, sequence.len()) + Self::FIX_COST
+        IndexedSequence::<EF>::bitsize(*sequence.last().unwrap() + 1, sequence.len())
+            + Self::FIX_COST
     }
 
     #[inline(always)]
@@ -291,10 +303,10 @@ impl<'a> CostWindow<'a> for IndexSeqCostWindow<'a> {
 
     #[inline(always)]
     fn minimum_cost(_sequence: &[u64]) -> usize {
-        IndexedSequence::bitsize(1, 1) + Self::FIX_COST
+        IndexedSequence::<EF>::bitsize(1, 1) + Self::FIX_COST
     }
 }
 
-impl<'a> PartitionableSequence<'a> for IndexedSequence {
-    type CW = IndexSeqCostWindow<'a>;
+impl<'a, EF: EFVariant> PartitionableSequence<'a> for IndexedSequence<EF> {
+    type CW = IndexSeqCostWindow<'a, EF>;
 }

@@ -1,15 +1,18 @@
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
-use rayon::{
-    iter::{ParallelBridge, ParallelIterator},
-    slice::ParallelSliceMut,
-};
+use memmap2::MmapOptions;
+use pariter::{scope, IteratorExt};
+
+use std::fs::File;
+
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, fs, marker::PhantomData, mem, path::Path};
 
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection,
+    bitvector::bitvector_collection::BitVectorCollectionBuilder,
     elias_fano::{
-        indexed_seq::IndexedSequence, opt_partition::OptPartitionedSeqIter,
+        indexed_seq::{IndexSequence, StrictSequence},
+        opt_partition::OptPartitionedSeqIter,
+        strict_ef::StrictEliasFano,
         uniform_partitioned_seq::UniformPartitionedSeqIter,
     },
     space_usage::SpaceUsage,
@@ -29,13 +32,14 @@ pub struct FreqIndex<DocumentSequence> {
 
 // once we build them, they are immutable
 unsafe impl Send for EliasFano {}
-unsafe impl Send for IndexedSequence {}
+unsafe impl Send for IndexSequence {}
+unsafe impl Send for StrictSequence {}
 unsafe impl<'a, T> Send for UniformPartitionedSeqIter<'a, T> where T: PostingList<'a> {}
 unsafe impl<'a, T> Send for OptPartitionedSeqIter<'a, T> where
     T: PostingList<'a> + for<'b> PartitionableSequence<'b>
 {
 }
-
+unsafe impl Send for StrictEliasFano {}
 pub trait PostingList<'a>:
     ToBitvector + EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector + Send + Debug
 {
@@ -55,19 +59,9 @@ impl<'a, DocumentSequence> FreqIndex<DocumentSequence>
 where
     DocumentSequence: PostingList<'a>,
 {
-    pub fn new(n_docs: usize) -> Self {
-        Self {
-            n_docs,
-            n_terms: 0,
-            docs_sequences: BitVectorCollection::with_capacity(0, 0),
-            _freqs_sequences: BitVectorCollection::with_capacity(0, 0),
-            _phantom: PhantomData::<DocumentSequence>,
-        }
-    }
-
     pub fn get_plist_iter(&'a self, i: usize) -> DocumentSequence::IterType {
         let a: BitSliceWithOffset<'a> = self.docs_sequences.get(i);
-        let (sz, pos) = unsafe { a.get_gamma_unchecked(0) };
+        let (sz, pos) = unsafe { a.get_gamma_nonzero_unchecked(0) };
         DocumentSequence::iter_from_slice_with_data(
             a.split_at(pos).1,
             sz as usize,
@@ -75,15 +69,14 @@ where
         )
     }
 
-    fn push_plist(&mut self, data: (usize, BitVec)) {
+    fn push_plist(docs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>, data_doc: (usize, BitVec)) {
         let mut bv = BitVec::new();
-        let (sz, bv_data) = data;
-        bv.append_gamma(sz as u64);
+        let (sz, bv_data) = data_doc;
+        bv.append_gamma_nonzero(sz as u64);
         // println!("sz is: {}", sz);
         bv.concat(bv_data);
 
-        self.docs_sequences.push(bv);
-        self.n_terms += 1;
+        docs_bv.push(bv);
     }
 
     const LENGTH_THRESHOLD: u64 = 1 << 12;
@@ -105,9 +98,10 @@ where
         docs_iter.next();
 
         let n_docs = docs_iter.next().unwrap();
-        let mut idx = Self::new(n_docs as usize);
 
         let mut n_postings = 0;
+        let mut n_terms = 0;
+        let mut bvb = BitVectorCollectionBuilder::default();
 
         while let Some(sz) = docs_iter.next() {
             // println!("------------- list n {} -------------", processed);
@@ -118,11 +112,14 @@ where
                 assert!(v.len() == sz as usize);
                 assert!(sz > 0);
 
-                idx.push_plist((
-                    sz as usize,
-                    DocumentSequence::write_bitvector(&v, sz as usize, n_docs),
-                ));
-
+                Self::push_plist(
+                    &mut bvb,
+                    (
+                        sz as usize,
+                        DocumentSequence::write_bitvector(&v, sz as usize, n_docs),
+                    ),
+                );
+                n_terms += 1;
                 n_postings += sz;
             } else {
                 let _x = (&mut docs_iter).nth(sz as usize - 1);
@@ -134,15 +131,29 @@ where
 
         println!("processed {} postings", n_postings);
 
-        idx
+        FreqIndex {
+            n_docs: n_docs.try_into().unwrap(),
+            n_terms,
+            docs_sequences: bvb.build(),
+            _freqs_sequences: BitVecCollection::default(),
+            _phantom: PhantomData,
+        }
     }
 
     pub fn from_files_parallel(input_path: &str) -> Self {
-        let docs_file = format!("{}.docs", input_path);
+        let docs_file =
+            File::open(format!("{}.docs", input_path)).expect("could not open docs file");
         // let sizes_file = format!("{}.sizes", input_path);
 
-        let binding = std::fs::read(docs_file)
-            .expect("can't read .docs file ")
+        let mmap_docs = unsafe {
+            MmapOptions::new()
+                .map(&docs_file)
+                .expect("could not memory map docs file")
+        };
+
+        println!("file mapped!");
+
+        let binding = mmap_docs
             .array_chunks::<4>()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64)
             .collect::<Vec<_>>();
@@ -152,41 +163,45 @@ where
         docs_iter.next();
 
         let (_, &n_docs) = docs_iter.next().unwrap();
-        let mut idx = Self::new(n_docs as usize);
-
-        let mut processed = std::iter::repeat(())
-            .scan(docs_iter, |it, ()| {
-                let (i, sz) = it.next()?;
-                it.nth(*sz as usize - 1);
-                Some(&binding[(i + 1)..(i + 1 + *sz as usize)])
-            })
-            .filter(|&x| x.len() > Self::LENGTH_THRESHOLD as usize)
-            .enumerate()
-            .par_bridge()
-            .map(|(i, x)| {
-                (
-                    i,
-                    Box::new((
-                        x.len(),
-                        DocumentSequence::write_bitvector(x, x.len(), n_docs),
-                    )),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        processed.par_sort_unstable_by_key(|x| x.0);
+        let mut n_terms = 0;
+        let mut bvb = BitVectorCollectionBuilder::default();
 
         let mut n_postings = 0;
-        for (i, data) in processed {
-            if i % 5000 == 0 {
-                println!("processed {} plists!", i);
-            }
-            n_postings += data.0;
-            idx.push_plist(*data);
-        }
+        scope(|scope| {
+            std::iter::repeat(())
+                .scan(docs_iter, |it, ()| {
+                    let (i, sz) = it.next()?;
+                    it.nth(*sz as usize - 1);
+                    Some(&binding[(i + 1)..(i + 1 + *sz as usize)])
+                })
+                .filter(|&x| x.len() > Self::LENGTH_THRESHOLD as usize)
+                .parallel_map_scoped(scope, |x| {
+                    (
+                        x.len(),
+                        DocumentSequence::write_bitvector(x, x.len(), n_docs),
+                    )
+                })
+                .enumerate()
+                .for_each(|(i, data)| {
+                    if i % 5000 == 0 {
+                        println!("processed {} plists!", i);
+                    }
+                    n_postings += data.0;
+                    n_terms += 1;
+                    Self::push_plist(&mut bvb, data);
+                });
+        })
+        .expect("error in parallel processing of the index");
 
         println!("processed {} postings", n_postings);
-        idx
+
+        FreqIndex {
+            n_docs: n_docs.try_into().unwrap(),
+            n_terms,
+            docs_sequences: bvb.build(),
+            _freqs_sequences: BitVecCollection::default(),
+            _phantom: PhantomData,
+        }
     }
 
     pub fn check_correctness(&'a self, input_path: &str) {
@@ -270,8 +285,6 @@ fn pb_with_message(len: u64, msg: String) -> ProgressBar {
 
 impl<T> SpaceUsage for FreqIndex<T> {
     fn space_usage_byte(&self) -> usize {
-        self.docs_sequences.n_bits() / 8
-            + self._freqs_sequences.n_bits() / 8
-            + mem::size_of::<usize>() * 2
+        self.docs_sequences.space_usage_byte() + mem::size_of::<usize>() * 2
     }
 }

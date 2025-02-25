@@ -1,7 +1,7 @@
 use clap::Parser;
 use pef::{
     elias_fano::{
-        indexed_seq::IndexedSequence, opt_partition::OptPartitionedSequence,
+        indexed_seq::IndexSequence, opt_partition::OptPartitionedSequence,
         uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::FreqIndex,
@@ -55,10 +55,11 @@ fn main() {
         ($t:path) => {{
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, args.force_rebuild);
             println!(
-                "Index contains {} docs, {} terms, size: {} bytes",
+                "Index contains {} docs, {} terms, size: {} bytes ({} GiB)",
                 idx.n_docs,
                 idx.n_terms,
-                idx.space_usage_byte()
+                idx.space_usage_byte(),
+                idx.space_usage_GiB()
             );
 
             if args.check_correctness {
@@ -73,10 +74,10 @@ fn main() {
             build_idx!(FreqIndex<UniformPartitionedSequence<EliasFano>>)
         }
         IdxKind::UPIs => {
-            build_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence>>)
+            build_idx!(FreqIndex<UniformPartitionedSequence<IndexSequence>>)
         }
         IdxKind::Opt => {
-            build_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence>>)
+            build_idx!(FreqIndex<OptPartitionedSequence<IndexSequence>>)
         }
     }
 }

@@ -1,12 +1,11 @@
-use core::panic;
 use std::{marker::PhantomData, mem};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
-    BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, IncreasingSequenceEnumerator,
-    PartitionableSequence, ToBitvector, WriteBitvector,
+    BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence,
+    SequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
 use super::{EliasFano, EliasFanoIter};
@@ -358,6 +357,27 @@ where
     }
 
     #[cold]
+    fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {
+        if pos >= self.len {
+            if self.n_partitions > 1 {
+                self.switch_partition(self.n_partitions - 1);
+            }
+            return self.cur_sequence.move_to_position(self.cur_end);
+        }
+
+        let (_end, part) = self.sizes.next_geq(pos as u64 + 1).unwrap();
+        self.switch_partition(part);
+
+        let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
+        Some((val + self.cur_base, self.position - 1))
+    }
+}
+
+impl<'a, BaseSequence> OptPartitionedSeqIter<'a, BaseSequence>
+where
+    BaseSequence: PostingList<'a, IterType: NextGEQ> + for<'b> PartitionableSequence<'b>,
+{
+    #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if self.n_partitions == 1 {
             if lower_bound < self.cur_base {
@@ -382,27 +402,11 @@ where
 
         self.next_geq(lower_bound)
     }
-
-    #[cold]
-    fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {
-        if pos >= self.len {
-            if self.n_partitions > 1 {
-                self.switch_partition(self.n_partitions - 1);
-            }
-            return self.cur_sequence.move_to_position(self.cur_end);
-        }
-
-        let (_end, part) = self.sizes.next_geq(pos as u64 + 1).unwrap();
-        self.switch_partition(part);
-
-        let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-        Some((val + self.cur_base, self.position - 1))
-    }
 }
 
-impl<'a, BaseSequence> IncreasingSequenceEnumerator for OptPartitionedSeqIter<'a, BaseSequence>
+impl<'a, BaseSequence> SequenceEnumerator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: PostingList<'a, IterType: SequenceEnumerator> + for<'b> PartitionableSequence<'b>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
@@ -421,41 +425,6 @@ where
         }
     }
 
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
-        // println!("nextgeq");
-        if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
-            // println!("here");
-            let (val, pos) = self
-                .cur_sequence
-                .next_geq(lower_bound - self.cur_base)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "partition {}/{}
-                sequence len {}
-                lower bound: {}
-                cur_base: {}
-                cur_ub: {}
-                cur_sequence: {:?}
-                serching lb in seq: {}
-                ",
-                        self.cur_partition,
-                        self.n_partitions,
-                        self.len,
-                        lower_bound,
-                        self.cur_base,
-                        self.cur_ub,
-                        self.cur_sequence,
-                        lower_bound - self.cur_base
-                    );
-                });
-            self.position = self.cur_begin + pos as usize + 1;
-            Some((val + self.cur_base, self.position - 1))
-        } else {
-            // println!("here2");
-            self.slow_next_geq(lower_bound)
-        }
-    }
-
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
         self.position = pos + 1;
 
@@ -469,6 +438,47 @@ where
 
     fn len(&self) -> usize {
         self.len
+    }
+}
+
+impl<'a, BaseSequence> NextGEQ for OptPartitionedSeqIter<'a, BaseSequence>
+where
+    BaseSequence: PostingList<'a, IterType: NextGEQ> + for<'b> PartitionableSequence<'b>,
+{
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+        // println!("nextgeq");
+        if core::intrinsics::likely(lower_bound >= self.cur_base && lower_bound <= self.cur_ub) {
+            // println!("here");
+            let (val, pos) = self
+                .cur_sequence
+                .next_geq(lower_bound - self.cur_base)
+                .unwrap();
+            // .unwrap_or_else(|| {
+            //     panic!(
+            //         "partition {}/{}
+            // sequence len {}
+            // lower bound: {}
+            // cur_base: {}
+            // cur_ub: {}
+            // cur_sequence: {:?}
+            // serching lb in seq: {}
+            // ",
+            //         self.cur_partition,
+            //         self.n_partitions,
+            //         self.len,
+            //         lower_bound,
+            //         self.cur_base,
+            //         self.cur_ub,
+            //         self.cur_sequence,
+            //         lower_bound - self.cur_base
+            //     );
+            // });
+            self.position = self.cur_begin + pos as usize + 1;
+            Some((val + self.cur_base, self.position - 1))
+        } else {
+            // println!("here2");
+            self.slow_next_geq(lower_bound)
+        }
     }
 }
 

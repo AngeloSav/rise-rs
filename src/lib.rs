@@ -1,12 +1,16 @@
 #![allow(internal_features)]
 #![feature(array_chunks)]
+#![feature(array_windows)]
+#![feature(iter_array_chunks)]
 #![feature(core_intrinsics)]
 
 pub mod bitvector;
 
 use std::fmt::Debug;
 
-pub use bitvector::bitvector_collection::{BitBoxedCollection, BitVecCollection};
+pub use bitvector::bitvector_collection::{
+    BitBoxedCollection, BitVecCollection, BitVecCollectionBuilder,
+};
 pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
 
@@ -45,12 +49,12 @@ pub enum IdxKind {
     Opt,
 }
 
-pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
-    fn next_val(&mut self) -> Option<(u64, usize)>;
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)>;
-    fn len(&self) -> usize;
-}
+// pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
+//     fn next_val(&mut self) -> Option<(u64, usize)>;
+//     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
+//     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)>;
+//     fn len(&self) -> usize;
+// }
 
 /// Serializer class, this result can be appended to a bitvectorCollection
 pub trait ToBitvector {
@@ -78,7 +82,7 @@ pub trait CostWindow<'a> {
 }
 
 pub trait EnumeratorFromBitSlice<'a> {
-    type IterType: IncreasingSequenceEnumerator + Debug;
+    type IterType: SequenceEnumerator + Debug;
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType;
     fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType;
 }
@@ -90,4 +94,16 @@ pub trait WriteBitvector {
 /// This trait contains the associated type for a cost window, if the given sequence has a partitioning method
 pub trait PartitionableSequence<'a> {
     type CW: CostWindow<'a>;
+}
+
+// ---------------------------------------------
+
+pub trait SequenceEnumerator: Iterator<Item = u64> {
+    fn next_val(&mut self) -> Option<(u64, usize)>;
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)>;
+    fn len(&self) -> usize;
+}
+
+pub trait NextGEQ: SequenceEnumerator {
+    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
 }

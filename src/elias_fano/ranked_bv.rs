@@ -1,9 +1,8 @@
 use num::integer::div_ceil;
 
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection, utils::ceil_log2, BitSliceWithOffset,
-    BitVec, EnumeratorFromBitSlice, EstimateSpace, IncreasingSequenceEnumerator, ToBitvector,
-    WriteBitvector,
+    utils::ceil_log2, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ,
+    SequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
 #[derive(Debug)]
@@ -90,12 +89,12 @@ impl WriteBitvector for RankedBv {
 
         set_rank_samples(prec + 1, u, n as u64);
 
-        let mut bvc = BitVectorCollection::with_capacity(bv.len() + samples.len(), 2);
-        bvc.push(bv);
-        bvc.push(samples);
-        bvc.push(samples1);
+        let mut bvc = BitVec::with_capacity(bv.len() + samples.len());
+        bvc.concat(bv);
+        bvc.concat(samples);
+        bvc.concat(samples1);
 
-        bvc.bv
+        bvc
     }
 }
 
@@ -138,8 +137,10 @@ impl<'a> EnumeratorFromBitSlice<'a> for RankedBv {
 impl EstimateSpace for RankedBv {
     fn bitsize(u: u64, n: usize) -> usize {
         let rank_sample_size = ceil_log2(n + 1) as usize;
-        let sample_space = (u as usize >> LOG_RANK_SAMPLING) * rank_sample_size as usize;
-        u as usize + sample_space
+        let pointer_size = ceil_log2(u) as usize;
+        let sample_space = (u as usize >> LOG_RANK_SAMPLING) * rank_sample_size;
+        let sample1_space = (n as usize >> LOG_SAMPLING1) * pointer_size;
+        u as usize + sample_space + sample1_space
     }
 }
 
@@ -195,7 +196,7 @@ impl RankedBvIter<'_> {
     }
 }
 
-impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
+impl SequenceEnumerator for RankedBvIter<'_> {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         if self.value >= self.u as usize {
             None
@@ -208,6 +209,28 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
         }
     }
 
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+        let skip = pos as isize - self.position as isize + 1;
+
+        if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
+            let mut skipped = 1;
+            while skipped < skip {
+                self.next_val()?;
+                skipped += 1;
+            }
+
+            return self.next_val();
+        }
+
+        self.slow_move(pos)
+    }
+
+    fn len(&self) -> usize {
+        self.n
+    }
+}
+
+impl NextGEQ for RankedBvIter<'_> {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if lower_bound + 1 == self.value as u64 {
             return Some((self.value as u64 - 1, self.position - 1));
@@ -257,26 +280,6 @@ impl IncreasingSequenceEnumerator for RankedBvIter<'_> {
 
             self.next_val()
         }
-    }
-
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
-        let skip = pos as isize - self.position as isize + 1;
-
-        if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
-            let mut skipped = 1;
-            while skipped < skip {
-                self.next_val()?;
-                skipped += 1;
-            }
-
-            return self.next_val();
-        }
-
-        self.slow_move(pos)
-    }
-
-    fn len(&self) -> usize {
-        self.n
     }
 }
 

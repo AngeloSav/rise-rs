@@ -7,11 +7,15 @@
 //!
 //! The code is similar to the C++ implementation [here](https://github.com/ot/ds2i/blob/master/bitvector_collection.hpp).
 
-use crate::bitvector::*;
+// TODO: remake all doctests: NOW we use a BVBuilder!!!!
+
+use crate::{bitvector::*, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector};
 use serde::{Deserialize, Serialize};
 
 pub type BitVecCollection = BitVectorCollection<Vec<u64>>;
 pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
+
+pub type BitVecCollectionBuilder = BitVectorCollectionBuilder<Vec<u64>>;
 //pub type BitSliceCollection<'a> = BitVectorCollection<&'a [u64]>;
 
 /// Represents a mutable or immutable indexed collection of bitvectors.
@@ -24,25 +28,27 @@ pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVecCollection, BitVec, AccessBin};
+/// use pef::{BitVecCollection, BitVecCollectionBuilder, BitVec, AccessBin};
 ///
-/// let mut bvc = BitVecCollection::default();
-/// assert!(bvc.is_empty());
+/// let mut bvcb = BitVecCollectionBuilder::default();
 ///
 /// let vv1: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
 /// let bv: BitVec = vv1.iter().copied().collect();
-/// bvc.push(&bv);
+/// bvcb.push(&bv);
 ///
+/// let bvc = bvcb.clone().build();
 /// assert_eq!(bvc.len(), 1);
 /// assert!(!bvc.is_empty());
 ///
 /// let bv = BitVec::default();
-/// bvc.push(&bv);
+/// bvcb.push(&bv);
+/// let bvc = bvcb.clone().build();
 /// assert_eq!(bvc.len(), 2);
 ///
 /// let vv2: Vec<usize> = vec![0, 61, 127, 130, 242, 365];
 /// let bv: BitVec = vv2.iter().copied().collect();
-/// bvc.push(&bv);
+/// bvcb.push(&bv);
+/// let bvc = bvcb.clone().build();
 /// assert_eq!(bvc.len(), 3);
 ///
 /// let bswo = bvc.get(0);
@@ -65,9 +71,128 @@ pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
 /// assert_eq!(bswo.ones().collect::<Vec<usize>>(), vv2);
 /// ```
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct BitVectorCollection<V: AsRef<[u64]>> {
+pub struct BitVectorCollectionBuilder<V: AsRef<[u64]>> {
     pub(crate) bv: BitVector<V>,
     endpoints: Vec<usize>,
+    n_vecs: usize,
+}
+
+impl BitVectorCollectionBuilder<Vec<u64>> {
+    #[must_use]
+    pub fn with_capacity(n_bits: usize, n_vecs: usize) -> Self {
+        Self {
+            bv: BitVec::with_capacity(n_bits),
+            endpoints: Vec::<usize>::with_capacity(n_vecs + 1),
+            n_vecs: 0,
+        }
+    }
+
+    /// Appends a bitvector to the collection.
+    ///
+    /// # Arguments
+    ///
+    /// * `bv` - The bitvector to append.
+    pub fn push<W: AsRef<[u64]>>(&mut self, bv: impl AsRef<BitVector<W>>) {
+        if self.endpoints.is_empty() {
+            // First zero is always there
+            // We use this check here to avoid allocation while creating an empty collection.
+            self.endpoints.push(0);
+        }
+
+        self.bv.concat(bv);
+        self.endpoints.push(self.bv.len());
+        self.n_vecs += 1;
+    }
+
+    pub fn build(self) -> BitVecCollection {
+        let u = self.bv.len() as u64 + 1;
+        let n = self.endpoints.len();
+        let v = self
+            .endpoints
+            .into_iter()
+            .map(|x| x as u64)
+            .collect::<Vec<_>>();
+        BitVecCollection {
+            bv: self.bv,
+            endpoints: EliasFano::write_bitvector(&v, n, u),
+            n_vecs: self.n_vecs,
+        }
+    }
+}
+
+// impl BitVectorCollection<Vec<u64>> {
+//     /// Creates a new `BitVectorCollection` with the specified capacity.
+//     ///
+//     /// # Arguments
+//     ///
+//     /// * `n_bits` - The initial capacity in bits.
+//     /// * `n_vecs` - The initial capacity for the number of bitvectors.
+//     ///
+//     /// # Returns
+//     ///
+//     /// A new `BitVectorCollection` with the specified capacity.
+//     #[must_use]
+//     pub fn with_capacity(n_bits: usize, n_vecs: usize) -> Self {
+//         Self {
+//             bv: BitVec::with_capacity(n_bits),
+//             endpoints: Vec::<usize>::with_capacity(n_vecs + 1),
+//             n_vecs: 0,
+//         }
+//     }
+
+//     /// Appends a bitvector to the collection.
+//     ///
+//     /// # Arguments
+//     ///
+//     /// * `bv` - The bitvector to append.
+//     pub fn push<W: AsRef<[u64]>>(&mut self, bv: impl AsRef<BitVector<W>>) {
+//         if self.endpoints.is_empty() {
+//             // First zero is always there
+//             // We use this check here to avoid allocation while creating an empty collection.
+//             self.endpoints.push(0);
+//         }
+
+//         self.bv.concat(bv);
+//         self.endpoints.push(self.bv.len());
+//         self.n_vecs += 1;
+//     }
+// }
+
+impl From<BitBoxedCollection> for BitVecCollection {
+    fn from(bbc: BitBoxedCollection) -> Self {
+        let BitVectorCollection {
+            bv,
+            endpoints,
+            n_vecs,
+        } = bbc;
+        Self {
+            bv: bv.into(),
+            endpoints: endpoints.into(),
+            n_vecs,
+        }
+    }
+}
+
+impl From<BitVecCollection> for BitBoxedCollection {
+    fn from(bvc: BitVecCollection) -> Self {
+        let BitVectorCollection {
+            bv,
+            endpoints,
+            n_vecs,
+        } = bvc;
+        Self {
+            bv: bv.into(),
+            endpoints: endpoints.into(), // TODO: Elias-Fano encoding
+            n_vecs,
+        }
+    }
+}
+
+/// Immutable Bitvector collection, also the endpoints are compressed using elias fano
+#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct BitVectorCollection<V: AsRef<[u64]>> {
+    pub(crate) bv: BitVector<V>,
+    endpoints: BitVector<V>,
     n_vecs: usize,
 }
 
@@ -90,27 +215,16 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
     pub fn get(&self, i: usize) -> BitSliceWithOffset {
         assert!(i < self.n_vecs, "Index out of bounds");
 
-        // SAFETY: i < self.n_vecs
-        let start_bit = unsafe { *self.endpoints.get_unchecked(i) };
-        let end_bit = unsafe { *self.endpoints.get_unchecked(i + 1) };
-        let n_bits = end_bit - start_bit;
+        let mut ef_it = EliasFano::iter_from_slice_with_data(
+            self.endpoints.as_bitslice(),
+            self.n_vecs + 1,
+            self.bv.len() as u64 + 1,
+        );
 
-        let start_word = start_bit / 64;
-        let end_word = (end_bit + 63) / 64;
-        let offset = start_bit % 64;
+        let start = ef_it.move_to_position(i).unwrap().0 as usize;
+        let end = ef_it.next().unwrap() as usize;
 
-        // dbg!(&self.endpoints);
-        // dbg!(start_bit, end_bit, n_bits);
-        // dbg!(self.bv.data.as_ref().len());
-        // dbg!(start_word..end_word);
-
-        unsafe {
-            BitSliceWithOffset::from_raw_parts(
-                self.bv.data.as_ref().get_unchecked(start_word..end_word),
-                n_bits,
-                offset,
-            )
-        }
+        self.bv.as_bitslice().slice(start, end)
     }
 
     /// Returns the number of bitvectors in the collection.
@@ -144,71 +258,14 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
     }
 }
 
-impl BitVectorCollection<Vec<u64>> {
-    /// Creates a new `BitVectorCollection` with the specified capacity.
-    ///
-    /// # Arguments
-    ///
-    /// * `n_bits` - The initial capacity in bits.
-    /// * `n_vecs` - The initial capacity for the number of bitvectors.
-    ///
-    /// # Returns
-    ///
-    /// A new `BitVectorCollection` with the specified capacity.
-    #[must_use]
-    pub fn with_capacity(n_bits: usize, n_vecs: usize) -> Self {
-        Self {
-            bv: BitVec::with_capacity(n_bits),
-            endpoints: Vec::<usize>::with_capacity(n_vecs + 1),
-            n_vecs: 0,
-        }
-    }
+impl<W: AsRef<[u64]>> SpaceUsage for BitVectorCollection<W> {
+    fn space_usage_byte(&self) -> usize {
+        println!("size data: {}", self.bv.space_usage_byte());
+        println!("size endpoints: {}", self.endpoints.space_usage_byte());
 
-    /// Appends a bitvector to the collection.
-    ///
-    /// # Arguments
-    ///
-    /// * `bv` - The bitvector to append.
-    pub fn push<W: AsRef<[u64]>>(&mut self, bv: impl AsRef<BitVector<W>>) {
-        if self.endpoints.is_empty() {
-            // First zero is always there
-            // We use this check here to avoid allocation while creating an empty collection.
-            self.endpoints.push(0);
-        }
-
-        self.bv.concat(bv);
-        self.endpoints.push(self.bv.len());
-        self.n_vecs += 1;
-    }
-}
-
-impl From<BitBoxedCollection> for BitVecCollection {
-    fn from(bbc: BitBoxedCollection) -> Self {
-        let BitVectorCollection {
-            bv,
-            endpoints,
-            n_vecs,
-        } = bbc;
-        Self {
-            bv: bv.into(),
-            endpoints,
-            n_vecs,
-        }
-    }
-}
-
-impl From<BitVecCollection> for BitBoxedCollection {
-    fn from(bvc: BitVecCollection) -> Self {
-        let BitVectorCollection {
-            bv,
-            endpoints,
-            n_vecs,
-        } = bvc;
-        Self {
-            bv: bv.into(),
-            endpoints, // TODO: Elias-Fano encoding
-            n_vecs,
-        }
+        self.bv.space_usage_byte()
+            + self.endpoints.space_usage_byte()
+            + std::mem::size_of::<usize>()
     }
 }
 
@@ -219,23 +276,26 @@ mod tests {
 
     #[test]
     fn test_bitvec_collection() {
-        let mut bvc = BitVecCollection::default();
-        assert!(bvc.is_empty());
+        let mut bvc = BitVectorCollectionBuilder::default();
+        // assert!(bvc.is_empty());
 
         let vv1: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
         let bv: BitVec = vv1.iter().copied().collect();
         bvc.push(&bv);
 
-        assert_eq!(bvc.len(), 1);
-        assert!(!bvc.is_empty());
+        assert_eq!(bvc.clone().build().len(), 1);
+        assert!(!bvc.clone().build().is_empty());
 
         let bv = BitVec::default();
         bvc.push(&bv);
-        assert_eq!(bvc.len(), 2);
+        assert_eq!(bvc.clone().build().len(), 2);
 
         let vv2: Vec<usize> = vec![0, 61, 127, 130, 242, 365];
         let bv: BitVec = vv2.iter().copied().collect();
         bvc.push(&bv);
+
+        println!("{:?}", bvc.endpoints);
+        let bvc = bvc.build();
         assert_eq!(bvc.len(), 3);
 
         // let bswo = bvc.get(0);
@@ -260,10 +320,11 @@ mod tests {
 
     #[test]
     fn test_from() {
-        let mut bvc = BitVecCollection::default();
+        let mut bvc = BitVectorCollectionBuilder::default();
         let vv1: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
         let bv: BitVec = vv1.iter().copied().collect();
         bvc.push(&bv);
+        let bvc = bvc.build();
 
         let bbc: BitBoxedCollection = bvc.clone().into();
         let bvc2: BitVecCollection = bbc.into();

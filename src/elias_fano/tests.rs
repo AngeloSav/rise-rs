@@ -1,18 +1,18 @@
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection,
     elias_fano::{
-        indexed_seq::IndexSeqCostWindow,
+        indexed_seq::IndexSequence,
         opt_partition::{optimal_partition, OptPartitionedSequence},
         EliasFano,
     },
     gen_sequences::gen_strictly_increasing_sequence,
     indexes::freq_index::PostingList,
-    CostWindow, EnumeratorFromBitSlice, IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
+    CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence, SequenceEnumerator,
+    ToBitvector, WriteBitvector,
 };
 
 use super::{
     all_ones_seq::AllOnes, indexed_seq::IndexedSequence, ranked_bv::RankedBv,
-    uniform_partitioned_seq::UniformPartitionedSequence,
+    strict_ef::StrictEliasFano, uniform_partitioned_seq::UniformPartitionedSequence,
 };
 
 #[test]
@@ -35,6 +35,20 @@ fn test_ef_iter_random() {
         .collect::<Vec<_>>();
 
     let ef = EliasFano::from(v.clone().as_slice());
+
+    for (&a, b) in v.iter().zip(ef.iter()) {
+        assert_eq!(a, b);
+    }
+}
+
+#[test]
+fn test_strict_ef_iter_random() {
+    let v = gen_strictly_increasing_sequence(1 << 12, 1 << 22)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+
+    let ef = StrictEliasFano::from(v.clone().as_slice());
 
     for (&a, b) in v.iter().zip(ef.iter()) {
         assert_eq!(a, b);
@@ -68,6 +82,20 @@ fn test_ef_small() {
     let mut it = a.iter();
     assert_eq!(it.next_val(), Some((0, 0)));
     assert_eq!(it.next_geq(30), Some((61, 7)));
+}
+
+#[test]
+fn test_strictef_small() {
+    let v = vec![0, 1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1027];
+    let a = StrictEliasFano::from(v.clone().as_slice());
+
+    for (a, b) in a.iter().zip(v) {
+        assert!(a == b);
+        println!("{:?}", a);
+    }
+
+    let mut it = a.iter();
+    assert_eq!(it.next_val(), Some((0, 0)));
 }
 
 #[test]
@@ -136,7 +164,7 @@ fn test_all_ones_small_new() {
     }
 }
 
-fn test_nextgeq<TY: for<'a> PostingList<'a>>() {
+fn test_nextgeq<TY: for<'a> PostingList<'a, IterType: NextGEQ>>() {
     let v = gen_strictly_increasing_sequence((1 << 13) + 100, 1 << 32)
         .iter()
         .map(|&x| x as u64)
@@ -198,14 +226,13 @@ fn pg() {
 
     // println!("{:?}", x);
 
-    let mut bv = BitVectorCollection::with_capacity(0, 0);
-    bv.push(x.to_bv());
+    let bv = x.to_bv();
 
-    let mut it = TY::iter_from_slice(bv.get(0));
+    let mut it = TY::iter_from_slice(bv.as_bitslice());
 
     let lb = 100;
 
-    for i in TY::iter_from_slice(bv.get(0)).take(20) {
+    for i in TY::iter_from_slice(bv.as_bitslice()).take(20) {
         println!("{}", i);
     }
 
@@ -214,15 +241,18 @@ fn pg() {
 
     assert_eq!(
         Some(a.unwrap().0),
-        TY::iter_from_slice(bv.get(0))
+        TY::iter_from_slice(bv.as_bitslice())
             .skip_while(|x| x < &lb)
             .next()
     );
 
     println!(
         "{:?}",
-        optimal_partition::<IndexSeqCostWindow>(&v, 0.0, 0.3)
+        optimal_partition::<<IndexedSequence as PartitionableSequence>::CW>(&v, 0.0, 0.3)
     );
 
-    println!("{:?}", IndexSeqCostWindow::single_block_cost(&v))
+    println!(
+        "{:?}",
+        <<IndexSequence as PartitionableSequence>::CW>::single_block_cost(&v)
+    )
 }

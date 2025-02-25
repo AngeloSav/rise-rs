@@ -1,6 +1,6 @@
 use crate::{
-    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
+    ToBitvector, WriteBitvector,
 };
 
 #[derive(Debug)]
@@ -20,6 +20,10 @@ impl AllOnes {
 impl<'a> From<&'a [u64]> for AllOnes {
     fn from(v: &'a [u64]) -> Self {
         assert!(*v.last().unwrap() + 1 == v.len() as u64);
+        assert!(
+            v.array_windows::<2>().all(|[x, y]| x < y),
+            "Sequence must be strictly increasing!"
+        );
         Self { n: v.len() }
     }
 }
@@ -71,7 +75,7 @@ pub struct AllOnesIter {
     pos: usize,
 }
 
-impl IncreasingSequenceEnumerator for AllOnesIter {
+impl SequenceEnumerator for AllOnesIter {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         if self.pos < self.len {
             let tmp = self.pos;
@@ -82,6 +86,17 @@ impl IncreasingSequenceEnumerator for AllOnesIter {
         }
     }
 
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+        self.pos = pos;
+        self.next_val()
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl NextGEQ for AllOnesIter {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if lower_bound >= self.len as u64 {
             None
@@ -90,15 +105,6 @@ impl IncreasingSequenceEnumerator for AllOnesIter {
             self.pos = lower_bound as usize;
             self.next_val()
         }
-    }
-
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
-        self.pos = pos;
-        self.next_val()
-    }
-
-    fn len(&self) -> usize {
-        self.len
     }
 }
 

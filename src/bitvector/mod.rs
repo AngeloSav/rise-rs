@@ -985,6 +985,10 @@ impl BitVector<Vec<u64>> {
         self.append_bits(v ^ hb, n_bits - 1);
     }
 
+    pub fn append_gamma_nonzero(&mut self, v: u64) {
+        self.append_gamma(v - 1);
+    }
+
     #[inline]
     pub fn append_delta(&mut self, v: u64) {
         let v = v + 1;
@@ -1614,6 +1618,13 @@ impl<'a> BitSliceWithOffset<'a> {
             self.n_bits,
         );
         (v, pos - self.offset)
+    }
+
+    #[inline]
+    #[must_use]
+    pub unsafe fn get_gamma_nonzero_unchecked(&self, index: usize) -> (u64, usize) {
+        let (val, pos) = self.get_gamma_unchecked(index);
+        (val + 1, pos)
     }
 
     #[inline]

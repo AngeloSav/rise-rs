@@ -7,13 +7,13 @@ use std::{
 use clap::Parser;
 use pef::{
     elias_fano::{
-        indexed_seq::IndexedSequence, opt_partition::OptPartitionedSequence,
+        indexed_seq::IndexSequence, opt_partition::OptPartitionedSequence,
         uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::{FreqIndex, PostingList},
     space_usage::SpaceUsage,
     utils::TimingQueries,
-    EliasFano, IdxKind, IncreasingSequenceEnumerator,
+    EliasFano, IdxKind, NextGEQ, SequenceEnumerator,
 };
 
 #[derive(Parser, Debug)]
@@ -121,10 +121,10 @@ fn main() {
             query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano>>)
         }
         IdxKind::UPIs => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence>>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<IndexSequence>>)
         }
         IdxKind::Opt => {
-            query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence>>)
+            query_idx!(FreqIndex<OptPartitionedSequence<IndexSequence>>)
         }
     }
 }
@@ -133,15 +133,15 @@ fn main() {
 #[inline(always)]
 fn boolean_and<'a, T>(idx: &'a FreqIndex<T>, t1: usize, t2: usize, v: &mut Vec<u64>) -> usize
 where
-    T: PostingList<'a>,
+    T: PostingList<'a, IterType: NextGEQ>,
 {
     let mut p1 = idx.get_plist_iter(t1);
     let mut p2 = idx.get_plist_iter(t2);
 
     let max = idx.n_docs as u64;
 
-    let mut posting1 = p1.next_val().unwrap_or((max, 0)).0;
-    let mut posting2 = p2.next_val().unwrap_or((max, 0)).0;
+    let mut posting1 = p1.next().unwrap_or(max);
+    let mut posting2 = p2.next().unwrap_or(max);
 
     let mut size = 0;
 
@@ -151,12 +151,12 @@ where
             size += 1;
 
             //increment both
-            posting1 = p1.next_val().unwrap_or((max, 0)).0;
-            posting2 = p2.next_val().unwrap_or((max, 0)).0;
+            posting1 = p1.next().unwrap_or(max);
+            posting2 = p2.next().unwrap_or(max);
         } else if posting1 < posting2 {
-            posting1 = p1.next_geq(posting2).unwrap_or((max, 0)).0;
+            posting1 = p1.next_geq(posting2).map_or(max, |x| x.0);
         } else {
-            posting2 = p2.next_geq(posting1).unwrap_or((max, 0)).0;
+            posting2 = p2.next_geq(posting1).map_or(max, |x| x.0);
         }
     }
     size
@@ -172,8 +172,8 @@ fn boolean_and_check<'a, T, S>(
     t2: usize,
     v: &mut Vec<u64>,
 ) where
-    T: PostingList<'a>,
-    S: PostingList<'a>,
+    T: PostingList<'a, IterType: NextGEQ>,
+    S: PostingList<'a, IterType: NextGEQ>,
 {
     let mut p1 = idx.get_plist_iter(t1);
     let mut p2 = idx.get_plist_iter(t2);
@@ -211,7 +211,7 @@ fn boolean_and_check<'a, T, S>(
 #[inline(always)]
 fn boolean_and_multiterm<'a, T>(idx: &'a FreqIndex<T>, terms: &[usize], v: &mut [u64]) -> usize
 where
-    T: PostingList<'a>,
+    T: PostingList<'a, IterType: NextGEQ>,
 {
     //contains pairs (cur_val, iterator)
     let mut enums = Vec::with_capacity(terms.len());
@@ -230,7 +230,7 @@ where
 
     while candidate < idx.n_docs as u64 {
         for (cur_term_docid, it) in enums.iter_mut().skip(i) {
-            *cur_term_docid = it.next_geq(candidate).unwrap_or((idx.n_docs as u64, 0)).0;
+            *cur_term_docid = it.next_geq(candidate).map_or(idx.n_docs as u64, |x| x.0);
             if *cur_term_docid != candidate {
                 candidate = *cur_term_docid;
                 i = 0;
@@ -240,7 +240,7 @@ where
         }
 
         if i == enums.len() {
-            v[size] = candidate;
+            unsafe { *v.get_unchecked_mut(size) = candidate };
             size += 1;
             enums[0].0 = enums[0].1.next().unwrap_or(idx.n_docs as u64);
             candidate = enums[0].0;

@@ -1,11 +1,10 @@
 use std::mem;
 
 use crate::{
-    bitvector::bitvector_collection::BitVectorCollection,
     space_usage::SpaceUsage,
     utils::{ceil_log2, msb},
-    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
-    IncreasingSequenceEnumerator, ToBitvector, WriteBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
+    ToBitvector, WriteBitvector,
 };
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
@@ -14,6 +13,7 @@ pub mod all_ones_seq;
 pub mod indexed_seq;
 pub mod opt_partition;
 pub mod ranked_bv;
+pub mod strict_ef;
 pub mod uniform_partitioned_seq;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -133,20 +133,18 @@ impl WriteBitvector for EliasFano {
         set_ptr0(prec_hi + 1, higher_bits_len, n as u64);
         bv_hi.push(false);
 
-        let mut bv = BitVectorCollection::with_capacity(
-            bv_hi.len() + bv_lo.len() + bv_0ptrs.len() + bv_1ptrs.len(),
-            4,
-        );
-        bv.push(bv_0ptrs);
+        let mut bv =
+            BitVec::with_capacity(bv_hi.len() + bv_lo.len() + bv_0ptrs.len() + bv_1ptrs.len());
+        bv.concat(bv_0ptrs);
 
-        bv.push(bv_1ptrs);
+        bv.concat(bv_1ptrs);
 
-        bv.push(bv_lo);
+        bv.concat(bv_lo);
 
         bv_hi.extend_with_zeros(higher_bits_len as usize - bv_hi.len());
-        bv.push(bv_hi);
+        bv.concat(bv_hi);
 
-        bv.bv
+        bv
     }
 }
 
@@ -274,7 +272,7 @@ impl EliasFanoIter<'_> {
     }
 }
 
-impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
+impl SequenceEnumerator for EliasFanoIter<'_> {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         if core::intrinsics::likely(self.position < self.len) {
             // prefetch_read_NTA(self.slice_lo.data, (self.position * self.n_bits_lo) >> 6);
@@ -306,6 +304,27 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
         }
     }
 
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+        let skip: isize = pos as isize - self.position as isize + 1;
+
+        if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
+            let mut skipped = 1;
+            while skipped < skip {
+                self.next_val()?;
+                skipped += 1;
+            }
+            return self.next_val();
+        }
+
+        return self.slow_move(pos);
+    }
+
+    fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl NextGEQ for EliasFanoIter<'_> {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if core::intrinsics::unlikely(lower_bound == self.cur_value && self.position != 0) {
             return Some((self.cur_value, self.position - 1));
@@ -339,25 +358,6 @@ impl IncreasingSequenceEnumerator for EliasFanoIter<'_> {
             self.slow_next_geq(lower_bound)
         }
     }
-
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
-        let skip: isize = pos as isize - self.position as isize + 1;
-
-        if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
-            let mut skipped = 1;
-            while skipped < skip {
-                self.next_val()?;
-                skipped += 1;
-            }
-            return self.next_val();
-        }
-
-        return self.slow_move(pos);
-    }
-
-    fn len(&self) -> usize {
-        self.len
-    }
 }
 
 impl Iterator for EliasFanoIter<'_> {
@@ -380,10 +380,7 @@ impl ToBitvector for EliasFano {
 
 impl EstimateSpace for EliasFano {
     fn bitsize(u: u64, n: usize) -> usize {
-        let n_lo_bits = msb(u / n as u64) + 1;
-
-        let n_ones = (u >> n_lo_bits) as usize;
-        n + n_ones + n * n_lo_bits as usize
+        Self::n_bits(u, n)
     }
 }
 

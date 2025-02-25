@@ -11,13 +11,13 @@ use std::{
 use clap::Parser;
 use pef::{
     elias_fano::{
-        indexed_seq::IndexedSequence, opt_partition::OptPartitionedSequence,
+        indexed_seq::IndexSequence, opt_partition::OptPartitionedSequence,
         uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::{FreqIndex, PostingList},
     space_usage::SpaceUsage,
     utils::TimingQueries,
-    EliasFano, IdxKind, IncreasingSequenceEnumerator,
+    EliasFano, IdxKind, NextGEQ, SequenceEnumerator,
 };
 
 #[derive(Parser, Debug)]
@@ -134,10 +134,10 @@ fn main() {
             query_idx!(FreqIndex<UniformPartitionedSequence<EliasFano>>)
         }
         IdxKind::UPIs => {
-            query_idx!(FreqIndex<UniformPartitionedSequence<IndexedSequence>>)
+            query_idx!(FreqIndex<UniformPartitionedSequence<IndexSequence>>)
         }
         IdxKind::Opt => {
-            query_idx!(FreqIndex<OptPartitionedSequence<IndexedSequence>>)
+            query_idx!(FreqIndex<OptPartitionedSequence<IndexSequence>>)
         }
     }
 }
@@ -185,7 +185,7 @@ where
     size
 }
 
-fn do_or_rounds<T: IncreasingSequenceEnumerator>(
+fn do_or_rounds<T: SequenceEnumerator>(
     enums: &mut [(Option<u64>, T)],
     limit: u64,
     n_rounds: usize,
@@ -227,7 +227,7 @@ fn estimate_res_len<'a, T, const N_SPLITS: usize, const N_ROUNDS: usize>(
     terms: &[usize],
 ) -> usize
 where
-    T: PostingList<'a>,
+    T: PostingList<'a, IterType: NextGEQ>,
 {
     let mut enums = Vec::with_capacity(terms.len());
     for &term in terms {
