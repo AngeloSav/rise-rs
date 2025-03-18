@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, slice::Iter};
 
 use crate::{
-    indexes::freq_index::PostingList, AccessBin, BitSliceWithOffset, BitVec, CostWindow,
+    indexes::freq_index::FreqList, AccessBin, BitSliceWithOffset, BitVec, CostWindow,
     EnumeratorFromBitSlice, EstimateSpace, NextGEQ, PartitionableSequence, SequenceEnumerator,
     ToBitvector, WriteBitvector,
 };
@@ -13,7 +13,7 @@ use super::{
     EliasFano,
 };
 
-pub trait EFVariant: for<'a> PostingList<'a> + EstimateSpace {}
+pub trait EFVariant: for<'a> FreqList<'a> + EstimateSpace {}
 impl EFVariant for EliasFano {}
 impl EFVariant for StrictEliasFano {}
 

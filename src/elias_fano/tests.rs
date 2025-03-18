@@ -4,8 +4,9 @@ use crate::{
         opt_partition::{optimal_partition, OptPartitionedSequence},
         EliasFano,
     },
-    gen_sequences::gen_strictly_increasing_sequence,
-    indexes::freq_index::PostingList,
+    gen_sequences::{gen_positive_sequence, gen_strictly_increasing_sequence},
+    indexes::freq_index::{DocList, FreqList},
+    positive_sequences::positive_sequence::PositiveSequence,
     CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence, SequenceEnumerator,
     ToBitvector, WriteBitvector,
 };
@@ -164,7 +165,7 @@ fn test_all_ones_small_new() {
     }
 }
 
-fn test_nextgeq<TY: for<'a> PostingList<'a, IterType: NextGEQ>>() {
+fn test_nextgeq<TY: for<'a> DocList<'a>>() {
     let v = gen_strictly_increasing_sequence((1 << 13) + 100, 1 << 32)
         .iter()
         .map(|&x| x as u64)
@@ -207,6 +208,31 @@ fn test_nextgeq_upis_random() {
 #[test]
 fn test_nextgeq_opt_random() {
     test_nextgeq::<OptPartitionedSequence<IndexedSequence>>();
+}
+
+fn test_collect<TY: for<'a> FreqList<'a>>() {
+    let v = gen_positive_sequence((1 << 13) + 100, 1 << 12)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+
+    let binding = v.clone();
+    let x = TY::write_bitvector(
+        binding.as_slice(),
+        binding.len(),
+        *binding.last().unwrap() + 1,
+    );
+
+    let it =
+        TY::iter_from_slice_with_data(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
+
+    let collected: Vec<_> = it.collect();
+    assert_eq!(v, collected);
+}
+
+#[test]
+fn test_collect_positive_sequence() {
+    test_collect::<PositiveSequence<EliasFano>>();
 }
 
 #[test]

@@ -3,7 +3,9 @@ use std::{marker::PhantomData, mem};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
+    indexes::freq_index::{DocList, FreqList},
+    space_usage::SpaceUsage,
+    utils::ceil_log2,
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator, ToBitvector,
     WriteBitvector,
 };
@@ -22,7 +24,7 @@ const PARTITION_SIZE: usize = 128;
 
 impl<'a, BaseSequence> UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     pub fn len(&self) -> usize {
         self.n
@@ -35,7 +37,7 @@ where
 
 impl<'a, 'b, BaseSequence> From<&'b [u64]> for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     fn from(v: &'b [u64]) -> Self {
         let n = v.len();
@@ -53,7 +55,7 @@ where
 
 impl<'a, BaseSequence> ToBitvector for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     fn to_bv(&self) -> BitVec {
         let mut bv = BitVec::new();
@@ -66,7 +68,7 @@ where
 
 impl<'a, BaseSequence> WriteBitvector for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a> + WriteBitvector,
+    BaseSequence: FreqList<'a> + WriteBitvector,
 {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         assert!(n > 0);
@@ -147,7 +149,7 @@ where
 
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     type IterType = UniformPartitionedSeqIter<'a, BaseSequence>;
 
@@ -257,7 +259,7 @@ where
 #[derive(Debug)]
 pub struct UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     position: usize,
     cur_partition: usize,
@@ -278,7 +280,7 @@ where
 
 impl<'a, BaseSequence> UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
@@ -323,7 +325,7 @@ where
 
 impl<'a, BaseSequence> UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, IterType: NextGEQ>,
+    BaseSequence: DocList<'a>,
 {
     #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
@@ -355,7 +357,7 @@ where
 
 impl<'a, BaseSequence> SequenceEnumerator for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, IterType: SequenceEnumerator>,
+    BaseSequence: FreqList<'a>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
@@ -392,7 +394,7 @@ where
 
 impl<'a, BaseSequence> NextGEQ for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, IterType: NextGEQ>,
+    BaseSequence: DocList<'a>,
 {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
@@ -407,7 +409,7 @@ where
 
 impl<'a, BaseSequence> Iterator for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     type Item = u64;
 

@@ -21,7 +21,7 @@ pub use elias_fano::{EliasFano, EliasFanoIter};
 
 // pub mod increasing_seq;
 pub mod indexes;
-// pub mod positive_sequences;
+pub mod positive_sequences;
 
 pub mod space_usage;
 

@@ -1,10 +1,13 @@
 use clap::Parser;
 use pef::{
     elias_fano::{
-        indexed_seq::IndexSequence, opt_partition::OptPartitionedSequence,
+        indexed_seq::{IndexSequence, StrictSequence},
+        opt_partition::OptPartitionedSequence,
+        strict_ef::StrictEliasFano,
         uniform_partitioned_seq::UniformPartitionedSequence,
     },
     indexes::freq_index::FreqIndex,
+    positive_sequences::positive_sequence::PositiveSequence,
     space_usage::SpaceUsage,
     EliasFano, IdxKind,
 };
@@ -69,15 +72,30 @@ fn main() {
     }
 
     match args.idx_kind {
-        IdxKind::EFSingle => build_idx!(FreqIndex<EliasFano>),
+        IdxKind::EFSingle => build_idx!(FreqIndex<EliasFano, PositiveSequence<StrictEliasFano>>),
         IdxKind::UPEf => {
-            build_idx!(FreqIndex<UniformPartitionedSequence<EliasFano>>)
+            build_idx!(
+                FreqIndex<
+                    UniformPartitionedSequence<EliasFano>,
+                    PositiveSequence<UniformPartitionedSequence<StrictEliasFano>>,
+                >
+            )
         }
         IdxKind::UPIs => {
-            build_idx!(FreqIndex<UniformPartitionedSequence<IndexSequence>>)
+            build_idx!(
+                FreqIndex<
+                    UniformPartitionedSequence<IndexSequence>,
+                    PositiveSequence<UniformPartitionedSequence<StrictSequence>>,
+                >
+            )
         }
         IdxKind::Opt => {
-            build_idx!(FreqIndex<OptPartitionedSequence<IndexSequence>>)
+            build_idx!(
+                FreqIndex<
+                    OptPartitionedSequence<IndexSequence>,
+                    PositiveSequence<OptPartitionedSequence<StrictSequence>>,
+                >
+            )
         }
     }
 }

@@ -3,7 +3,9 @@ use std::{marker::PhantomData, mem};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    indexes::freq_index::PostingList, space_usage::SpaceUsage, utils::ceil_log2,
+    indexes::freq_index::{DocList, FreqList},
+    space_usage::SpaceUsage,
+    utils::ceil_log2,
     BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence,
     SequenceEnumerator, ToBitvector, WriteBitvector,
 };
@@ -20,7 +22,7 @@ pub struct OptPartitionedSequence<BaseSequence> {
 
 impl<'a, BaseSequence> OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     pub fn len(&self) -> usize {
         self.n
@@ -36,7 +38,7 @@ const EPS2: f64 = 0.3;
 
 impl<'a, BaseSequence> From<&[u64]> for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     fn from(v: &[u64]) -> Self {
         let n = v.len();
@@ -54,7 +56,7 @@ where
 
 impl<'a, BaseSequence> ToBitvector for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a>,
+    BaseSequence: FreqList<'a>,
 {
     fn to_bv(&self) -> BitVec {
         let mut bv = BitVec::new();
@@ -67,7 +69,7 @@ where
 
 impl<'a, BaseSequence> WriteBitvector for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     // serialization is done in the following way:
     // If only 1 partition:  | 1 | serialized  BaseSequence |
@@ -165,7 +167,7 @@ where
 
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     type IterType = OptPartitionedSeqIter<'a, BaseSequence>;
     fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
@@ -278,7 +280,7 @@ where
 #[derive(Debug)]
 pub struct OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     position: usize,
     cur_partition: usize,
@@ -300,7 +302,7 @@ where
 
 impl<'a, BaseSequence> OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
@@ -375,7 +377,7 @@ where
 
 impl<'a, BaseSequence> OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, IterType: NextGEQ> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: DocList<'a> + for<'b> PartitionableSequence<'b>,
 {
     #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
@@ -406,7 +408,7 @@ where
 
 impl<'a, BaseSequence> SequenceEnumerator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, IterType: SequenceEnumerator> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     fn next_val(&mut self) -> Option<(u64, usize)> {
         self.position += 1;
@@ -443,7 +445,7 @@ where
 
 impl<'a, BaseSequence> NextGEQ for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a, IterType: NextGEQ> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: DocList<'a> + for<'b> PartitionableSequence<'b>,
 {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
         // println!("nextgeq");
@@ -484,7 +486,7 @@ where
 
 impl<'a, BaseSequence> Iterator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: PostingList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     type Item = u64;
 
