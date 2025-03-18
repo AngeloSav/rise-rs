@@ -1,0 +1,136 @@
+use std::marker::PhantomData;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    indexes::freq_index::FreqList, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice,
+    SequenceEnumerator, ToBitvector, WriteBitvector,
+};
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct PositiveSequence<BaseSequence> {
+    bv: BitVec,
+    n: usize,
+    u: u64,
+    _phantom: PhantomData<BaseSequence>,
+}
+
+impl<'a, BaseSequence> PositiveSequence<BaseSequence> where BaseSequence: FreqList<'a> {}
+
+impl<'a, BaseSequence> WriteBitvector for PositiveSequence<BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    fn write_bitvector(seq: &[u64], _n: usize, _u: u64) -> BitVec {
+        // we can discard u and n as we build a new seqeunce
+        let psum = seq
+            .iter()
+            .scan(0, |s, el| {
+                *s += el;
+                Some(*s)
+            })
+            .collect::<Vec<_>>();
+
+        let n = psum.len();
+        let u = *psum.last().unwrap();
+
+        let mut bv = BitVec::new();
+        bv.append_gamma_nonzero(u);
+
+        bv.concat(BaseSequence::write_bitvector(psum.as_slice(), n, u));
+
+        bv
+    }
+}
+
+impl<'a, BaseSequence> From<&'a [u64]> for PositiveSequence<BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    fn from(_value: &'a [u64]) -> Self {
+        todo!()
+    }
+}
+
+impl<'a, BaseSequence> ToBitvector for PositiveSequence<BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    fn to_bv(&self) -> BitVec {
+        todo!()
+    }
+}
+
+impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for PositiveSequence<BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    type IterType = PositiveSequenceIter<'a, BaseSequence>;
+
+    fn iter_from_slice(_bv: BitSliceWithOffset<'a>) -> Self::IterType {
+        todo!()
+    }
+
+    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, _u: u64) -> Self::IterType {
+        let (u, next_pos) = unsafe { bv.get_gamma_nonzero_unchecked(0) };
+        let bv = bv.split_at(next_pos).1;
+        let it = BaseSequence::iter_from_slice_with_data(bv, n, u);
+        PositiveSequenceIter {
+            it,
+            prev: 0,
+            pos: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PositiveSequenceIter<'a, BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    it: BaseSequence::IterType,
+    prev: u64,
+    pos: usize,
+}
+
+impl<'a, BaseSequence> SequenceEnumerator for PositiveSequenceIter<'a, BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    fn next_val(&mut self) -> Option<(u64, usize)> {
+        let (cur, pos) = self.it.next_val()?;
+        let actual_val = cur - self.prev;
+        self.prev = cur;
+        Some((actual_val, pos))
+    }
+
+    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+        if core::intrinsics::likely(pos != self.pos) {
+            self.prev = if pos == 0 {
+                0
+            } else {
+                self.it.move_to_position(pos - 1)?.0
+            }
+        }
+
+        let res = self.it.next()?;
+        let actual_val = res - self.prev;
+        self.prev = res;
+        Some((actual_val, pos))
+    }
+
+    fn len(&self) -> usize {
+        self.it.len()
+    }
+}
+
+impl<'a, BaseSequence> Iterator for PositiveSequenceIter<'a, BaseSequence>
+where
+    BaseSequence: FreqList<'a>,
+{
+    type Item = u64;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.next_val()?.0)
+    }
+}
