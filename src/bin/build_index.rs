@@ -1,4 +1,5 @@
 use clap::Parser;
+use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
 use pef::{
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},
@@ -65,9 +66,22 @@ fn main() {
                 idx.space_usage_GiB()
             );
 
+            println!(
+                "memsize says: {} bytes ({} GiB)",
+                idx.mem_size(SizeFlags::default()),
+                idx.mem_size(SizeFlags::default()) as f64 / (1024.0 * 1024.0 * 1024.0)
+            );
+
             if args.check_correctness {
                 idx.check_correctness(&input_path)
             }
+
+            println!("memdbg output: ");
+            // more verbose output
+            // idx.mem_dbg(DbgFlags::default() | DbgFlags::HUMANIZE)
+            //     .expect("error memdbg");
+            idx.mem_dbg(DbgFlags::empty() | DbgFlags::PERCENTAGE)
+                .expect("error memdbg");
         }};
     }
 

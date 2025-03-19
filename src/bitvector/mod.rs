@@ -22,6 +22,7 @@ use crate::{
     utils::{msb, prefetch_read_NTA, select_in_word},
     AccessBin,
 };
+use mem_dbg::{MemDbg, MemSize};
 use serde::{Deserialize, Serialize};
 
 /// A resizable, growable, and mutable bit vector.
@@ -59,7 +60,7 @@ const fn fill_gamma_table<const SIZE: usize>() -> [(u16, u8); SIZE] {
 }
 
 /// Implementation of an immutable bit vector.
-#[derive(Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Default, Clone, Serialize, Deserialize, Eq, PartialEq, MemSize, MemDbg)]
 pub struct BitVector<V: AsRef<[u64]>> {
     data: V,
     n_bits: usize,

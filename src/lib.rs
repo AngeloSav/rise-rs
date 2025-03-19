@@ -49,13 +49,6 @@ pub enum IdxKind {
     Opt,
 }
 
-// pub trait IncreasingSequenceEnumerator: Iterator<Item = u64> {
-//     fn next_val(&mut self) -> Option<(u64, usize)>;
-//     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
-//     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)>;
-//     fn len(&self) -> usize;
-// }
-
 /// Serializer class, this result can be appended to a bitvectorCollection
 pub trait ToBitvector {
     fn to_bv(&self) -> BitVec;
@@ -106,4 +99,11 @@ pub trait SequenceEnumerator: Iterator<Item = u64> {
 
 pub trait NextGEQ: SequenceEnumerator {
     fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)>;
+}
+
+// ---------------------------------------------
+
+pub trait DocScorer {
+    fn doc_term_weight(freq: u64, norm_len: f32) -> f32;
+    fn query_term_weight(freq: u64, df: u64, num_docs: u64) -> f32;
 }

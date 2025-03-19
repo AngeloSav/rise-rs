@@ -1,4 +1,5 @@
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
+use mem_dbg::{MemDbg, MemSize};
 use memmap2::MmapOptions;
 use pariter::{scope, IteratorExt};
 
@@ -21,7 +22,7 @@ use crate::{
     PartitionableSequence, SequenceEnumerator, ToBitvector, WriteBitvector,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, MemSize, MemDbg)]
 pub struct FreqIndex<DocumentSequence, FreqSequence> {
     pub n_docs: usize,
     pub n_terms: usize,

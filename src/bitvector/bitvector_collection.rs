@@ -10,6 +10,7 @@
 // TODO: remake all doctests: NOW we use a BVBuilder!!!!
 
 use crate::{bitvector::*, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector};
+use mem_dbg::{MemDbg, MemSize};
 use serde::{Deserialize, Serialize};
 
 pub type BitVecCollection = BitVectorCollection<Vec<u64>>;
@@ -189,7 +190,7 @@ impl From<BitVecCollection> for BitBoxedCollection {
 }
 
 /// Immutable Bitvector collection, also the endpoints are compressed using elias fano
-#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, MemSize, MemDbg)]
 pub struct BitVectorCollection<V: AsRef<[u64]>> {
     pub(crate) bv: BitVector<V>,
     endpoints: BitVector<V>,
@@ -260,8 +261,8 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
 
 impl<W: AsRef<[u64]>> SpaceUsage for BitVectorCollection<W> {
     fn space_usage_byte(&self) -> usize {
-        println!("size data: {}", self.bv.space_usage_byte());
-        println!("size endpoints: {}", self.endpoints.space_usage_byte());
+        // println!("size data: {}", self.bv.space_usage_byte());
+        // println!("size endpoints: {}", self.endpoints.space_usage_byte());
 
         self.bv.space_usage_byte()
             + self.endpoints.space_usage_byte()
