@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use pef::{
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},
@@ -53,14 +53,8 @@ fn main() {
     let out_path = match args.out_path {
         Some(x) => x,
         None => {
-            let tail = match args.idx_kind {
-                IdxKind::EFSingle => "ef",
-                IdxKind::UPEf => "upef",
-                IdxKind::UPIs => "upis",
-                IdxKind::Opt => "opt",
-                IdxKind::Test => todo!(),
-            };
-            format!("{}.{}.out", input_path, tail)
+            let tail = args.idx_kind.to_possible_value().unwrap();
+            format!("{}.{}.out", input_path, tail.get_name())
         }
     };
 
@@ -146,7 +140,6 @@ fn main() {
                 >
             )
         }
-        IdxKind::Test => todo!(),
     }
 }
 

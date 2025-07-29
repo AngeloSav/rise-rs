@@ -1,6 +1,5 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
-use pef::indexes::TestIdx;
 use pef::space_usage::SpaceUsage;
 use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
@@ -36,14 +35,8 @@ fn main() {
     let out_path = match args.out_path {
         Some(x) => x,
         None => {
-            let tail = match args.idx_kind {
-                IdxKind::EFSingle => "ef",
-                IdxKind::UPEf => "upef",
-                IdxKind::UPIs => "upis",
-                IdxKind::Opt => "opt",
-                IdxKind::Test => "test",
-            };
-            format!("{}.{}.out", input_path, tail)
+            let tail = args.idx_kind.to_possible_value().unwrap();
+            format!("{}.{}.out", input_path, tail.get_name())
         }
     };
 
@@ -82,6 +75,5 @@ fn main() {
         IdxKind::UPEf => build_idx!(UPEFIdx),
         IdxKind::UPIs => build_idx!(UPISIdx),
         IdxKind::Opt => build_idx!(OptEFIdx),
-        IdxKind::Test => build_idx!(TestIdx),
     }
 }

@@ -1,9 +1,6 @@
 use clap::{command, Parser};
 use pef::{
-    indexes::{
-        freq_index::{DocList, FreqIndex, FreqList},
-        TestIdx,
-    },
+    indexes::freq_index::{DocList, FreqIndex, FreqList},
     queries::{And, Or, PostingMetadata, QueryOperator, RankedAnd, WAND},
     space_usage::SpaceUsage,
     utils::TimingQueries,
@@ -149,6 +146,5 @@ fn main() {
         IdxKind::UPEf => query_idx!(UPEFIdx),
         IdxKind::UPIs => query_idx!(UPISIdx),
         IdxKind::Opt => query_idx!(OptEFIdx),
-        IdxKind::Test => query_idx!(TestIdx),
     }
 }

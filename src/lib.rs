@@ -46,11 +46,14 @@ pub trait AccessBin {
 
 #[derive(ValueEnum, Clone, Debug)]
 pub enum IdxKind {
+    #[value(name = "ef")]
     EFSingle,
+    #[value(name = "upef")]
     UPEf,
+    #[value(name = "upis")]
     UPIs,
+    #[value(name = "opt")]
     Opt,
-    Test,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
