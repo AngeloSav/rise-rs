@@ -1,3 +1,36 @@
-// pub mod bm25;
+use freq_index::FreqIndex;
+
+use crate::{
+    elias_fano::{
+        indexed_seq::{IndexSequence, StrictSequence},
+        opt_partition::OptPartitionedSequence,
+        strict_ef::StrictEliasFano,
+        uniform_partitioned_seq::UniformPartitionedSequence,
+    },
+    positive_sequences::positive_sequence::PositiveSequence,
+    EliasFano,
+};
+
 pub mod freq_index;
-// pub mod posting_metadata;
+
+// define index types
+pub type EFIdx = FreqIndex<EliasFano, PositiveSequence<StrictEliasFano>>;
+
+pub type UPEFIdx = FreqIndex<
+    UniformPartitionedSequence<EliasFano>,
+    PositiveSequence<UniformPartitionedSequence<StrictEliasFano>>,
+>;
+pub type UPISIdx = FreqIndex<
+    UniformPartitionedSequence<IndexSequence>,
+    PositiveSequence<UniformPartitionedSequence<StrictSequence>>,
+>;
+pub type OptEFIdx = FreqIndex<
+    OptPartitionedSequence<IndexSequence>,
+    PositiveSequence<OptPartitionedSequence<StrictSequence>>,
+>;
+
+pub type TestIdx = FreqIndex<
+    OptPartitionedSequence<IndexSequence>,
+    // was PositiveSequence<OptPartitionedSequence<StrictSequence>>,
+    PositiveSequence<OptPartitionedSequence<IndexSequence>>,
+>;

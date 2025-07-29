@@ -64,6 +64,9 @@ fn main() {
                 IdxKind::UPEf => "upef",
                 IdxKind::UPIs => "upis",
                 IdxKind::Opt => "opt",
+                IdxKind::Test => {
+                    todo!()
+                }
             };
             format!("{}.{}.out", input_path, tail)
         }
@@ -145,6 +148,9 @@ fn main() {
                     PositiveSequence<OptPartitionedSequence<StrictSequence>>,
                 >
             )
+        }
+        IdxKind::Test => {
+            todo!()
         }
     }
 }

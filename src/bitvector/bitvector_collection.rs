@@ -216,7 +216,7 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
     pub fn get(&self, i: usize) -> BitSliceWithOffset {
         assert!(i < self.n_vecs, "Index out of bounds");
 
-        let mut ef_it = EliasFano::iter_from_slice_with_data(
+        let mut ef_it = EliasFano::iter_from_slice(
             self.endpoints.as_bitslice(),
             self.n_vecs + 1,
             self.bv.len() as u64 + 1,

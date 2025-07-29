@@ -1,7 +1,6 @@
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use mem_dbg::{MemDbg, MemSize};
 use memmap2::MmapOptions;
-use pariter::{scope, IteratorExt};
 
 use std::fs::File;
 
@@ -19,7 +18,7 @@ use crate::{
     space_usage::SpaceUsage,
     utils::TimingQueries,
     BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
-    PartitionableSequence, SequenceEnumerator, ToBitvector, WriteBitvector,
+    PartitionableSequence, SequenceEnumerator, WriteBitvector,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, MemSize, MemDbg)]
@@ -31,6 +30,7 @@ pub struct FreqIndex<DocumentSequence, FreqSequence> {
     pub _phantom: PhantomData<(DocumentSequence, FreqSequence)>,
 }
 
+#[derive(Debug)]
 pub struct PostingListIter<'a, DocumentSequence, FreqSequence>
 where
     DocumentSequence: DocList<'a>,
@@ -53,8 +53,7 @@ unsafe impl<'a, T> Send for OptPartitionedSeqIter<'a, T> where
 
 unsafe impl Send for StrictEliasFano {}
 pub trait DocList<'a>:
-    ToBitvector
-    + EnumeratorFromBitSlice<'a, IterType: NextGEQ>
+    EnumeratorFromBitSlice<'a, IterType: NextGEQ>
     + for<'b> From<&'b [u64]>
     + WriteBitvector
     + Send
@@ -63,13 +62,12 @@ pub trait DocList<'a>:
 }
 
 pub trait FreqList<'a>:
-    ToBitvector + EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector + Send + Debug
+    EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector + Send + Debug
 {
 }
 
 impl<'a, T> DocList<'a> for T where
-    T: ToBitvector
-        + EnumeratorFromBitSlice<'a, IterType: NextGEQ>
+    T: EnumeratorFromBitSlice<'a, IterType: NextGEQ>
         + for<'b> From<&'b [u64]>
         + WriteBitvector
         + Send
@@ -78,12 +76,7 @@ impl<'a, T> DocList<'a> for T where
 }
 
 impl<'a, T> FreqList<'a> for T where
-    T: ToBitvector
-        + EnumeratorFromBitSlice<'a>
-        + for<'b> From<&'b [u64]>
-        + WriteBitvector
-        + Send
-        + Debug
+    T: EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector + Send + Debug
 {
 }
 
@@ -98,14 +91,11 @@ where
     ) -> PostingListIter<'a, DocumentSequence, FreqSequence> {
         let a: BitSliceWithOffset<'a> = self.docs_sequences.get(i);
         let (sz, pos) = unsafe { a.get_gamma_nonzero_unchecked(0) };
-        let mut doc_it = DocumentSequence::iter_from_slice_with_data(
-            a.split_at(pos).1,
-            sz as usize,
-            self.n_docs as u64,
-        );
+        let mut doc_it =
+            DocumentSequence::iter_from_slice(a.split_at(pos).1, sz as usize, self.n_docs as u64);
 
         let a: BitSliceWithOffset<'a> = self.freqs_sequences.get(i);
-        let freq_it = FreqSequence::iter_from_slice_with_data(a, sz as usize, self.n_docs as u64);
+        let freq_it = FreqSequence::iter_from_slice(a, sz as usize, self.n_docs as u64);
         let current = doc_it.next_val();
 
         PostingListIter {
@@ -115,14 +105,15 @@ where
         }
     }
 
-    fn push_plist(docs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>, sz: usize, bv_data: BitVec) {
-        let mut bv = BitVec::new();
-        bv.append_gamma_nonzero(sz as u64);
-        // println!("sz is: {}", sz);
-        bv.concat(bv_data);
+    // old way to push plists (with no frequency information)
+    // fn push_plist(docs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>, sz: usize, bv_data: BitVec) {
+    //     let mut bv = BitVec::new();
+    //     bv.append_gamma_nonzero(sz as u64);
+    //     // println!("sz is: {}", sz);
+    //     bv.concat(bv_data);
 
-        docs_bv.push(bv);
-    }
+    //     docs_bv.push(bv);
+    // }
 
     fn push_plist_freqs(
         docs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>,
@@ -223,13 +214,133 @@ where
         }
     }
 
-    #[allow(unreachable_code)]
-    #[allow(unused_variables)]
-    pub fn from_files_parallel(input_path: &str) -> Self {
-        unreachable!();
+    pub fn load_index(index_path: &str) -> Self {
+        let serialized = fs::read(index_path).unwrap();
+        println!("Serialized size: {:?} bytes", serialized.len());
+
+        let ds = bincode::deserialize::<Self>(&serialized).unwrap();
+
+        ds
+    }
+
+    // #[allow(unreachable_code)]
+    // #[allow(unused_variables)]
+    // pub fn from_files_parallel(input_path: &str) -> Self {
+    //     unreachable!();
+    //     let docs_file =
+    //         File::open(format!("{}.docs", input_path)).expect("could not open docs file");
+    //     // let sizes_file = format!("{}.sizes", input_path);
+
+    //     let mmap_docs = unsafe {
+    //         MmapOptions::new()
+    //             .map(&docs_file)
+    //             .expect("could not memory map docs file")
+    //     };
+
+    //     println!("file mapped!");
+
+    //     let binding = mmap_docs
+    //         .array_chunks::<4>()
+    //         .map(|chunk| u32::from_le_bytes(*chunk) as u64)
+    //         .collect::<Vec<_>>();
+
+    //     let mut docs_iter = binding.iter().enumerate();
+
+    //     docs_iter.next();
+
+    //     let (_, &n_docs) = docs_iter.next().unwrap();
+    //     let mut n_terms = 0;
+    //     let mut bvb = BitVectorCollectionBuilder::default();
+
+    //     let mut n_postings = 0;
+    //     scope(|scope| {
+    //         std::iter::repeat(())
+    //             .scan(docs_iter, |it, ()| {
+    //                 let (i, sz) = it.next()?;
+    //                 it.nth(*sz as usize - 1);
+    //                 Some(&binding[(i + 1)..(i + 1 + *sz as usize)])
+    //             })
+    //             .filter(|&x| x.len() > Self::LENGTH_THRESHOLD as usize)
+    //             .parallel_map_scoped(scope, |x| {
+    //                 (
+    //                     x.len(),
+    //                     DocumentSequence::write_bitvector(x, x.len(), n_docs),
+    //                 )
+    //             })
+    //             .enumerate()
+    //             .for_each(|(i, (sz, data))| {
+    //                 if i % 5000 == 0 {
+    //                     println!("processed {} plists!", i);
+    //                 }
+    //                 n_postings += sz;
+    //                 n_terms += 1;
+    //                 Self::push_plist(&mut bvb, sz, data);
+    //             });
+    //     })
+    //     .expect("error in parallel processing of the index");
+
+    //     println!("processed {} postings", n_postings);
+
+    //     FreqIndex {
+    //         n_docs: n_docs.try_into().unwrap(),
+    //         n_terms,
+    //         docs_sequences: bvb.build(),
+    //         freqs_sequences: BitVecCollection::default(),
+    //         _phantom: PhantomData,
+    //     }
+    // }
+
+    // pub fn check_correctness(&'a self, input_path: &str) {
+    //     let docs_file = format!("{}.docs", input_path);
+    //     let binding = std::fs::read(docs_file).expect("can't read .docs file ");
+
+    //     let mut docs_iter = binding
+    //         .array_chunks::<4>()
+    //         .map(|chunk| u32::from_le_bytes(*chunk) as u64)
+    //         // progress bar
+    //         .progress_with(pb_with_message(
+    //             (binding.len() / 4) as u64,
+    //             String::from("Checking"),
+    //         ));
+
+    //     docs_iter.next();
+    //     docs_iter.next();
+
+    //     let mut processed = 0;
+    //     while let Some(sz) = docs_iter.next() {
+    //         if sz > Self::LENGTH_THRESHOLD {
+    //             let v: Vec<u64> = (&mut docs_iter).take(sz as usize).collect();
+    //             processed += 1;
+    //             let mut it = self.get_plist_iter(processed - 1).doc_it;
+    //             let itv = v.iter();
+    //             for (_i, &s) in itv.enumerate() {
+    //                 // println!("check n {}", i);
+    //                 // assert!(dbg!(s) == dbg!(it.next().unwrap()));
+    //                 assert!(s == it.next().unwrap());
+    //             }
+    //         } else {
+    //             let _x = (&mut docs_iter).nth(sz as usize - 1);
+    //         }
+    //     }
+    // }
+
+    pub fn check_correctness(&'a self, input_path: &str) {
+        // let docs_file = format!("{}.docs", input_path);
+        // let binding = std::fs::read(docs_file).expect("can't read .docs file ");
+
+        // let mut docs_iter = binding
+        // .array_chunks::<4>()
+        // .map(|chunk| u32::from_le_bytes(*chunk) as u64)
+        // // progress bar
+        // .progress_with(pb_with_message(
+        //     (binding.len() / 4) as u64,
+        //     String::from("Checking"),
+        // ));
+
         let docs_file =
             File::open(format!("{}.docs", input_path)).expect("could not open docs file");
-        // let sizes_file = format!("{}.sizes", input_path);
+        let freq_file =
+            File::open(format!("{}.freqs", input_path)).expect("could not open freqs file");
 
         let mmap_docs = unsafe {
             MmapOptions::new()
@@ -237,89 +348,61 @@ where
                 .expect("could not memory map docs file")
         };
 
-        println!("file mapped!");
+        let mmap_freqs = unsafe {
+            MmapOptions::new()
+                .map(&freq_file)
+                .expect("could not memory map freqs file")
+        };
 
-        let binding = mmap_docs
-            .array_chunks::<4>()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64)
-            .collect::<Vec<_>>();
-
-        let mut docs_iter = binding.iter().enumerate();
-
-        docs_iter.next();
-
-        let (_, &n_docs) = docs_iter.next().unwrap();
-        let mut n_terms = 0;
-        let mut bvb = BitVectorCollectionBuilder::default();
-
-        let mut n_postings = 0;
-        scope(|scope| {
-            std::iter::repeat(())
-                .scan(docs_iter, |it, ()| {
-                    let (i, sz) = it.next()?;
-                    it.nth(*sz as usize - 1);
-                    Some(&binding[(i + 1)..(i + 1 + *sz as usize)])
-                })
-                .filter(|&x| x.len() > Self::LENGTH_THRESHOLD as usize)
-                .parallel_map_scoped(scope, |x| {
-                    (
-                        x.len(),
-                        DocumentSequence::write_bitvector(x, x.len(), n_docs),
-                    )
-                })
-                .enumerate()
-                .for_each(|(i, (sz, data))| {
-                    if i % 5000 == 0 {
-                        println!("processed {} plists!", i);
-                    }
-                    n_postings += sz;
-                    n_terms += 1;
-                    Self::push_plist(&mut bvb, sz, data);
-                });
-        })
-        .expect("error in parallel processing of the index");
-
-        println!("processed {} postings", n_postings);
-
-        FreqIndex {
-            n_docs: n_docs.try_into().unwrap(),
-            n_terms,
-            docs_sequences: bvb.build(),
-            freqs_sequences: BitVecCollection::default(),
-            _phantom: PhantomData,
-        }
-    }
-
-    pub fn check_correctness(&'a self, input_path: &str) {
-        let docs_file = format!("{}.docs", input_path);
-        let binding = std::fs::read(docs_file).expect("can't read .docs file ");
-
-        let mut docs_iter = binding
+        let mut docs_iter = mmap_docs
             .array_chunks::<4>()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64)
             // progress bar
             .progress_with(pb_with_message(
-                (binding.len() / 4) as u64,
-                String::from("Checking"),
+                (docs_file.metadata().unwrap().len() / 4) as u64,
+                String::from("Checking Index"),
             ));
 
+        let freqs_iter = mmap_freqs
+            .array_chunks::<4>()
+            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
+
         docs_iter.next();
         docs_iter.next();
 
+        let mut it = docs_iter.zip(freqs_iter);
+
         let mut processed = 0;
-        while let Some(sz) = docs_iter.next() {
+        while let Some((sz, sz_freq)) = it.next() {
+            assert!(sz == sz_freq);
+            // if sz != sz_freq {
+            //     panic!("size mismatch in .docs and .freqs files");
+            // }
+
             if sz > Self::LENGTH_THRESHOLD {
-                let v: Vec<u64> = (&mut docs_iter).take(sz as usize).collect();
-                processed += 1;
-                let mut it = self.get_plist_iter(processed - 1).doc_it;
+                let v: Vec<(u64, u64)> = (&mut it).take(sz as usize).collect();
+
+                // println!("Checking list {} with size {}", processed, sz);
+                let mut it_plist = self.get_plist_iter(processed);
                 let itv = v.iter();
-                for (_i, &s) in itv.enumerate() {
+                for (_i, &s) in itv.clone().enumerate() {
                     // println!("check n {}", i);
                     // assert!(dbg!(s) == dbg!(it.next().unwrap()));
-                    assert!(s == it.next().unwrap());
+                    let docid = it_plist.current_doc().unwrap();
+                    let freq = it_plist.freq().unwrap();
+                    assert_eq!(
+                        s,
+                        (docid, freq),
+                        "PLIST idx {} | Mismatch at freq iter is: {:?}, current position is {:?}",
+                        processed,
+                        it_plist.freq_it,
+                        it_plist.current_pos(),
+                    );
+                    it_plist.next_doc();
                 }
+                processed += 1;
             } else {
-                let _x = (&mut docs_iter).nth(sz as usize - 1);
+                let _x = (&mut it).nth(sz as usize - 1);
             }
         }
     }
@@ -330,15 +413,14 @@ where
         force_rebuild: bool,
     ) -> Self {
         let ds: Self;
-        let path = Path::new(&output_filename);
+        let path = Path::new(output_filename);
         if path.exists() && !force_rebuild {
             println!(
                 "The data structure already exists. Filename: {}. I'm going to load it ...",
                 output_filename
             );
-            let serialized = fs::read(path).unwrap();
-            println!("Serialized size: {:?} bytes", serialized.len());
-            ds = bincode::deserialize::<Self>(&serialized).unwrap();
+
+            ds = Self::load_index(output_filename);
         } else {
             let mut t = TimingQueries::new(1, 1); // measure building time
             t.start();
@@ -401,5 +483,9 @@ where
     pub fn freq(&mut self) -> Option<u64> {
         let pos = self.current_pos()?;
         Some(self.freq_it.move_to_position(pos)?.0)
+    }
+
+    pub fn len(&self) -> usize {
+        self.doc_it.len()
     }
 }

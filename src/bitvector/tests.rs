@@ -256,6 +256,50 @@ fn test_gamma_iter_on_dgaps() {
 }
 
 #[test]
+fn test_gamma_bitslice() {
+    for off in 0..128 {
+        let mut bv = BitVec::new();
+        println!("bv = {:?}", bv);
+
+        for _ in 0..off {
+            bv.push(true);
+        }
+
+        bv.append_gamma_nonzero(32);
+        println!("bv = {:?}", bv);
+
+        let got = unsafe {
+            (bv.as_bitslice().split_at(off))
+                .1
+                .get_gamma_nonzero_unchecked(0)
+        };
+        println!("off = {}, got gamma = {:?}", off, got);
+
+        assert_eq!(got.0, 32);
+    }
+}
+
+#[test]
+fn test_delta_bitslice() {
+    for off in 0..256 {
+        let mut bv = BitVec::new();
+        println!("bv = {:?}", bv);
+
+        for _ in 0..off {
+            bv.push(true);
+        }
+
+        bv.append_delta(32);
+        println!("bv = {:?}", bv);
+
+        let got = unsafe { (bv.as_bitslice().split_at(off)).1.get_delta_unchecked(0) };
+        println!("off = {}, got gamma = {:?}", off, got);
+
+        assert_eq!(got.0, 32);
+    }
+}
+
+#[test]
 fn test_concat() {
     let mut bv1 = BitVec::new();
     bv1.push(true);

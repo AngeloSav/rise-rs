@@ -1,6 +1,6 @@
 use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
-    ToBitvector, WriteBitvector,
+    WriteBitvector,
 };
 
 #[derive(Debug)]
@@ -38,23 +38,10 @@ impl EstimateSpace for AllOnes {
     }
 }
 
-impl ToBitvector for AllOnes {
-    fn to_bv(&self) -> BitVec {
-        let mut bv = BitVec::new();
-        bv.append_gamma(self.n as u64);
-        bv
-    }
-}
-
 impl<'a> EnumeratorFromBitSlice<'a> for AllOnes {
     type IterType = AllOnesIter;
 
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
-        let n = unsafe { bv.get_gamma_unchecked(0).0 as usize };
-        AllOnesIter { len: n, pos: 0 }
-    }
-
-    fn iter_from_slice_with_data(_bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
+    fn iter_from_slice(_bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         assert!(n as u64 == u);
         AllOnesIter { len: n, pos: 0 }
     }

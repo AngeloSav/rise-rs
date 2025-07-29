@@ -21,7 +21,10 @@ pub use elias_fano::{EliasFano, EliasFanoIter};
 
 // pub mod increasing_seq;
 pub mod indexes;
+pub use indexes::{EFIdx, OptEFIdx, UPEFIdx, UPISIdx};
 pub mod positive_sequences;
+
+pub mod queries;
 
 pub mod space_usage;
 
@@ -47,11 +50,15 @@ pub enum IdxKind {
     UPEf,
     UPIs,
     Opt,
+    Test,
 }
 
-/// Serializer class, this result can be appended to a bitvectorCollection
-pub trait ToBitvector {
-    fn to_bv(&self) -> BitVec;
+#[derive(ValueEnum, Clone, Debug)]
+pub enum QueryKind {
+    BooleanAnd,
+    BooleanOr,
+    RankedAnd,
+    Wand,
 }
 
 pub trait EstimateSpace {
@@ -76,11 +83,13 @@ pub trait CostWindow<'a> {
 
 pub trait EnumeratorFromBitSlice<'a> {
     type IterType: SequenceEnumerator + Debug;
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType;
-    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType;
+    /// `u` is the universe size, which is used to determine the number of bits in the bitvector. It is strictly greater than the maximum value in the sequence.
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType;
 }
 
 pub trait WriteBitvector {
+    /// `n` is the number of elements in the sequence.
+    /// `u` is the universe size, which is used to determine the number of bits in the bitvector. It is strictly greater than the maximum value in the sequence.
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec;
 }
 

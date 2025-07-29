@@ -4,7 +4,7 @@ use crate::{
     space_usage::SpaceUsage,
     utils::{ceil_log2, msb},
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
-    ToBitvector, WriteBitvector,
+    WriteBitvector,
 };
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl EliasFano {
     }
 
     pub fn iter(&self) -> EliasFanoIter {
-        Self::iter_from_slice_with_data(self.bv.as_bitslice(), self.n, self.u)
+        Self::iter_from_slice(self.bv.as_bitslice(), self.n, self.u)
     }
 
     pub fn n_bits(u: u64, n: usize) -> usize {
@@ -110,6 +110,7 @@ impl WriteBitvector for EliasFano {
         let mut prec = 0;
         for (i, &el) in seq.into_iter().enumerate() {
             assert!(prec <= el, "Sequence must be non decreasing!");
+            assert!(el < u);
             let to_push = el & ((1 << n_lo_bits) - 1);
             let hi = (el >> n_lo_bits) + i as u64 + 1;
             // println!("to push  {:0>10b}", to_push);
@@ -193,6 +194,7 @@ impl EliasFanoIter<'_> {
                     // )
                     self.slice_samples
                         .get_word56((ptr - 1) as usize * self.pointer_size)
+                        //TODO: create a mask to get the last pointer bits and see if it's faster
                         & ((1 << self.pointer_size) - 1)
                 }
             };
@@ -368,16 +370,6 @@ impl Iterator for EliasFanoIter<'_> {
     }
 }
 
-impl ToBitvector for EliasFano {
-    fn to_bv(&self) -> BitVec {
-        let mut bv = BitVec::new();
-        bv.append_gamma(self.n as u64);
-        bv.append_gamma(self.u);
-        bv.concat(&self.bv);
-        bv
-    }
-}
-
 impl EstimateSpace for EliasFano {
     fn bitsize(u: u64, n: usize) -> usize {
         Self::n_bits(u, n)
@@ -387,13 +379,7 @@ impl EstimateSpace for EliasFano {
 impl<'a> EnumeratorFromBitSlice<'a> for EliasFano {
     type IterType = EliasFanoIter<'a>;
 
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
-        let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
-        let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };
-        Self::iter_from_slice_with_data(bv.split_at(next_pos).1, n as usize, u)
-    }
-
-    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let n_lo_bits = if u > n as u64 {
             msb(u / n as u64) as u64
         } else {

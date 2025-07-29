@@ -2,7 +2,7 @@ use num::integer::div_ceil;
 
 use crate::{
     utils::ceil_log2, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ,
-    SequenceEnumerator, ToBitvector, WriteBitvector,
+    SequenceEnumerator, WriteBitvector,
 };
 
 #[derive(Debug)]
@@ -23,36 +23,28 @@ impl RankedBv {
     }
 
     pub fn iter(&self) -> RankedBvIter<'_> {
-        Self::iter_from_slice_with_data(self.bv.as_bitslice(), self.n, self.u)
+        Self::iter_from_slice(self.bv.as_bitslice(), self.n, self.u)
     }
 }
 
 impl<'a> From<&'a [u64]> for RankedBv {
     fn from(v: &'a [u64]) -> Self {
         let n = v.len();
-        let u = *v.last().unwrap();
+        let u = *v.last().unwrap() + 1;
 
         let bv = Self::write_bitvector(&v, n, u);
         RankedBv { bv, n, u }
     }
 }
 
-impl ToBitvector for RankedBv {
-    fn to_bv(&self) -> BitVec {
-        let mut bv = BitVec::new();
-        bv.append_gamma(self.n as u64);
-        bv.append_gamma(self.u);
-        bv.concat(&self.bv);
-        bv
-    }
-}
-
 impl WriteBitvector for RankedBv {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+        assert!(n == seq.len(), "Sequence length mismatch!");
+
         let rank_sample_size = ceil_log2(n + 1) as u64;
         let pointer_size = ceil_log2(u);
 
-        let mut bv = BitVec::with_zeros(1 + u as usize);
+        let mut bv = BitVec::with_zeros(u as usize);
         let mut samples =
             BitVec::with_zeros((u as usize >> LOG_RANK_SAMPLING) * rank_sample_size as usize);
         let mut samples1 =
@@ -75,6 +67,7 @@ impl WriteBitvector for RankedBv {
         let mut prec = 0;
         for (i, &el) in seq.into_iter().enumerate() {
             assert!(i == 0 || prec < el, "Sequence must be strictly increasing!");
+            assert!(el < u);
             bv.set(el as usize, true);
 
             if i != 0 && i % (1 << LOG_SAMPLING1) == 0 {
@@ -101,22 +94,16 @@ impl WriteBitvector for RankedBv {
 impl<'a> EnumeratorFromBitSlice<'a> for RankedBv {
     type IterType = RankedBvIter<'a>;
 
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> RankedBvIter<'a> {
-        let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
-        let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };
-        let bv = bv.split_at(next_pos).1;
-
-        Self::iter_from_slice_with_data(bv, n as usize, u)
-    }
-
-    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> RankedBvIter<'a> {
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> RankedBvIter<'a> {
         let rank_sample_size = ceil_log2(n + 1) as usize;
         let pointer_size = ceil_log2(u) as usize;
 
-        let start_samples = u as usize + 1;
+        let start_samples = u as usize;
         let end_samples = start_samples + (u as usize >> LOG_RANK_SAMPLING) * rank_sample_size;
 
-        let data_slice = bv.slice(0, start_samples); //maybe not +1?
+        // println!("ranked bv");
+        // dbg!(start_samples, end_samples, u, n, bv.len());
+        let data_slice = bv.slice(0, start_samples);
         let sample_slice = bv.slice(start_samples, end_samples);
         let samples1_slice = bv.split_at(end_samples).1;
 

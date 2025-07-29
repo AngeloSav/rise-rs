@@ -1,19 +1,17 @@
 use crate::{
-    elias_fano::{
-        indexed_seq::IndexSequence,
-        opt_partition::{optimal_partition, OptPartitionedSequence},
-        EliasFano,
-    },
+    elias_fano::{opt_partition::OptPartitionedSequence, EliasFano},
     gen_sequences::{gen_positive_sequence, gen_strictly_increasing_sequence},
     indexes::freq_index::{DocList, FreqList},
     positive_sequences::positive_sequence::PositiveSequence,
-    CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence, SequenceEnumerator,
-    ToBitvector, WriteBitvector,
+    EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator, WriteBitvector,
 };
 
 use super::{
-    all_ones_seq::AllOnes, indexed_seq::IndexedSequence, ranked_bv::RankedBv,
-    strict_ef::StrictEliasFano, uniform_partitioned_seq::UniformPartitionedSequence,
+    all_ones_seq::AllOnes,
+    indexed_seq::{IndexedSequence, StrictSequence},
+    ranked_bv::RankedBv,
+    strict_ef::StrictEliasFano,
+    uniform_partitioned_seq::UniformPartitionedSequence,
 };
 
 #[test]
@@ -123,15 +121,13 @@ fn test_ranked_bv_small_new() {
     let a = RankedBv::write_bitvector(v.clone().as_slice(), v.len(), *v.last().unwrap() + 1);
 
     for (a, b) in
-        RankedBv::iter_from_slice_with_data(a.as_bitslice(), v.len(), *v.last().unwrap() + 1)
-            .zip(v.clone())
+        RankedBv::iter_from_slice(a.as_bitslice(), v.len(), *v.last().unwrap() + 1).zip(v.clone())
     {
         assert!(a == b);
         println!("{:?}", a);
     }
 
-    let mut it =
-        RankedBv::iter_from_slice_with_data(a.as_bitslice(), v.len(), *v.last().unwrap() + 1);
+    let mut it = RankedBv::iter_from_slice(a.as_bitslice(), v.len(), *v.last().unwrap() + 1);
     assert_eq!(it.next_val(), Some((1, 0)));
     assert_eq!(it.next_geq(3), Some((3, 2)));
     assert_eq!(it.next_geq(6), Some((6, 5)));
@@ -157,8 +153,7 @@ fn test_all_ones_small_new() {
     // let v = (0..=170).collect::<Vec<_>>();
     let a = AllOnes::write_bitvector(&v, v.len(), *v.last().unwrap() + 1);
 
-    for (a, b) in
-        AllOnes::iter_from_slice_with_data(a.as_bitslice(), v.len(), *v.last().unwrap() + 1).zip(v)
+    for (a, b) in AllOnes::iter_from_slice(a.as_bitslice(), v.len(), *v.last().unwrap() + 1).zip(v)
     {
         assert!(a == b);
         println!("{:?}", a);
@@ -184,8 +179,7 @@ fn test_nextgeq<TY: for<'a> DocList<'a>>() {
     );
 
     let v_it = v.into_iter();
-    let mut it =
-        TY::iter_from_slice_with_data(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
+    let mut it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
 
     for q in queries {
         let a = v_it.clone().skip_while(|&x| x < q).next();
@@ -223,62 +217,52 @@ fn test_collect<TY: for<'a> FreqList<'a>>() {
         *binding.last().unwrap() + 1,
     );
 
-    let it =
-        TY::iter_from_slice_with_data(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
+    let it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
 
     let collected: Vec<_> = it.collect();
     assert_eq!(v, collected);
 }
 
 #[test]
-fn test_collect_positive_sequence() {
+fn test_collect_positive_sequence_ef() {
     test_collect::<PositiveSequence<EliasFano>>();
 }
 
 #[test]
-fn pg() {
-    // let v = vec![1, 2, 3, 4, 5, 6, 10, 10000];
-    // let v = (0..=4000).collect::<Vec<_>>();
-    let mut v = gen_strictly_increasing_sequence(1 << 12, 1 << 12)
-        .iter()
-        .map(|&x| x as u64)
-        .collect::<Vec<_>>();
-    // type TY<'a> = UniformPartitionedSequence<IndexedSequence, IndexedSequenceIter<'a>>;
-    type TY<'a> = EliasFano;
+fn test_collect_positive_sequence_sef() {
+    test_collect::<PositiveSequence<StrictEliasFano>>();
+}
 
-    v.extend(v.clone().iter().map(|x| x + 10000));
+#[test]
+fn test_collect_positive_sequence_sseq() {
+    test_collect::<PositiveSequence<StrictSequence>>();
+}
 
-    let x = TY::from(v.clone().as_slice());
+#[test]
+fn test_collect_positive_sequence_opt() {
+    test_collect::<PositiveSequence<OptPartitionedSequence<StrictSequence>>>();
+}
 
-    // println!("{:?}", x);
+#[test]
+#[should_panic]
+fn pg2() {
+    let n = 78012;
+    let mut v = vec![1; n];
+    v[300] = 2;
+    v[500] = 0;
 
-    let bv = x.to_bv();
+    type TY = PositiveSequence<OptPartitionedSequence<StrictSequence>>;
+    let s = TY::write_bitvector(v.as_slice(), v.len(), 0);
+    let mut it = TY::iter_from_slice(s.as_bitslice(), n, 0);
 
-    let mut it = TY::iter_from_slice(bv.as_bitslice());
+    let i = 0;
+    println!("it[{}] = {:?}", i, it.move_to_position(i));
 
-    let lb = 100;
+    println!("it[{}] = {:?}", i, it.move_to_position(299));
+    println!("it[{}] = {:?}", i, it.next_val());
+    println!("it[{}] = {:?}", i, it.next_val());
 
-    for i in TY::iter_from_slice(bv.as_bitslice()).take(20) {
-        println!("{}", i);
-    }
+    it.move_to_position(0);
 
-    let a = it.next_geq(lb);
-    println!("{:?}", a);
-
-    assert_eq!(
-        Some(a.unwrap().0),
-        TY::iter_from_slice(bv.as_bitslice())
-            .skip_while(|x| x < &lb)
-            .next()
-    );
-
-    println!(
-        "{:?}",
-        optimal_partition::<<IndexedSequence as PartitionableSequence>::CW>(&v, 0.0, 0.3)
-    );
-
-    println!(
-        "{:?}",
-        <<IndexSequence as PartitionableSequence>::CW>::single_block_cost(&v)
-    )
+    println!("{:?}", it);
 }

@@ -1,17 +1,8 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
-use pef::{
-    elias_fano::{
-        indexed_seq::{IndexSequence, StrictSequence},
-        opt_partition::OptPartitionedSequence,
-        strict_ef::StrictEliasFano,
-        uniform_partitioned_seq::UniformPartitionedSequence,
-    },
-    indexes::freq_index::FreqIndex,
-    positive_sequences::positive_sequence::PositiveSequence,
-    space_usage::SpaceUsage,
-    EliasFano, IdxKind,
-};
+use pef::indexes::TestIdx;
+use pef::space_usage::SpaceUsage;
+use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,6 +41,7 @@ fn main() {
                 IdxKind::UPEf => "upef",
                 IdxKind::UPIs => "upis",
                 IdxKind::Opt => "opt",
+                IdxKind::Test => "test",
             };
             format!("{}.{}.out", input_path, tail)
         }
@@ -86,30 +78,10 @@ fn main() {
     }
 
     match args.idx_kind {
-        IdxKind::EFSingle => build_idx!(FreqIndex<EliasFano, PositiveSequence<StrictEliasFano>>),
-        IdxKind::UPEf => {
-            build_idx!(
-                FreqIndex<
-                    UniformPartitionedSequence<EliasFano>,
-                    PositiveSequence<UniformPartitionedSequence<StrictEliasFano>>,
-                >
-            )
-        }
-        IdxKind::UPIs => {
-            build_idx!(
-                FreqIndex<
-                    UniformPartitionedSequence<IndexSequence>,
-                    PositiveSequence<UniformPartitionedSequence<StrictSequence>>,
-                >
-            )
-        }
-        IdxKind::Opt => {
-            build_idx!(
-                FreqIndex<
-                    OptPartitionedSequence<IndexSequence>,
-                    PositiveSequence<OptPartitionedSequence<StrictSequence>>,
-                >
-            )
-        }
+        IdxKind::EFSingle => build_idx!(EFIdx),
+        IdxKind::UPEf => build_idx!(UPEFIdx),
+        IdxKind::UPIs => build_idx!(UPISIdx),
+        IdxKind::Opt => build_idx!(OptEFIdx),
+        IdxKind::Test => build_idx!(TestIdx),
     }
 }

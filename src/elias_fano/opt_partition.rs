@@ -7,7 +7,7 @@ use crate::{
     space_usage::SpaceUsage,
     utils::ceil_log2,
     BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence,
-    SequenceEnumerator, ToBitvector, WriteBitvector,
+    SequenceEnumerator, WriteBitvector,
 };
 
 use super::{EliasFano, EliasFanoIter};
@@ -29,7 +29,7 @@ where
     }
 
     pub fn iter(&'a self) -> OptPartitionedSeqIter<'a, BaseSequence> {
-        Self::iter_from_slice_with_data(self.bv.as_bitslice(), self.n, self.u)
+        Self::iter_from_slice(self.bv.as_bitslice(), self.n, self.u)
     }
 }
 
@@ -51,19 +51,6 @@ where
             u,
             _phantom: PhantomData,
         }
-    }
-}
-
-impl<'a, BaseSequence> ToBitvector for OptPartitionedSequence<BaseSequence>
-where
-    BaseSequence: FreqList<'a>,
-{
-    fn to_bv(&self) -> BitVec {
-        let mut bv = BitVec::new();
-        bv.append_gamma(self.n as u64);
-        bv.append_gamma(self.u);
-        bv.concat(&self.bv);
-        bv
     }
 }
 
@@ -141,7 +128,8 @@ where
                 endpoints.push(bv_sequences.len());
             }
 
-            let bv_upper_bounds = EliasFano::write_bitvector(&upper_bounds, n_partitions + 1, u);
+            let bv_upper_bounds =
+                EliasFano::write_bitvector(&upper_bounds, n_partitions + 1, u + 1);
             let endpoint_bits = ceil_log2(bv_sequences.len() + 1);
             bv.append_gamma(endpoint_bits as u64);
 
@@ -170,13 +158,8 @@ where
     BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
     type IterType = OptPartitionedSeqIter<'a, BaseSequence>;
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
-        let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
-        let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };
-        Self::iter_from_slice_with_data(bv.split_at(next_pos).1, n as usize, u)
-    }
 
-    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let (n_partitions, mut next_pos) = unsafe { bv.get_gamma_unchecked(0) };
         let n_partitions = n_partitions as usize;
 
@@ -184,10 +167,10 @@ where
             let universe_bits = ceil_log2(u);
             let cur_base = unsafe { bv.get_bits_unchecked(next_pos, universe_bits as usize) };
 
+            next_pos += universe_bits as usize;
             let mut ub = 0;
             if n > 1 {
-                let (universe_delta, np) =
-                    unsafe { bv.get_delta_unchecked(next_pos + universe_bits as usize) };
+                let (universe_delta, np) = unsafe { bv.get_delta_unchecked(next_pos as usize) };
                 ub = if universe_delta != 0 {
                     universe_delta
                 } else {
@@ -195,8 +178,7 @@ where
                 };
                 next_pos = np;
             }
-            let cur_sequence =
-                BaseSequence::iter_from_slice_with_data(bv.split_at(next_pos).1, n, ub + 1);
+            let cur_sequence = BaseSequence::iter_from_slice(bv.split_at(next_pos).1, n, ub + 1);
 
             return OptPartitionedSeqIter {
                 position: 0,
@@ -221,15 +203,12 @@ where
             next_pos = np;
 
             let mut upper_bounds =
-                EliasFano::iter_from_slice_with_data(bv.split_at(next_pos).1, n_partitions + 1, u);
-            next_pos += EliasFano::n_bits(u, n_partitions + 1);
+                EliasFano::iter_from_slice(bv.split_at(next_pos).1, n_partitions + 1, u + 1);
+            next_pos += EliasFano::n_bits(u + 1, n_partitions + 1);
 
             // println!("sizes start : {}", next_pos);
-            let mut sizes = EliasFano::iter_from_slice_with_data(
-                bv.split_at(next_pos).1,
-                n_partitions - 1,
-                n as u64,
-            );
+            let mut sizes =
+                EliasFano::iter_from_slice(bv.split_at(next_pos).1, n_partitions - 1, n as u64);
             next_pos += EliasFano::n_bits(n as u64, n_partitions - 1);
 
             let mut endpoints = vec![0];
@@ -249,7 +228,7 @@ where
             let cur_begin = 0 as usize;
             let cur_end = sizes.next().unwrap() as usize;
 
-            let cur_sequence = BaseSequence::iter_from_slice_with_data(
+            let cur_sequence = BaseSequence::iter_from_slice(
                 sequences.slice(endpoints[0], endpoints[1]),
                 cur_end as usize,
                 cur_ub - cur_base + 1,
@@ -348,7 +327,7 @@ where
         // );
 
         //using a vec saves ~1ms from execution times of or
-        self.cur_sequence = BaseSequence::iter_from_slice_with_data(
+        self.cur_sequence = BaseSequence::iter_from_slice(
             self.sequences.slice(
                 self.endpoints[self.cur_partition],
                 self.endpoints[self.cur_partition + 1],

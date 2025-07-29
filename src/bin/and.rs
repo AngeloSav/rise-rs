@@ -1,3 +1,5 @@
+#![allow(internal_features)]
+#![feature(core_intrinsics)]
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -56,6 +58,7 @@ fn main() {
                 IdxKind::UPEf => "upef",
                 IdxKind::UPIs => "upis",
                 IdxKind::Opt => "opt",
+                IdxKind::Test => todo!(),
             };
             format!("{}.{}.out", input_path, tail)
         }
@@ -71,7 +74,6 @@ fn main() {
             println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
             // let idx_check = FreqIndex::<EliasFano>::load_or_build_and_save(&input_path, format!("{}.ef.out", input_path).as_str(), false);
-
 
             let queries = if let Some(x) = args.n_queries {
                 queries_file.lines().take_while(|a| a.is_ok()).take(x).collect::<Vec<_>>()
@@ -99,9 +101,9 @@ fn main() {
                 timer.start();
                 for term in &parsed {
                     //test and
-                    check += boolean_and(&idx, term[0], term[1], &mut res_vec);
+                    // check += boolean_and(&idx, term[0], term[1], &mut res_vec);
                     // boolean_and_check(&idx, &idx_check, term[0], term[1], &mut res_vec);
-                    // check += boolean_and_multiterm(&idx, term, &mut res_vec);
+                    check += boolean_and_multiterm(&idx, term, &mut res_vec);
                 }
                 timer.stop();
             }
@@ -144,6 +146,7 @@ fn main() {
                 >
             )
         }
+        IdxKind::Test => todo!(),
     }
 }
 
@@ -233,50 +236,53 @@ where
 //     }
 // }
 
-// #[allow(dead_code)]
-// #[inline(always)]
-// fn boolean_and_multiterm<'a, T, S>(
-//     idx: &'a FreqIndex<T, S>,
-//     terms: &[usize],
-//     v: &mut [u64],
-// ) -> usize
-// where
-//     T: DocList<'a>,
-//     S: FreqList<'a>,
-// {
-//     //contains pairs (cur_val, iterator)
-//     let mut enums = Vec::with_capacity(terms.len());
-//     for &term in terms {
-//         let mut it = idx.get_plist_iter(term);
-//         enums.push((it.next().unwrap_or(idx.n_docs as u64), it));
-//     }
+#[allow(dead_code)]
+#[inline(always)]
+fn boolean_and_multiterm<'a, T, S>(
+    idx: &'a FreqIndex<T, S>,
+    terms: &[usize],
+    v: &mut [u64],
+) -> usize
+where
+    T: DocList<'a>,
+    S: FreqList<'a>,
+{
+    let mut enums = Vec::with_capacity(terms.len());
 
-//     // sort by non-decreasing size
-//     enums.sort_by_key(|(_, it)| it.len());
+    for &term in terms {
+        //lets try boxing
+        enums.push(Box::new(idx.get_plist_iter(term)));
+    }
 
-//     let mut candidate = enums[0].0;
+    // sort by non-decreasing size
+    enums.sort_by_key(|it| it.len());
 
-//     let mut i = 1;
-//     let mut size = 0;
+    let max = idx.n_docs as u64;
 
-//     while candidate < idx.n_docs as u64 {
-//         for (cur_term_docid, it) in enums.iter_mut().skip(i) {
-//             *cur_term_docid = it.next_geq(candidate).map_or(idx.n_docs as u64, |x| x.0);
-//             if *cur_term_docid != candidate {
-//                 candidate = *cur_term_docid;
-//                 i = 0;
-//                 break;
-//             }
-//             i += 1;
-//         }
+    let mut candidate = enums[0].current_doc().unwrap_or(max);
 
-//         if i == enums.len() {
-//             unsafe { *v.get_unchecked_mut(size) = candidate };
-//             size += 1;
-//             enums[0].0 = enums[0].1.next().unwrap_or(idx.n_docs as u64);
-//             candidate = enums[0].0;
-//             i = 1;
-//         }
-//     }
-//     size
-// }
+    let mut i = 1;
+    let mut size = 0;
+
+    while candidate < max {
+        for it in enums.iter_mut().skip(i) {
+            it.next_geq(candidate);
+            let current = it.current_doc().unwrap_or(max);
+            if core::intrinsics::likely(current != candidate) {
+                candidate = current;
+                i = 0;
+                break;
+            }
+            i += 1;
+        }
+
+        if i == enums.len() {
+            unsafe { *v.get_unchecked_mut(size) = candidate };
+            size += 1;
+            enums[0].next_doc();
+            candidate = enums[0].current_doc().unwrap_or(max);
+            i = 1;
+        }
+    }
+    size
+}

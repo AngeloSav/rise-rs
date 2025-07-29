@@ -6,7 +6,7 @@ use crate::{
     indexes::freq_index::{DocList, FreqList},
     space_usage::SpaceUsage,
     utils::ceil_log2,
-    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator, ToBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator,
     WriteBitvector,
 };
 
@@ -31,7 +31,7 @@ where
     }
 
     pub fn iter(&'a self) -> UniformPartitionedSeqIter<'a, BaseSequence> {
-        Self::iter_from_slice_with_data(self.bv.as_bitslice(), self.n, self.u)
+        Self::iter_from_slice(self.bv.as_bitslice(), self.n, self.u)
     }
 }
 
@@ -50,19 +50,6 @@ where
             u,
             _phantom: PhantomData,
         }
-    }
-}
-
-impl<'a, BaseSequence> ToBitvector for UniformPartitionedSequence<BaseSequence>
-where
-    BaseSequence: FreqList<'a>,
-{
-    fn to_bv(&self) -> BitVec {
-        let mut bv = BitVec::new();
-        bv.append_gamma(self.n as u64);
-        bv.append_gamma(self.u);
-        bv.concat(&self.bv);
-        bv
     }
 }
 
@@ -153,13 +140,7 @@ where
 {
     type IterType = UniformPartitionedSeqIter<'a, BaseSequence>;
 
-    fn iter_from_slice(bv: BitSliceWithOffset<'a>) -> Self::IterType {
-        let (n, next_pos) = unsafe { bv.get_gamma_unchecked(0) };
-        let (u, next_pos) = unsafe { bv.get_gamma_unchecked(next_pos) };
-        Self::iter_from_slice_with_data(bv.split_at(next_pos).1, n as usize, u)
-    }
-
-    fn iter_from_slice_with_data(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
+    fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let (n_partitions, mut next_pos) = unsafe { bv.get_gamma_unchecked(0) };
         let n_partitions = n_partitions as usize;
 
@@ -178,8 +159,7 @@ where
                 };
                 next_pos = np;
             }
-            let cur_sequence =
-                BaseSequence::iter_from_slice_with_data(bv.split_at(next_pos).1, n, ub + 1);
+            let cur_sequence = BaseSequence::iter_from_slice(bv.split_at(next_pos).1, n, ub + 1);
 
             return UniformPartitionedSeqIter {
                 position: 0,
@@ -203,7 +183,7 @@ where
             next_pos = np;
 
             let mut upper_bounds =
-                EliasFano::iter_from_slice_with_data(bv.split_at(next_pos).1, n_partitions + 1, u);
+                EliasFano::iter_from_slice(bv.split_at(next_pos).1, n_partitions + 1, u);
             next_pos += EliasFano::n_bits(u, n_partitions + 1);
 
             let mut endpoints = vec![0];
@@ -229,7 +209,7 @@ where
             let cur_begin = 0;
             let cur_end = 1 * PARTITION_SIZE;
 
-            let cur_sequence = BaseSequence::iter_from_slice_with_data(
+            let cur_sequence = BaseSequence::iter_from_slice(
                 sequences.slice(endpoints[0], endpoints[1]),
                 cur_end,
                 cur_ub - cur_base + 1,
@@ -295,7 +275,7 @@ where
             self.upper_bounds.move_to_position(part).unwrap().0 + if part == 0 { 0 } else { 1 };
         self.cur_ub = self.upper_bounds.next().unwrap_or(self.universe);
 
-        self.cur_sequence = BaseSequence::iter_from_slice_with_data(
+        self.cur_sequence = BaseSequence::iter_from_slice(
             self.sequences.slice(
                 self.endpoints[self.cur_partition],
                 self.endpoints[self.cur_partition + 1],
