@@ -346,7 +346,10 @@ where
             return self.cur_sequence.move_to_position(self.cur_end);
         }
 
-        let (_end, part) = self.sizes.next_geq(pos as u64 + 1).unwrap();
+        let part = self
+            .sizes
+            .next_geq(pos as u64 + 1)
+            .map_or(self.n_partitions - 1, |x| x.1);
         self.switch_partition(part);
 
         let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
