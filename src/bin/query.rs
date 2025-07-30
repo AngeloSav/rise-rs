@@ -52,7 +52,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
 {
     println!("starting testing!");
 
-    let n_runs = 10;
+    let n_runs = 5;
     let n_queries = parsed_queries.len();
     let mut timer = TimingQueries::new(n_runs, parsed_queries.len());
 

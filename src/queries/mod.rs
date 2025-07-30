@@ -1,16 +1,15 @@
 #![allow(unused_variables)]
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
-};
+use std::collections::HashMap;
 
 use crate::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
+    queries::topk_heap::TopKHeap,
     DocScorer,
 };
 
 pub mod bm25;
 pub mod posting_metadata;
+pub mod topk_heap;
 
 pub use posting_metadata::PostingMetadata;
 
@@ -32,17 +31,13 @@ pub struct Or;
 pub struct And;
 pub struct RankedAnd<Scorer: DocScorer> {
     p_data: PostingMetadata<Scorer>,
-    topk_heap: BinaryHeap<Reverse<u64>>,
-    k: usize,
+    topk_heap: TopKHeap,
 }
 
 pub struct WAND<Scorer: DocScorer> {
     p_data: PostingMetadata<Scorer>,
-    topk_heap: BinaryHeap<Reverse<u64>>,
-    k: usize,
+    topk_heap: TopKHeap,
 }
-
-const SCORE_SCALING: f32 = 1000.0;
 
 impl QueryOperator for Or {
     fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut [u64]) -> usize
@@ -153,25 +148,16 @@ impl QueryOperator for And {
 
 impl<Scorer: DocScorer> RankedAnd<Scorer> {
     pub fn new<'a>(p_data: PostingMetadata<Scorer>, k: usize) -> Self {
-        let topk_heap: BinaryHeap<Reverse<u64>> = BinaryHeap::with_capacity(k);
+        let topk_heap = TopKHeap::new(k);
 
-        Self {
-            p_data,
-            k,
-            topk_heap,
-        }
+        Self { p_data, topk_heap }
     }
 }
 
 impl<Scorer: DocScorer> WAND<Scorer> {
     pub fn new<'a>(p_data: PostingMetadata<Scorer>, k: usize) -> Self {
-        let topk_heap: BinaryHeap<Reverse<u64>> = BinaryHeap::with_capacity(k);
-
-        Self {
-            p_data,
-            k,
-            topk_heap,
-        }
+        let topk_heap: TopKHeap = TopKHeap::new(k);
+        Self { p_data, topk_heap }
     }
 }
 
@@ -239,15 +225,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
                     score += *q_weight * Scorer::doc_term_weight(it.freq().unwrap(), norm_len);
                 }
 
-                let scaled_score = (score * SCORE_SCALING) as u64;
-                if self.topk_heap.len() < self.k {
-                    // fits in heap
-                    self.topk_heap.push(Reverse(scaled_score));
-                } else if self.topk_heap.peek().unwrap().0 < scaled_score {
-                    //better score
-                    self.topk_heap.pop();
-                    self.topk_heap.push(Reverse(scaled_score));
-                }
+                self.topk_heap.push(score);
 
                 enums[0].0.next_doc();
                 candidate = enums[0].0.current_doc().unwrap_or(max);
@@ -302,9 +280,7 @@ impl<Scorer: DocScorer> QueryOperator for WAND<Scorer> {
                 upper_bound += scored_enum.2;
 
                 // would enter in heap
-                if self.topk_heap.len() < self.k
-                    || self.topk_heap.peek().unwrap().0 < (upper_bound * SCORE_SCALING) as u64
-                {
+                if self.topk_heap.can_enter(upper_bound) {
                     found_pivot = true;
                     break;
                 }
@@ -334,17 +310,8 @@ impl<Scorer: DocScorer> QueryOperator for WAND<Scorer> {
                     scored_enum.0.next_doc();
                 }
 
-                let scaled_score = (score * SCORE_SCALING) as u64;
-
                 // insert in topk heap if possible
-                if self.topk_heap.len() < self.k {
-                    // fits in heap
-                    self.topk_heap.push(Reverse(scaled_score));
-                } else if self.topk_heap.peek().unwrap().0 < scaled_score {
-                    //better score
-                    self.topk_heap.pop();
-                    self.topk_heap.push(Reverse(scaled_score));
-                }
+                self.topk_heap.push(score);
 
                 ordered_enums.sort_by_key(|x| x.0.current_doc());
             } else {

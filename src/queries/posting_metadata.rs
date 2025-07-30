@@ -1,6 +1,7 @@
 use std::{fs::File, marker::PhantomData};
 
 use memmap2::MmapOptions;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
@@ -11,6 +12,7 @@ use crate::{
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=9f4c8e1e9f57623cc5bfb243f5cacf48
 
 #[allow(dead_code)]
+#[derive(Serialize, Deserialize)]
 pub struct PostingMetadata<Scorer: DocScorer> {
     norms_len: Vec<f32>,
     max_term_weight: Vec<f32>,
@@ -23,7 +25,17 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
         T: DocList<'a>,
         S: FreqList<'a>,
     {
+        // check if the file .mdata file exists
+        if std::path::Path::new(&format!("{}.mdata", path)).exists() {
+            // load the .mdata file
+            println!("loading metadata from {}.mdata", path);
+            let mdata_file =
+                File::open(format!("{}.mdata", path)).expect("could not open mdata file");
+            return bincode::deserialize_from(mdata_file).expect("could not deserialize p_data");
+        }
+
         let sizes_file = File::open(format!("{}.sizes", path)).expect("could not open docs file");
+        println!("creating metadata from .sizes file");
 
         let mmap_sizes = unsafe {
             MmapOptions::new()
@@ -76,11 +88,19 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
             max_term_weight.push(max_score);
         }
 
-        Self {
+        let p_data = Self {
             norms_len,
             max_term_weight,
             _phantom: PhantomData,
-        }
+        };
+
+        //save to .mdata file
+        let mdata_file =
+            File::create(format!("{}.mdata", path)).expect("could not create mdata file");
+        // use serde to serailize p_data
+        bincode::serialize_into(&mdata_file, &p_data).expect("could not serialize p_data");
+
+        p_data
     }
 
     pub fn get_norm_len(&self, i: usize) -> f32 {
