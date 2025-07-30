@@ -1,7 +1,7 @@
 use clap::{command, Parser};
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
-    queries::{And, Or, PostingMetadata, QueryOperator, RankedAnd, WAND},
+    queries::{And, MaxScore, Or, PostingMetadata, QueryOperator, RankedAnd, Wand},
     space_usage::SpaceUsage,
     utils::TimingQueries,
     EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
@@ -134,8 +134,16 @@ fn main() {
                         &idx,
                         &args.sizes_path.expect("size path not given"),
                     );
-                    let wand = WAND::new(p_data, args.k.expect("k not specified"));
+                    let wand = Wand::new(p_data, args.k.expect("k not specified"));
                     perform_query(&idx, parsed, wand);
+                }
+                QueryKind::Maxscore => {
+                    let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                        &idx,
+                        &args.sizes_path.expect("size path not given"),
+                    );
+                    let maxscore = MaxScore::new(p_data, args.k.expect("k not specified"));
+                    perform_query(&idx, parsed, maxscore);
                 }
             }
         }};

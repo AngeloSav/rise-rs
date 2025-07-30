@@ -62,6 +62,7 @@ pub enum QueryKind {
     BooleanOr,
     RankedAnd,
     Wand,
+    Maxscore,
 }
 
 pub trait EstimateSpace {

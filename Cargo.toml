@@ -35,5 +35,5 @@ harness = false
 [profile.release]
 lto = true
 debug = true
-overflow-checks = true
+overflow-checks = false
 debug-assertions = false
