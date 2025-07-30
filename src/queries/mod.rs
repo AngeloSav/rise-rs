@@ -284,14 +284,29 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
             let mut found_pivot = false;
             let mut pivot = 0;
 
-            for scored_enum in ordered_enums.iter() {
-                if scored_enum.0.current_doc().is_none() {
+            // for scored_enum in ordered_enums.iter() {
+            //     if scored_enum.0.current_doc().is_none() {
+            //         break;
+            //     }
+
+            //     upper_bound += scored_enum.2;
+
+            //     // would enter in heap
+            //     if self.topk_heap.can_enter(upper_bound) {
+            //         found_pivot = true;
+            //         break;
+            //     }
+
+            //     pivot += 1;
+            // }
+
+            while pivot < ordered_enums.len() {
+                if ordered_enums[pivot].0.current_doc().is_none() {
                     break;
                 }
 
-                upper_bound += scored_enum.2;
+                upper_bound += ordered_enums[pivot].2;
 
-                // would enter in heap
                 if self.topk_heap.can_enter(upper_bound) {
                     found_pivot = true;
                     break;
@@ -307,7 +322,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
 
             let pivot_id = ordered_enums[pivot].0.current_doc();
 
-            if pivot_id == ordered_enums[0].0.current_doc() {
+            if pivot_id.is_some() && pivot_id == ordered_enums[0].0.current_doc() {
                 //match, score pivot
                 let mut score = 0.0;
                 let norm_len = self.p_data.get_norm_len(pivot_id.unwrap() as usize);
@@ -330,17 +345,17 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
                 //no match
                 let mut next_list = pivot;
                 while ordered_enums[next_list].0.current_doc() == pivot_id {
-                    ordered_enums[next_list].0.next_geq(pivot_id.unwrap());
-
-                    for i in (next_list + 1)..ordered_enums.len() {
-                        if ordered_enums[i].0.current_doc() < ordered_enums[i - 1].0.current_doc() {
-                            ordered_enums.swap(i, i - 1);
-                        } else {
-                            break;
-                        }
-                    }
-
                     next_list -= 1;
+                }
+
+                ordered_enums[next_list].0.next_geq(pivot_id.unwrap());
+
+                for i in (next_list + 1)..ordered_enums.len() {
+                    if ordered_enums[i].0.current_doc() < ordered_enums[i - 1].0.current_doc() {
+                        ordered_enums.swap(i, i - 1);
+                    } else {
+                        break;
+                    }
                 }
             }
         }

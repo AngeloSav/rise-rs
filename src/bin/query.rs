@@ -39,6 +39,10 @@ struct Args {
     /// Process the first n queries
     #[arg(short, long)]
     n_queries: Option<usize>,
+
+    /// Process the first n queries
+    #[arg(short, long, default_value_t = 10)]
+    n_runs: usize,
 }
 
 #[inline(always)]
