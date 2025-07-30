@@ -23,6 +23,7 @@ rayon = "1.10.0"
 pariter = "0.5.1"
 memmap2 = "0.9.5"
 mem_dbg = "0.3.0"
+log = "0.4.27"
 
 [[bench]]
 name = "bit_vector_access"

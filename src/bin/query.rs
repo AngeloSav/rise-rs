@@ -52,7 +52,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
 {
     println!("starting testing!");
 
-    let n_runs = 5;
+    let n_runs = 10;
     let n_queries = parsed_queries.len();
     let mut timer = TimingQueries::new(n_runs, parsed_queries.len());
 
@@ -65,7 +65,8 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     }
     println!("check_warmup: {}", check);
 
-    for _ in 0..n_runs {
+    for i in 0..n_runs {
+        log::info!("run {}/{}", i + 1, n_runs);
         // check = 0;
         timer.start();
 

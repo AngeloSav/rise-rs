@@ -60,7 +60,7 @@ impl TopKHeap {
         if self.heap.len() < self.k {
             // fits in heap
             self.heap.push(Reverse(OrderedF32(score)));
-        } else if self.heap.peek().unwrap().0 < OrderedF32(score) {
+        } else if self.top().unwrap() < score {
             //better score
             self.heap.pop();
             self.heap.push(Reverse(OrderedF32(score)));
@@ -70,6 +70,8 @@ impl TopKHeap {
 
 #[cfg(test)]
 mod tests {
+    use crate::gen_sequences::gen_positive_sequence;
+
     use super::*;
 
     #[test]
@@ -103,12 +105,25 @@ mod tests {
     }
 
     #[test]
-    fn t() {
-        let mut heap = TopKHeap::new(5);
-        for i in 0..10 {
-            heap.push(i as f32 / 5 as f32);
+    fn test_random_topk_heap() {
+        let mut heap = TopKHeap::new(10);
+        let v: Vec<f32> = gen_positive_sequence(1000, 10_000)
+            .into_iter()
+            .map(|x| x as f32 / 1000.0)
+            .collect();
+
+        for &x in &v {
+            heap.push(x);
         }
 
-        println!("{:?}", heap.heap);
+        let mut sorted_v = v.clone();
+        sorted_v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let check = sorted_v.iter().cloned().rev().take(10).collect::<Vec<_>>();
+
+        let mut in_heap = heap.heap.iter().map(|x| x.0 .0).collect::<Vec<_>>();
+        in_heap.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        in_heap.reverse();
+
+        assert_eq!(in_heap, check);
     }
 }

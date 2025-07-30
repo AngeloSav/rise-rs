@@ -399,7 +399,7 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<Scorer> {
 
         while non_essential_lists < ordered_enums.len() && cur_doc < n_docs {
             let mut score = 0.0;
-            let next_doc = n_docs;
+            let mut next_doc = n_docs;
             let norm_len = self.p_data.get_norm_len(cur_doc as usize);
 
             for i in non_essential_lists..ordered_enums.len() {
@@ -409,9 +409,9 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<Scorer> {
                     ordered_enums[i].0.next_doc();
                 }
                 if ordered_enums[i].0.current_doc().is_some()
-                    && ordered_enums[i].0.current_doc().unwrap() < cur_doc
+                    && ordered_enums[i].0.current_doc().unwrap() < next_doc
                 {
-                    cur_doc = ordered_enums[i].0.current_doc().unwrap();
+                    next_doc = ordered_enums[i].0.current_doc().unwrap();
                 }
             }
 
