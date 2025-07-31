@@ -33,15 +33,15 @@ struct Args {
     sizes_path: Option<String>,
 
     /// Retrieve the top k documents
-    #[arg(short, long)]
-    k: Option<usize>,
+    #[arg(short, long, default_value_t = 10)]
+    k: usize,
 
     /// Process the first n queries
     #[arg(short, long)]
     n_queries: Option<usize>,
 
-    /// Process the first n queries
-    #[arg(short, long, default_value_t = 10)]
+    /// Perform test n times
+    #[arg(short = 'r', long, default_value_t = 10)]
     n_runs: usize,
 }
 
@@ -50,22 +50,20 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     idx: &'a FreqIndex<T, S>,
     parsed_queries: Vec<Vec<usize>>,
     mut query_strategy: Q,
+    n_runs: usize,
 ) where
     T: DocList<'a>,
     S: FreqList<'a>,
 {
     println!("starting testing!");
 
-    let n_runs = 10;
     let n_queries = parsed_queries.len();
     let mut timer = TimingQueries::new(n_runs, parsed_queries.len());
-
-    let mut res_vec = vec![0; idx.n_docs];
 
     //warmup
     let mut check = 0;
     for term in &parsed_queries {
-        check += query_strategy.query(&idx, term, &mut res_vec);
+        check += query_strategy.query(&idx, term);
     }
     println!("check_warmup: {}", check);
 
@@ -75,7 +73,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
         timer.start();
 
         for term in &parsed_queries {
-            check += query_strategy.query(&idx, term, &mut res_vec);
+            check += query_strategy.query(&idx, term);
         }
         timer.stop();
     }
@@ -117,6 +115,8 @@ fn main() {
         })
         .collect();
 
+    let n_runs = args.n_runs;
+
     macro_rules! query_idx {
         ($t:path) => {{
             let idx = <$t>::load_index(&args.index_path);
@@ -124,31 +124,31 @@ fn main() {
 
             println!("preparing for query");
             match args.query_kind {
-                QueryKind::BooleanAnd => perform_query(&idx, parsed, And),
-                QueryKind::BooleanOr => perform_query(&idx, parsed, Or),
+                QueryKind::BooleanAnd => perform_query(&idx, parsed, And, n_runs),
+                QueryKind::BooleanOr => perform_query(&idx, parsed, Or, n_runs),
                 QueryKind::RankedAnd => {
                     let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
                         &idx,
                         &args.sizes_path.expect("size path not given"),
                     );
-                    let r_and = RankedAnd::new(p_data, args.k.expect("k not specified"));
-                    perform_query(&idx, parsed, r_and);
+                    let r_and = RankedAnd::new(p_data, args.k);
+                    perform_query(&idx, parsed, r_and, n_runs);
                 }
                 QueryKind::Wand => {
                     let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
                         &idx,
                         &args.sizes_path.expect("size path not given"),
                     );
-                    let wand = Wand::new(p_data, args.k.expect("k not specified"));
-                    perform_query(&idx, parsed, wand);
+                    let wand = Wand::new(p_data, args.k);
+                    perform_query(&idx, parsed, wand, n_runs);
                 }
                 QueryKind::Maxscore => {
                     let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
                         &idx,
                         &args.sizes_path.expect("size path not given"),
                     );
-                    let maxscore = MaxScore::new(p_data, args.k.expect("k not specified"));
-                    perform_query(&idx, parsed, maxscore);
+                    let maxscore = MaxScore::new(p_data, args.k);
+                    perform_query(&idx, parsed, maxscore, n_runs);
                 }
             }
         }};

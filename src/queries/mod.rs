@@ -14,14 +14,8 @@ pub mod topk_heap;
 pub use posting_metadata::PostingMetadata;
 
 pub trait QueryOperator {
-    // this function takes an index `idx`, a number of terms `terms` and a result vector `v`,
-    // performs the query and then returns the numbers of documents found
-    fn query<'a, T, S>(
-        &mut self,
-        idx: &'a FreqIndex<T, S>,
-        terms: &[usize],
-        v: &mut [u64],
-    ) -> usize
+    // this function takes an index `idx`, a number of terms `terms`,
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
         T: DocList<'a>,
         S: FreqList<'a>;
@@ -45,7 +39,7 @@ pub struct MaxScore<Scorer: DocScorer> {
 }
 
 impl QueryOperator for Or {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut [u64]) -> usize
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
         T: DocList<'a>,
         S: FreqList<'a>,
@@ -71,7 +65,7 @@ impl QueryOperator for Or {
         while cur_doc < idx.n_docs as u64 {
             // println!("new round ---------------------");
             // println!("pushing {:?}", cur_doc);
-            unsafe { *v.get_unchecked_mut(size) = cur_doc };
+            // unsafe { *v.get_unchecked_mut(size) = cur_doc };
             size += 1;
 
             let mut next_doc = idx.n_docs as u64;
@@ -101,7 +95,7 @@ impl QueryOperator for Or {
 }
 
 impl QueryOperator for And {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut [u64]) -> usize
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
         T: DocList<'a>,
         S: FreqList<'a>,
@@ -140,7 +134,7 @@ impl QueryOperator for And {
             }
 
             if i == enums.len() {
-                unsafe { *v.get_unchecked_mut(size) = candidate };
+                // unsafe { *v.get_unchecked_mut(size) = candidate };
                 size += 1;
                 enums[0].next_doc();
                 candidate = enums[0].current_doc().unwrap_or(max);
@@ -185,7 +179,7 @@ fn query_freqs(terms: &[usize]) -> Vec<(usize, usize)> {
 }
 
 impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut [u64]) -> usize
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
         T: DocList<'a>,
         S: FreqList<'a>,
@@ -250,7 +244,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
 }
 
 impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut [u64]) -> usize
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
         T: DocList<'a>,
         S: FreqList<'a>,
@@ -261,7 +255,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
 
         let query_freqs = query_freqs(terms);
 
-        // contains pair (enum, weight)
+        // contains pair (enum, query_weight, max_score)
         let mut enums = Vec::with_capacity(query_freqs.len());
 
         self.topk_heap.clear();
@@ -283,22 +277,6 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
             let mut upper_bound = 0.0;
             let mut found_pivot = false;
             let mut pivot = 0;
-
-            // for scored_enum in ordered_enums.iter() {
-            //     if scored_enum.0.current_doc().is_none() {
-            //         break;
-            //     }
-
-            //     upper_bound += scored_enum.2;
-
-            //     // would enter in heap
-            //     if self.topk_heap.can_enter(upper_bound) {
-            //         found_pivot = true;
-            //         break;
-            //     }
-
-            //     pivot += 1;
-            // }
 
             while pivot < ordered_enums.len() {
                 if ordered_enums[pivot].0.current_doc().is_none() {
@@ -365,7 +343,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
 }
 
 impl<Scorer: DocScorer> QueryOperator for MaxScore<Scorer> {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize], v: &mut [u64]) -> usize
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
         T: DocList<'a>,
         S: FreqList<'a>,
