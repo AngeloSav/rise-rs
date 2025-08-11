@@ -19,7 +19,7 @@ impl Eq for OrderedF32 {}
 impl Ord for OrderedF32 {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap()
+        self.0.total_cmp(&other.0)
     }
 }
 

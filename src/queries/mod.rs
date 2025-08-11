@@ -188,6 +188,9 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
             return 0;
         }
 
+        // let mut ngeq_ctr = 0;
+        // let mut next_ctr = 0;
+
         let query_freqs = query_freqs(terms);
 
         // contains pair (enum, weight)
@@ -214,6 +217,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
         while candidate < max {
             for (it, q_weight) in enums.iter_mut().skip(i) {
                 it.next_geq(candidate);
+                // ngeq_ctr += 1;
                 let current = it.current_doc().unwrap_or(max);
                 if core::intrinsics::likely(current != candidate) {
                     candidate = current;
@@ -234,11 +238,13 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
                 self.topk_heap.push(score);
 
                 enums[0].0.next_doc();
+                // next_ctr += 1;
                 candidate = enums[0].0.current_doc().unwrap_or(max);
                 i = 1;
             }
         }
 
+        // println!("ngeq_ctr = {}, next_ctr = {}", ngeq_ctr, next_ctr);
         self.topk_heap.len()
     }
 }
@@ -253,6 +259,9 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
             return 0;
         }
 
+        // let mut ngeq_ctr = 0;
+        // let mut next_ctr = 0;
+
         let query_freqs = query_freqs(terms);
 
         // contains pair (enum, query_weight, max_score)
@@ -265,14 +274,25 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
             let q_weight =
                 Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
 
+            let max_t_weight = self.p_data.get_max_term_weigth(term);
             let max_weight = q_weight * self.p_data.get_max_term_weigth(term);
+
+            // println!(
+            //     "term {}, q_weight {}, max_t_weight {}, max_weight {}, norm_len {}",
+            //     term,
+            //     q_weight,
+            //     max_t_weight,
+            //     max_weight,
+            //     self.p_data.get_norm_len(term)
+            // );
 
             enums.push((it, q_weight, max_weight));
         }
 
         let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
+        // println!("ordered_enums length: {:?}", ordered_enums.len());
 
-        ordered_enums.sort_by_key(|x| x.0.current_doc());
+        ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
         loop {
             let mut upper_bound = 0.0;
             let mut found_pivot = false;
@@ -313,12 +333,14 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
                     score += scored_enum.1
                         * Scorer::doc_term_weight(scored_enum.0.freq().unwrap(), norm_len);
                     scored_enum.0.next_doc();
+                    // next_ctr += 1;
                 }
 
                 // insert in topk heap if possible
+                // println!("pivot_id {}, score {}", pivot_id, score);
                 self.topk_heap.push(score);
 
-                ordered_enums.sort_by_key(|x| x.0.current_doc());
+                ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
             } else {
                 //no match
                 let mut next_list = pivot;
@@ -338,6 +360,11 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
             }
         }
 
+        // println!(
+        //     "n_pushes = {}, ngeq_ctr = {}, next_ctr = {}",
+        //     n_pushes, ngeq_ctr, next_ctr
+        // );
+        // println!("ngeq_ctr = {}, next_ctr = {}", ngeq_ctr, next_ctr);
         self.topk_heap.len()
     }
 }

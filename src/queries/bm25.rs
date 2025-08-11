@@ -16,9 +16,9 @@ impl DocScorer for BM25 {
     fn query_term_weight(freq: u64, df: u64, num_docs: u64) -> f32 {
         let freq = freq as f32;
         let df = df as f32;
-        let idf = f32::ln(num_docs as f32 - df + 0.5) / (df + 0.5);
+        let idf = f32::ln((num_docs as f32 - df + 0.5) / (df + 0.5));
 
-        let max = if 1.0e-6 < idf { 1.0e-6 } else { idf };
-        freq * max * (1.0 + Self::K)
+        let epsilon_score: f32 = 1.0e-6;
+        freq * epsilon_score.max(idf) * (1.0 + Self::K)
     }
 }

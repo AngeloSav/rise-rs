@@ -66,25 +66,46 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
             .iter_mut()
             .for_each(|x| *x = ((*x as f64) / avg_len as f64) as f32);
 
-        for i in 0..idx.n_terms {
-            let mut it = idx.get_plist_iter(i);
+        let docs_file = File::open(format!("{}.docs", path)).expect("could not open docs file");
+        let freq_file = File::open(format!("{}.freqs", path)).expect("could not open freqs file");
 
-            let mut max_score: f32 = 0.0;
+        let mmap_docs = unsafe {
+            MmapOptions::new()
+                .map(&docs_file)
+                .expect("could not memory map docs file")
+        };
 
-            while let Some(docid) = it.current_doc() {
-                let freq = it.freq().unwrap_or_else(|| {
-                    println!("term {} | docid {} | plist len {}", i, docid, it.len());
-                    println!("total idx terms {} | docs {}", idx.n_terms, idx.n_docs);
-                    println!("{:?}", it);
-                    todo!()
-                });
+        let mmap_freqs = unsafe {
+            MmapOptions::new()
+                .map(&freq_file)
+                .expect("could not memory map freqs file")
+        };
 
+        let mut docs_iter = mmap_docs
+            .array_chunks::<4>()
+            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
+
+        let freqs_iter = mmap_freqs
+            .array_chunks::<4>()
+            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
+
+        docs_iter.next();
+        let n_docs = docs_iter.next().unwrap();
+
+        let mut it = docs_iter.zip(freqs_iter);
+
+        while let Some((sz, sz_freq)) = it.next() {
+            assert!(sz == sz_freq);
+
+            let v = (&mut it).take(sz as usize).collect::<Vec<_>>();
+            assert!(v.len() == sz as usize);
+            assert!(sz > 0);
+            let mut max_score = 0.0f32;
+            for (docid, freq) in v {
+                assert!(docid < n_docs);
                 let score = Scorer::doc_term_weight(freq, norms_len[docid as usize]);
                 max_score = max_score.max(score);
-
-                it.next_doc();
             }
-
             max_term_weight.push(max_score);
         }
 
