@@ -1,18 +1,18 @@
 use std::{fs::File, marker::PhantomData};
 
+use epserde::prelude::*;
 use memmap2::MmapOptions;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
-    DocScorer,
+    DocScorer, LENGTH_THRESHOLD,
 };
 
 // example of cloning and taking iterators in rust (useful for parser)
 // https://play.rust-lang.org/?version=stable&mode=debug&edition=2024&gist=9f4c8e1e9f57623cc5bfb243f5cacf48
 
 #[allow(dead_code)]
-#[derive(Serialize, Deserialize)]
+#[derive(Epserde, Debug)]
 pub struct PostingMetadata<Scorer: DocScorer> {
     norms_len: Vec<f32>,
     max_term_weight: Vec<f32>,
@@ -29,9 +29,12 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
         if std::path::Path::new(&format!("{}.mdata", path)).exists() {
             // load the .mdata file
             println!("loading metadata from {}.mdata", path);
-            let mdata_file =
-                File::open(format!("{}.mdata", path)).expect("could not open mdata file");
-            return bincode::deserialize_from(mdata_file).expect("could not deserialize p_data");
+            let reader =
+                std::fs::read(format!("{}.mdata", path)).expect("could not open .mdata file");
+
+            return unsafe {
+                Self::deserialize_eps(&reader).expect("could not deserialize p_data")
+            };
         }
 
         let sizes_file = File::open(format!("{}.sizes", path)).expect("could not open docs file");
@@ -100,6 +103,12 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
             let v = (&mut it).take(sz as usize).collect::<Vec<_>>();
             assert!(v.len() == sz as usize);
             assert!(sz > 0);
+
+            if sz <= LENGTH_THRESHOLD as u64 {
+                // ignore small lists
+                continue;
+            }
+
             let mut max_score = 0.0f32;
             for (docid, freq) in v {
                 assert!(docid < n_docs);
@@ -116,10 +125,14 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
         };
 
         //save to .mdata file
-        let mdata_file =
+        let mut mdata_file =
             File::create(format!("{}.mdata", path)).expect("could not create mdata file");
-        // use serde to serailize p_data
-        bincode::serialize_into(&mdata_file, &p_data).expect("could not serialize p_data");
+
+        unsafe {
+            p_data
+                .serialize(&mut mdata_file)
+                .expect("could not serialize p_data")
+        };
 
         p_data
     }
@@ -128,7 +141,7 @@ impl<Scorer: DocScorer> PostingMetadata<Scorer> {
         self.norms_len[i]
     }
 
-    pub fn get_max_term_weigth(&self, i: usize) -> f32 {
+    pub fn get_max_term_weight(&self, i: usize) -> f32 {
         self.max_term_weight[i]
     }
 }

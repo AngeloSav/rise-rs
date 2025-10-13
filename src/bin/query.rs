@@ -1,9 +1,11 @@
 use clap::{command, Parser};
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
-    queries::{And, MaxScore, Or, PostingMetadata, QueryOperator, RankedAnd, Wand},
+    queries::{
+        And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd, Wand,
+    },
     space_usage::SpaceUsage,
-    utils::TimingQueries,
+    utils::{type_of, TimingQueries},
     EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
 };
 use std::io::BufRead;
@@ -16,10 +18,6 @@ struct Args {
     #[arg()]
     idx_kind: IdxKind,
 
-    // Query operator we want to use
-    #[arg()]
-    query_kind: QueryKind,
-
     /// Path of the index file
     #[arg()]
     index_path: String,
@@ -28,9 +26,13 @@ struct Args {
     #[arg()]
     query_path: String,
 
-    /// path of the `.sizes` file containing the data used for scoring
+    // Query operator we want to use
+    #[arg()]
+    query_kind: Vec<QueryKind>,
+
+    /// path of the metadata file containing the data used for scoring
     #[arg(short, long)]
-    sizes_path: Option<String>,
+    meta_path: Option<String>,
 
     /// Retrieve the top k documents
     #[arg(short, long, default_value_t = 10)]
@@ -48,7 +50,7 @@ struct Args {
 #[inline(always)]
 fn perform_query<'a, Q: QueryOperator, T, S>(
     idx: &'a FreqIndex<T, S>,
-    parsed_queries: Vec<Vec<usize>>,
+    parsed_queries: &Vec<Vec<usize>>,
     mut query_strategy: Q,
     n_runs: usize,
 ) where
@@ -62,7 +64,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
 
     //warmup
     let mut check = 0;
-    for term in &parsed_queries {
+    for term in parsed_queries {
         check += query_strategy.query(&idx, term);
     }
     println!("check_warmup: {}", check);
@@ -72,15 +74,17 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
         // check = 0;
         timer.start();
 
-        for term in &parsed_queries {
+        for term in parsed_queries {
             check += query_strategy.query(&idx, term);
         }
         timer.stop();
     }
 
     println!(
-        "RESULT {} [exp=boolean_and, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+        "RESULT {} [exp={}, index_ty={:?}, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
         check,
+        Q::query_name(),
+        type_of(&idx),
         n_queries,
         Duration::from_nanos(timer.get().0.try_into().unwrap()),
         Duration::from_nanos(timer.get().1.try_into().unwrap()),
@@ -123,32 +127,45 @@ fn main() {
             println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
             println!("preparing for query");
-            match args.query_kind {
-                QueryKind::BooleanAnd => perform_query(&idx, parsed, And, n_runs),
-                QueryKind::BooleanOr => perform_query(&idx, parsed, Or, n_runs),
-                QueryKind::RankedAnd => {
-                    let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                        &idx,
-                        &args.sizes_path.expect("size path not given"),
-                    );
-                    let r_and = RankedAnd::new(p_data, args.k);
-                    perform_query(&idx, parsed, r_and, n_runs);
-                }
-                QueryKind::Wand => {
-                    let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                        &idx,
-                        &args.sizes_path.expect("size path not given"),
-                    );
-                    let wand = Wand::new(p_data, args.k);
-                    perform_query(&idx, parsed, wand, n_runs);
-                }
-                QueryKind::Maxscore => {
-                    let p_data = PostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                        &idx,
-                        &args.sizes_path.expect("size path not given"),
-                    );
-                    let maxscore = MaxScore::new(p_data, args.k);
-                    perform_query(&idx, parsed, maxscore, n_runs);
+            for &qk in &args.query_kind {
+                match qk {
+                    QueryKind::BooleanAnd => perform_query(&idx, &parsed, And, n_runs),
+                    QueryKind::BooleanOr => perform_query(&idx, &parsed, Or, n_runs),
+                    QueryKind::RankedAnd => {
+                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                            &args.meta_path.clone().expect("meta path not given"),
+                        );
+                        let r_and = RankedAnd::new(p_data, args.k);
+                        perform_query(&idx, &parsed, r_and, n_runs);
+                    }
+                    QueryKind::Wand => {
+                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                            &args.meta_path.clone().expect("meta path not given"),
+                        );
+                        let wand = Wand::new(p_data, args.k);
+                        perform_query(&idx, &parsed, wand, n_runs);
+                    }
+                    QueryKind::Maxscore => {
+                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                            &args.meta_path.clone().expect("meta path not given"),
+                        );
+                        let maxscore = MaxScore::new(p_data, args.k);
+                        perform_query(&idx, &parsed, maxscore, n_runs);
+                    }
+                    QueryKind::BMWand => {
+                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                            &args.meta_path.clone().expect("meta path not given"),
+                        );
+                        let bmwand = BMWand::new(p_data, args.k);
+                        perform_query(&idx, &parsed, bmwand, n_runs);
+                    }
+                    QueryKind::BMMaxscore => {
+                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                            &args.meta_path.clone().expect("meta path not given"),
+                        );
+                        let bmmaxscore = BMMaxScore::new(p_data, args.k);
+                        perform_query(&idx, &parsed, bmmaxscore, n_runs);
+                    }
                 }
             }
         }};

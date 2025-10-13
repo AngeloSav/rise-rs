@@ -7,13 +7,20 @@ use crate::{
     DocScorer,
 };
 
+mod block_partitioning;
+pub mod block_posting_metadata;
 pub mod bm25;
 pub mod posting_metadata;
 pub mod topk_heap;
 
+pub mod score_part;
+
+pub use block_posting_metadata::BlockPostingMetadata;
 pub use posting_metadata::PostingMetadata;
 
 pub trait QueryOperator {
+    fn query_name() -> &'static str;
+
     // this function takes an index `idx`, a number of terms `terms`,
     fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
     where
@@ -24,17 +31,27 @@ pub trait QueryOperator {
 pub struct Or;
 pub struct And;
 pub struct RankedAnd<Scorer: DocScorer> {
-    p_data: PostingMetadata<Scorer>,
+    p_data: BlockPostingMetadata<Scorer>,
     topk_heap: TopKHeap,
 }
 
 pub struct Wand<Scorer: DocScorer> {
-    p_data: PostingMetadata<Scorer>,
+    p_data: BlockPostingMetadata<Scorer>,
+    topk_heap: TopKHeap,
+}
+
+pub struct BMWand<Scorer: DocScorer> {
+    p_data: BlockPostingMetadata<Scorer>,
+    topk_heap: TopKHeap,
+}
+
+pub struct BMMaxScore<Scorer: DocScorer> {
+    p_data: BlockPostingMetadata<Scorer>,
     topk_heap: TopKHeap,
 }
 
 pub struct MaxScore<Scorer: DocScorer> {
-    p_data: PostingMetadata<Scorer>,
+    p_data: BlockPostingMetadata<Scorer>,
     topk_heap: TopKHeap,
 }
 
@@ -44,6 +61,8 @@ impl QueryOperator for Or {
         T: DocList<'a>,
         S: FreqList<'a>,
     {
+        // let mut next_ctr = 0;
+
         if terms.is_empty() {
             return 0;
         }
@@ -76,6 +95,7 @@ impl QueryOperator for Or {
                 // println!("cur_docid = {:?}", cur_term_docid);
                 if core::intrinsics::likely(cur_term_docid == cur_doc) {
                     // println!("update cur!");
+                    // next_ctr += 1;
                     it.next_doc();
                     cur_term_docid = it.current_doc().unwrap_or(idx.n_docs as u64);
                 }
@@ -90,7 +110,12 @@ impl QueryOperator for Or {
             cur_doc = next_doc;
             // println!("nextdoc is {:?}", cur_doc);
         }
+        // println!("next_ctr = {}, size = {}", next_ctr, size);
         size
+    }
+
+    fn query_name() -> &'static str {
+        "Or"
     }
 }
 
@@ -143,10 +168,14 @@ impl QueryOperator for And {
         }
         size
     }
+
+    fn query_name() -> &'static str {
+        "And"
+    }
 }
 
 impl<Scorer: DocScorer> RankedAnd<Scorer> {
-    pub fn new<'a>(p_data: PostingMetadata<Scorer>, k: usize) -> Self {
+    pub fn new<'a>(p_data: BlockPostingMetadata<Scorer>, k: usize) -> Self {
         let topk_heap = TopKHeap::new(k);
 
         Self { p_data, topk_heap }
@@ -154,14 +183,28 @@ impl<Scorer: DocScorer> RankedAnd<Scorer> {
 }
 
 impl<Scorer: DocScorer> Wand<Scorer> {
-    pub fn new<'a>(p_data: PostingMetadata<Scorer>, k: usize) -> Self {
+    pub fn new<'a>(p_data: BlockPostingMetadata<Scorer>, k: usize) -> Self {
+        let topk_heap: TopKHeap = TopKHeap::new(k);
+        Self { p_data, topk_heap }
+    }
+}
+
+impl<Scorer: DocScorer> BMWand<Scorer> {
+    pub fn new<'a>(p_data: BlockPostingMetadata<Scorer>, k: usize) -> Self {
+        let topk_heap: TopKHeap = TopKHeap::new(k);
+        Self { p_data, topk_heap }
+    }
+}
+
+impl<Scorer: DocScorer> BMMaxScore<Scorer> {
+    pub fn new<'a>(p_data: BlockPostingMetadata<Scorer>, k: usize) -> Self {
         let topk_heap: TopKHeap = TopKHeap::new(k);
         Self { p_data, topk_heap }
     }
 }
 
 impl<Scorer: DocScorer> MaxScore<Scorer> {
-    pub fn new<'a>(p_data: PostingMetadata<Scorer>, k: usize) -> Self {
+    pub fn new<'a>(p_data: BlockPostingMetadata<Scorer>, k: usize) -> Self {
         let topk_heap: TopKHeap = TopKHeap::new(k);
         Self { p_data, topk_heap }
     }
@@ -247,6 +290,10 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<Scorer> {
         // println!("ngeq_ctr = {}, next_ctr = {}", ngeq_ctr, next_ctr);
         self.topk_heap.len()
     }
+
+    fn query_name() -> &'static str {
+        "RankedAnd"
+    }
 }
 
 impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
@@ -274,8 +321,8 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
             let q_weight =
                 Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
 
-            let max_t_weight = self.p_data.get_max_term_weigth(term);
-            let max_weight = q_weight * self.p_data.get_max_term_weigth(term);
+            let max_t_weight = self.p_data.get_max_term_weight(term);
+            let max_weight = q_weight * self.p_data.get_max_term_weight(term);
 
             // println!(
             //     "term {}, q_weight {}, max_t_weight {}, max_weight {}, norm_len {}",
@@ -367,6 +414,10 @@ impl<Scorer: DocScorer> QueryOperator for Wand<Scorer> {
         // println!("ngeq_ctr = {}, next_ctr = {}", ngeq_ctr, next_ctr);
         self.topk_heap.len()
     }
+
+    fn query_name() -> &'static str {
+        "Wand"
+    }
 }
 
 impl<Scorer: DocScorer> QueryOperator for MaxScore<Scorer> {
@@ -391,7 +442,7 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<Scorer> {
             let q_weight =
                 Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
 
-            let max_weight = q_weight * self.p_data.get_max_term_weigth(term);
+            let max_weight = q_weight * self.p_data.get_max_term_weight(term);
 
             enums.push((it, q_weight, max_weight));
         }
@@ -460,5 +511,324 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<Scorer> {
         }
 
         self.topk_heap.len()
+    }
+
+    fn query_name() -> &'static str {
+        "MaxScore"
+    }
+}
+
+impl<Scorer: DocScorer> QueryOperator for BMWand<Scorer> {
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
+    where
+        T: DocList<'a>,
+        S: FreqList<'a>,
+    {
+        if terms.is_empty() {
+            return 0;
+        }
+        let n_docs = idx.n_docs as u64;
+        let query_freqs = query_freqs(terms);
+
+        // contains pair (enum, weight)
+        let mut enums = Vec::with_capacity(query_freqs.len());
+
+        self.topk_heap.clear();
+
+        for (term, freq) in query_freqs {
+            let it = idx.get_plist_iter(term);
+            let q_weight =
+                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
+
+            let max_weight = q_weight * self.p_data.get_max_term_weight(term);
+            let wand_iter = self.p_data.get_block_posting_metadata_iterator(term);
+
+            enums.push((it, wand_iter, q_weight, max_weight));
+        }
+
+        let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
+
+        ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+
+        loop {
+            let mut upper_bound = 0.0;
+            let mut found_pivot = false;
+            let mut pivot = 0;
+            let mut pivot_id = idx.n_docs as u64;
+
+            while pivot < ordered_enums.len() {
+                if ordered_enums[pivot].0.current_doc().is_none() {
+                    break;
+                }
+
+                upper_bound += ordered_enums[pivot].3;
+
+                if self.topk_heap.can_enter(upper_bound) {
+                    found_pivot = true;
+                    pivot_id = ordered_enums[pivot].0.current_doc().unwrap();
+
+                    while pivot + 1 < ordered_enums.len()
+                        && ordered_enums[pivot + 1].0.current_doc() == Some(pivot_id)
+                    {
+                        pivot += 1;
+                    }
+                    break;
+                }
+
+                pivot += 1;
+            }
+
+            if !found_pivot {
+                break;
+            }
+
+            let mut block_upper_bound = 0.0;
+
+            for i in 0..=pivot {
+                if ordered_enums[i].0.current_doc().unwrap() < pivot_id {
+                    ordered_enums[i].1.next_geq(pivot_id);
+                }
+
+                block_upper_bound += ordered_enums[i].1.score() * ordered_enums[i].2;
+            }
+
+            if self.topk_heap.can_enter(block_upper_bound) {
+                if pivot_id == ordered_enums[0].0.current_doc().unwrap() {
+                    //match, score pivot
+                    let mut score = 0.0;
+                    let norm_len = self.p_data.get_norm_len(pivot_id as usize);
+
+                    for scored_enum in ordered_enums.iter_mut() {
+                        if scored_enum.0.current_doc() != Some(pivot_id) {
+                            break;
+                        }
+
+                        let partial_score = scored_enum.2
+                            * Scorer::doc_term_weight(scored_enum.0.freq().unwrap(), norm_len);
+
+                        score += partial_score;
+                        block_upper_bound -= scored_enum.1.score() * scored_enum.2 - partial_score;
+
+                        if !self.topk_heap.can_enter(block_upper_bound) {
+                            break;
+                        }
+                    }
+
+                    for scored_enum in ordered_enums.iter_mut() {
+                        if scored_enum.0.current_doc() != Some(pivot_id) {
+                            break;
+                        }
+                        scored_enum.0.next_doc();
+                    }
+
+                    self.topk_heap.push(score);
+
+                    ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+                } else {
+                    //no match
+                    let mut next_list = pivot;
+                    while ordered_enums[next_list].0.current_doc() == Some(pivot_id) {
+                        next_list -= 1;
+                    }
+
+                    ordered_enums[next_list].0.next_geq(pivot_id);
+
+                    for i in (next_list + 1)..ordered_enums.len() {
+                        if ordered_enums[i].0.current_doc() < ordered_enums[i - 1].0.current_doc() {
+                            ordered_enums.swap(i, i - 1);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            } else {
+                let mut next;
+                let mut next_list = pivot;
+
+                let mut q_weight = ordered_enums[next_list].2;
+
+                for i in 0..pivot {
+                    if ordered_enums[i].2 > q_weight {
+                        next_list = i;
+                        q_weight = ordered_enums[i].2;
+                    }
+                }
+
+                let mut next_jump = idx.n_docs as u64;
+
+                if pivot + 1 < ordered_enums.len() {
+                    next_jump = ordered_enums[pivot + 1]
+                        .0
+                        .current_doc()
+                        .unwrap_or(idx.n_docs as u64);
+                }
+
+                for i in 0..=pivot {
+                    if ordered_enums[i].1.docid() < next_jump {
+                        next_jump = std::cmp::min(next_jump, ordered_enums[i].1.docid());
+                    }
+                }
+
+                next = next_jump + 1;
+
+                if pivot + 1 < ordered_enums.len()
+                    && next
+                        > ordered_enums[pivot + 1]
+                            .0
+                            .current_doc()
+                            .unwrap_or(idx.n_docs as u64)
+                {
+                    next = ordered_enums[pivot + 1].0.current_doc().unwrap();
+                }
+
+                if next <= ordered_enums[pivot].0.current_doc().unwrap() {
+                    next = ordered_enums[pivot].0.current_doc().unwrap() + 1;
+                }
+
+                ordered_enums[next_list].0.next_geq(next);
+
+                for i in (next_list + 1)..ordered_enums.len() {
+                    if ordered_enums[i].0.current_doc() < ordered_enums[i - 1].0.current_doc() {
+                        ordered_enums.swap(i, i - 1);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.topk_heap.len()
+    }
+
+    fn query_name() -> &'static str {
+        "BMWand"
+    }
+}
+
+impl<Scorer: DocScorer> QueryOperator for BMMaxScore<Scorer> {
+    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
+    where
+        T: DocList<'a>,
+        S: FreqList<'a>,
+    {
+        if terms.is_empty() {
+            return 0;
+        }
+        let n_docs = idx.n_docs as u64;
+        let query_freqs = query_freqs(terms);
+
+        // contains pair (enum, weight)
+        let mut enums = Vec::with_capacity(query_freqs.len());
+
+        self.topk_heap.clear();
+
+        for (term, freq) in query_freqs {
+            let it = idx.get_plist_iter(term);
+            let q_weight =
+                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
+
+            let max_weight = q_weight * self.p_data.get_max_term_weight(term);
+            let wand_iter = self.p_data.get_block_posting_metadata_iterator(term);
+
+            enums.push((it, wand_iter, q_weight, max_weight));
+        }
+
+        let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
+
+        // ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+        ordered_enums.sort_by(|x, y| x.3.partial_cmp(&y.3).unwrap());
+
+        let upper_bounds = ordered_enums
+            .iter()
+            .map(|x| x.3)
+            .scan(0f32, |s, x| {
+                *s += x;
+                Some(*s)
+            })
+            .collect::<Vec<_>>();
+
+        let mut non_essential_lists = 0;
+        let mut cur_doc = ordered_enums
+            .iter()
+            .map(|x| x.0.current_doc())
+            .min()
+            .unwrap()
+            .unwrap_or(n_docs);
+
+        while non_essential_lists < ordered_enums.len() && cur_doc < n_docs {
+            let mut score = 0.0;
+            let mut next_doc = n_docs;
+
+            for i in non_essential_lists..ordered_enums.len() {
+                if ordered_enums[i].0.current_doc() == Some(cur_doc) {
+                    score += ordered_enums[i].2
+                        * Scorer::doc_term_weight(
+                            ordered_enums[i].0.freq().unwrap(),
+                            self.p_data.get_norm_len(cur_doc as usize),
+                        );
+                    ordered_enums[i].0.next_doc();
+                }
+                if ordered_enums[i].0.current_doc().is_some()
+                    && ordered_enums[i].0.current_doc().unwrap() < next_doc
+                {
+                    next_doc = ordered_enums[i].0.current_doc().unwrap();
+                }
+            }
+
+            let mut block_upper_bound = if non_essential_lists > 0 {
+                upper_bounds[non_essential_lists - 1]
+            } else {
+                0.0
+            };
+
+            for i in (0..non_essential_lists).rev() {
+                if ordered_enums[i].1.docid() < cur_doc {
+                    ordered_enums[i].1.next_geq(cur_doc);
+                }
+
+                block_upper_bound -=
+                    ordered_enums[i].3 - ordered_enums[i].1.score() * ordered_enums[i].2;
+
+                if !self.topk_heap.can_enter(score + block_upper_bound) {
+                    break;
+                }
+            }
+
+            if self.topk_heap.can_enter(score + block_upper_bound) {
+                for i in (0..non_essential_lists).rev() {
+                    ordered_enums[1].0.next_geq(cur_doc);
+                    if ordered_enums[i].0.current_doc() == Some(cur_doc) {
+                        block_upper_bound += ordered_enums[i].2
+                            * Scorer::doc_term_weight(
+                                ordered_enums[i].0.freq().unwrap(),
+                                self.p_data.get_norm_len(cur_doc as usize),
+                            );
+                    }
+                    block_upper_bound -= ordered_enums[i].1.score() * ordered_enums[i].2; // query weight???
+
+                    if !self.topk_heap.can_enter(score + block_upper_bound) {
+                        break;
+                    }
+                }
+                score += block_upper_bound;
+            }
+
+            if self.topk_heap.can_enter(score) {
+                self.topk_heap.push(score);
+
+                while non_essential_lists < ordered_enums.len()
+                    && !self.topk_heap.can_enter(upper_bounds[non_essential_lists])
+                {
+                    non_essential_lists += 1;
+                }
+            }
+            cur_doc = next_doc;
+        }
+
+        self.topk_heap.len()
+    }
+
+    fn query_name() -> &'static str {
+        "BMMaxScore"
     }
 }

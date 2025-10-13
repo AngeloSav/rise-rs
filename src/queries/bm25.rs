@@ -1,3 +1,7 @@
+use std::hash::Hash;
+
+use epserde::traits::TypeHash;
+
 use crate::DocScorer;
 
 pub struct BM25;
@@ -5,6 +9,12 @@ pub struct BM25;
 impl BM25 {
     const B: f32 = 0.5;
     const K: f32 = 1.2;
+}
+
+impl TypeHash for BM25 {
+    fn type_hash(hasher: &mut impl core::hash::Hasher) {
+        "BM25".hash(hasher);
+    }
 }
 
 impl DocScorer for BM25 {

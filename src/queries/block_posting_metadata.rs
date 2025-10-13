@@ -1,0 +1,218 @@
+use std::{fs::File, marker::PhantomData};
+
+use memmap2::MmapOptions;
+
+use crate::{DocScorer, MDATA_LENGTH_THRESHOLD};
+
+use epserde::prelude::*;
+
+use super::block_partitioning::{partition_static, partition_variable};
+
+// This version uses Rust vectors to store the block metadata
+
+#[allow(dead_code)]
+#[derive(Epserde, Debug)]
+pub struct BlockPostingMetadata<Scorer: DocScorer> {
+    norms_len: Vec<f32>,
+    max_term_weight: Vec<f32>,
+    blocks_start: Vec<usize>,
+    blocks_docid: Vec<u32>,
+    blocks_max_term_weight: Vec<f32>,
+    _phantom: PhantomData<Scorer>,
+}
+
+impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
+    pub fn load_file(path: &str) -> Self {
+        // load the .mdata file
+        println!("loading metadata from {}", path);
+        let reader = std::fs::read(path).expect("could not read p_data file");
+
+        unsafe { Self::deserialize_eps(&reader).expect("could not deserialize p_data") }
+    }
+
+    pub fn create_file(path: &str, variable_block: bool, out_file: &str) {
+        let mut blocks_start: Vec<usize> = Vec::new();
+        blocks_start.push(0);
+        let mut blocks_docid = Vec::new();
+        let mut blocks_max_term_weight: Vec<f32> = Vec::new();
+
+        if variable_block {
+            println!("using variable-size blocks");
+        } else {
+            println!("using fixed-size blocks");
+        }
+
+        let sizes_file = File::open(format!("{}.sizes", path)).expect("could not open .sizes file");
+        println!("creating metadata from .sizes file");
+
+        let mmap_sizes = unsafe {
+            MmapOptions::new()
+                .map(&sizes_file)
+                .expect("could not memory map docs file")
+        };
+
+        let mut sizes_iter = mmap_sizes
+            .array_chunks::<4>()
+            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
+
+        let n_docs = sizes_iter.next().expect("malformed .sizes file");
+
+        let mut norms_len: Vec<f32> = Vec::with_capacity(n_docs as usize);
+        let mut max_term_weight: Vec<f32> = Vec::with_capacity(n_docs as usize);
+        let mut avg_len = 0.0f64;
+
+        for doc_len in sizes_iter {
+            norms_len.push(doc_len as f32);
+            avg_len += doc_len as f64;
+        }
+
+        avg_len /= n_docs as f64;
+
+        norms_len
+            .iter_mut()
+            .for_each(|x| *x = ((*x as f64) / avg_len as f64) as f32);
+
+        let docs_file = File::open(format!("{}.docs", path)).expect("could not open docs file");
+        let freq_file = File::open(format!("{}.freqs", path)).expect("could not open freqs file");
+
+        let mmap_docs = unsafe {
+            MmapOptions::new()
+                .map(&docs_file)
+                .expect("could not memory map docs file")
+        };
+
+        let mmap_freqs = unsafe {
+            MmapOptions::new()
+                .map(&freq_file)
+                .expect("could not memory map freqs file")
+        };
+
+        let mut docs_iter = mmap_docs
+            .array_chunks::<4>()
+            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
+
+        let freqs_iter = mmap_freqs
+            .array_chunks::<4>()
+            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
+
+        docs_iter.next();
+        let n_docs = docs_iter.next().unwrap();
+
+        let mut it = docs_iter.zip(freqs_iter);
+
+        // let mut processed = 0;
+
+        while let Some((sz, sz_freq)) = it.next() {
+            assert!(sz == sz_freq);
+            assert!(sz > 0);
+
+            if sz > MDATA_LENGTH_THRESHOLD as u64 {
+                let v = (&mut it).take(sz as usize);
+                assert!(v.len() == sz as usize);
+
+                // add sequence ---------------
+                let (v_sizes, v_block_docid, v_block_max_term_weights) = if !variable_block {
+                    partition_static::<Scorer>(v, &norms_len)
+                } else {
+                    partition_variable::<Scorer>(v, &norms_len)
+                };
+
+                blocks_start.push(blocks_start.last().unwrap() + v_block_docid.len());
+                blocks_docid.extend(v_block_docid);
+                max_term_weight.push(
+                    v_block_max_term_weights
+                        .iter()
+                        .cloned()
+                        .reduce(f32::max)
+                        .unwrap(),
+                );
+                blocks_max_term_weight.extend(v_block_max_term_weights);
+            } else {
+                //consume iterator
+                (&mut it).nth(sz as usize - 1);
+            }
+            // if processed % 10_000_000 == 0 {
+            //     println!("processed {} lists", processed);
+            // }
+            // processed += 1;
+        }
+
+        println!("norms_len len: {}", norms_len.len());
+        println!("max_term_weight len: {}", max_term_weight.len());
+
+        println!("blocks_start len: {}", blocks_start.len());
+        println!("blocks_docid len: {}", blocks_docid.len());
+        println!(
+            "blocks_max_term_weight len: {}",
+            blocks_max_term_weight.len()
+        );
+
+        let p_data = Self {
+            norms_len,
+            max_term_weight,
+            blocks_start,
+            blocks_docid,
+            blocks_max_term_weight,
+            _phantom: PhantomData,
+        };
+
+        //save to .mdata file
+        let mut mdata_file = File::create(out_file).expect("could not create mdata file");
+
+        unsafe {
+            p_data
+                .serialize(&mut mdata_file)
+                .expect("could not serialize p_data")
+        };
+    }
+
+    pub fn get_norm_len(&self, i: usize) -> f32 {
+        self.norms_len[i]
+    }
+
+    pub fn get_max_term_weight(&self, i: usize) -> f32 {
+        self.max_term_weight[i]
+    }
+
+    pub fn get_block_posting_metadata_iterator(
+        &self,
+        i: usize,
+    ) -> BlockPostingMDataEnumerator<Scorer> {
+        BlockPostingMDataEnumerator {
+            current_pos: 0,
+            block_start: self.blocks_start[i],
+            block_number: self.blocks_start[i + 1] - self.blocks_start[i],
+            block_max_term_weight: &self.blocks_max_term_weight,
+            block_docid: &self.blocks_docid,
+            phantom: PhantomData,
+        }
+    }
+}
+
+pub struct BlockPostingMDataEnumerator<'a, Scorer: DocScorer> {
+    current_pos: usize,
+    block_start: usize,
+    block_number: usize,
+    block_max_term_weight: &'a [f32],
+    block_docid: &'a [u32],
+    phantom: PhantomData<Scorer>,
+}
+
+impl<'a, Scorer: DocScorer> BlockPostingMDataEnumerator<'a, Scorer> {
+    pub fn next_geq(&mut self, lower_bound: u64) {
+        while self.current_pos + 1 < self.block_number
+            && (self.block_docid[self.current_pos + self.block_start] as usize)
+                < lower_bound as usize
+        {
+            self.current_pos += 1;
+        }
+    }
+
+    pub fn score(&self) -> f32 {
+        self.block_max_term_weight[self.current_pos + self.block_start]
+    }
+
+    pub fn docid(&self) -> u64 {
+        self.block_docid[self.current_pos + self.block_start] as u64
+    }
+}

@@ -134,6 +134,13 @@ where
     }
 }
 
+fn get_endpoint<'a>(bv: &BitSliceWithOffset<'a>, idx: usize, endpoint_bits: usize) -> usize {
+    if idx == 0 {
+        0
+    } else {
+        unsafe { bv.get_word56((idx - 1) * endpoint_bits) as usize & ((1 << endpoint_bits) - 1) }
+    }
+}
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for UniformPartitionedSequence<BaseSequence>
 where
     BaseSequence: FreqList<'a>,
@@ -170,7 +177,8 @@ where
                 cur_partition: 0,
                 upper_bounds: EliasFanoIter::default(),
                 n_partitions: 1,
-                endpoints: Vec::default(),
+                endpoints: BitSliceWithOffset::default(),
+                endpoint_bits: 0,
                 sequences: BitSliceWithOffset::default(),
                 cur_sequence,
                 cur_value: 0,
@@ -180,28 +188,27 @@ where
             };
         } else {
             let (endpoint_bits, np) = unsafe { bv.get_gamma_unchecked(next_pos) };
+            let endpoint_bits = endpoint_bits as usize;
             next_pos = np;
 
             let mut upper_bounds =
                 EliasFano::iter_from_slice(bv.split_at(next_pos).1, n_partitions + 1, u);
             next_pos += EliasFano::n_bits(u, n_partitions + 1);
 
-            let mut endpoints = vec![0];
-            if endpoint_bits != 0 {
-                for idx in (next_pos..)
-                    .step_by(endpoint_bits as usize)
-                    .take(n_partitions)
-                {
-                    endpoints.push(bv.get_bits(idx, endpoint_bits as usize).unwrap() as usize);
-                }
-            } else {
-                for _ in 0..n_partitions {
-                    endpoints.push(0);
-                }
-            }
+            // let mut endpoints = vec![0];
+            // for idx in (next_pos..)
+            //     .step_by(endpoint_bits as usize)
+            //     .take(n_partitions)
+            // {
+            //     endpoints.push(
+            //         unsafe { bv.get_word56(idx as usize) as usize } & ((1 << endpoint_bits) - 1),
+            //     );
+            // }
+
+            let endpoints = bv.slice(next_pos, next_pos + endpoint_bits as usize * n_partitions);
 
             let sequences = bv
-                .split_at(next_pos + endpoint_bits as usize * (n_partitions))
+                .split_at(next_pos + endpoint_bits as usize * n_partitions)
                 .1;
 
             let cur_base = upper_bounds.next().unwrap();
@@ -209,8 +216,10 @@ where
             let cur_begin = 0;
             let cur_end = 1 * PARTITION_SIZE;
 
+            let start_endpoint = get_endpoint(&endpoints, 0, endpoint_bits);
+            let end_endpoint = get_endpoint(&endpoints, 1, endpoint_bits);
             let cur_sequence = BaseSequence::iter_from_slice(
-                sequences.slice(endpoints[0], endpoints[1]),
+                sequences.slice(start_endpoint, end_endpoint),
                 cur_end,
                 cur_ub - cur_base + 1,
             );
@@ -225,6 +234,7 @@ where
                 upper_bounds,
                 n_partitions: n_partitions as usize,
                 endpoints,
+                endpoint_bits,
                 sequences,
                 cur_sequence,
                 cur_value: 0,
@@ -246,7 +256,8 @@ where
     cur_base: u64,
     upper_bounds: EliasFanoIter<'a>,
     n_partitions: usize,
-    endpoints: Vec<usize>,
+    endpoints: BitSliceWithOffset<'a>,
+    endpoint_bits: usize,
     sequences: BitSliceWithOffset<'a>,
     cur_sequence: BaseSequence::IterType,
     cur_value: u64,
@@ -277,8 +288,8 @@ where
 
         self.cur_sequence = BaseSequence::iter_from_slice(
             self.sequences.slice(
-                self.endpoints[self.cur_partition],
-                self.endpoints[self.cur_partition + 1],
+                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
+                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
             ),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
@@ -297,8 +308,8 @@ where
         let part = pos / PARTITION_SIZE;
         self.switch_partition(part);
 
-        let (val, pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-        self.position = pos + self.cur_begin;
+        let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
+
         Some((val + self.cur_base, self.position - 1))
     }
 }
@@ -357,11 +368,11 @@ where
     }
 
     fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
-        self.position = pos;
+        self.position = pos + 1;
 
-        if self.position >= self.cur_begin && self.position < self.cur_end {
+        if self.position - 1 >= self.cur_begin && self.position - 1 < self.cur_end {
             let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-            return Some((self.cur_base + val, self.position));
+            return Some((self.cur_base + val, self.position - 1));
         }
 
         self.slow_move(pos)

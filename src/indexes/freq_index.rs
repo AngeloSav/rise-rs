@@ -18,7 +18,7 @@ use crate::{
     space_usage::SpaceUsage,
     utils::TimingQueries,
     BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
-    PartitionableSequence, SequenceEnumerator, WriteBitvector,
+    PartitionableSequence, SequenceEnumerator, WriteBitvector, LENGTH_THRESHOLD,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, MemSize, MemDbg)]
@@ -131,8 +131,6 @@ where
         freqs_bv.push(bv_freqs);
     }
 
-    const LENGTH_THRESHOLD: u64 = 1 << 12;
-
     pub fn from_files(input_path: &str) -> Self {
         let docs_file =
             File::open(format!("{}.docs", input_path)).expect("could not open docs file");
@@ -181,7 +179,7 @@ where
             // println!("------------- list n {} -------------", processed);
             // println!("list n {}, size is {}", idx.n_terms, sz);
 
-            if sz > Self::LENGTH_THRESHOLD {
+            if sz > LENGTH_THRESHOLD as u64 {
                 let (v_docs, v_freqs): (Vec<_>, Vec<_>) = (&mut it).take(sz as usize).unzip();
                 assert!(v_docs.len() == sz as usize);
                 assert!(sz > 0);
@@ -379,7 +377,7 @@ where
             //     panic!("size mismatch in .docs and .freqs files");
             // }
 
-            if sz > Self::LENGTH_THRESHOLD {
+            if sz > LENGTH_THRESHOLD as u64 {
                 let v: Vec<(u64, u64)> = (&mut it).take(sz as usize).collect();
 
                 // println!("Checking list {} with size {}", processed, sz);

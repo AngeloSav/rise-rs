@@ -210,3 +210,8 @@ where
 pub fn gamma_size(n: u64) -> usize {
     (msb(n + 1) * 2 + 1) as usize
 }
+
+/// Returns the type name of its argument.
+pub fn type_of<T>(_: &T) -> &'static str {
+    std::any::type_name::<T>()
+}

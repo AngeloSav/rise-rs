@@ -21,6 +21,7 @@ pub use elias_fano::{EliasFano, EliasFanoIter};
 
 // pub mod increasing_seq;
 pub mod indexes;
+use epserde::traits::TypeHash;
 pub use indexes::{EFIdx, OptEFIdx, UPEFIdx, UPISIdx};
 pub mod positive_sequences;
 
@@ -30,6 +31,9 @@ pub mod space_usage;
 
 pub mod gen_sequences;
 pub mod utils;
+
+const LENGTH_THRESHOLD: usize = 0;
+const MDATA_LENGTH_THRESHOLD: usize = LENGTH_THRESHOLD;
 
 /// A trait for the support of `get` query over the binary alphabet.
 pub trait AccessBin {
@@ -56,13 +60,15 @@ pub enum IdxKind {
     Opt,
 }
 
-#[derive(ValueEnum, Clone, Debug)]
+#[derive(ValueEnum, Copy, Clone, Debug)]
 pub enum QueryKind {
     BooleanAnd,
     BooleanOr,
     RankedAnd,
     Wand,
     Maxscore,
+    BMWand,
+    BMMaxscore,
 }
 
 pub trait EstimateSpace {
@@ -116,7 +122,7 @@ pub trait NextGEQ: SequenceEnumerator {
 
 // ---------------------------------------------
 
-pub trait DocScorer {
+pub trait DocScorer: TypeHash {
     fn doc_term_weight(freq: u64, norm_len: f32) -> f32;
     fn query_term_weight(freq: u64, df: u64, num_docs: u64) -> f32;
 }

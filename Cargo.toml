@@ -24,6 +24,7 @@ pariter = "0.5.1"
 memmap2 = "0.9.5"
 mem_dbg = "0.3.0"
 log = "0.4.27"
+epserde = { version = "0.10.3", features = ["derive", "mmap"] }
 
 [[bench]]
 name = "bit_vector_access"
