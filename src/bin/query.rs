@@ -2,7 +2,8 @@ use clap::{command, Parser};
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
     queries::{
-        And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd, Wand,
+        And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd,
+        RankedOr, Wand,
     },
     space_usage::SpaceUsage,
     utils::{type_of, TimingQueries},
@@ -126,44 +127,37 @@ fn main() {
             let idx = <$t>::load_index(&args.index_path);
             println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
+            let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+                &args.meta_path.clone().expect("meta path not given"),
+            );
+
             println!("preparing for query");
             for &qk in &args.query_kind {
                 match qk {
                     QueryKind::BooleanAnd => perform_query(&idx, &parsed, And, n_runs),
                     QueryKind::BooleanOr => perform_query(&idx, &parsed, Or, n_runs),
                     QueryKind::RankedAnd => {
-                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                            &args.meta_path.clone().expect("meta path not given"),
-                        );
-                        let r_and = RankedAnd::new(p_data, args.k);
+                        let r_and = RankedAnd::new(&p_data, args.k);
                         perform_query(&idx, &parsed, r_and, n_runs);
                     }
+                    QueryKind::RankedOr => {
+                        let r_or = RankedOr::new(&p_data, args.k);
+                        perform_query(&idx, &parsed, r_or, n_runs);
+                    }
                     QueryKind::Wand => {
-                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                            &args.meta_path.clone().expect("meta path not given"),
-                        );
-                        let wand = Wand::new(p_data, args.k);
+                        let wand = Wand::new(&p_data, args.k);
                         perform_query(&idx, &parsed, wand, n_runs);
                     }
                     QueryKind::Maxscore => {
-                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                            &args.meta_path.clone().expect("meta path not given"),
-                        );
-                        let maxscore = MaxScore::new(p_data, args.k);
+                        let maxscore = MaxScore::new(&p_data, args.k);
                         perform_query(&idx, &parsed, maxscore, n_runs);
                     }
                     QueryKind::BMWand => {
-                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                            &args.meta_path.clone().expect("meta path not given"),
-                        );
-                        let bmwand = BMWand::new(p_data, args.k);
+                        let bmwand = BMWand::new(&p_data, args.k);
                         perform_query(&idx, &parsed, bmwand, n_runs);
                     }
                     QueryKind::BMMaxscore => {
-                        let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
-                            &args.meta_path.clone().expect("meta path not given"),
-                        );
-                        let bmmaxscore = BMMaxScore::new(p_data, args.k);
+                        let bmmaxscore = BMMaxScore::new(&p_data, args.k);
                         perform_query(&idx, &parsed, bmmaxscore, n_runs);
                     }
                 }

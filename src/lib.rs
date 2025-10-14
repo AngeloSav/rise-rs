@@ -65,6 +65,7 @@ pub enum QueryKind {
     BooleanAnd,
     BooleanOr,
     RankedAnd,
+    RankedOr,
     Wand,
     Maxscore,
     BMWand,
