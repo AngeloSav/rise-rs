@@ -10,13 +10,11 @@ use crate::{
 mod block_partitioning;
 pub mod block_posting_metadata;
 pub mod bm25;
-pub mod posting_metadata;
 pub mod topk_heap;
 
 pub mod score_part;
 
 pub use block_posting_metadata::BlockPostingMetadata;
-pub use posting_metadata::PostingMetadata;
 
 pub trait QueryOperator {
     fn query_name() -> &'static str;
