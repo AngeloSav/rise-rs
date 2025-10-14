@@ -58,7 +58,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     T: DocList<'a>,
     S: FreqList<'a>,
 {
-    println!("starting testing!");
+    println!("starting testing! query type: {}", Q::query_name());
 
     let n_queries = parsed_queries.len();
     let mut timer = TimingQueries::new(n_runs, parsed_queries.len());

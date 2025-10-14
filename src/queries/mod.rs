@@ -868,7 +868,7 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
 
             if self.topk_heap.can_enter(score + block_upper_bound) {
                 for i in (0..non_essential_lists).rev() {
-                    ordered_enums[1].0.next_geq(cur_doc);
+                    ordered_enums[i].0.next_geq(cur_doc);
                     if ordered_enums[i].0.current_doc() == Some(cur_doc) {
                         block_upper_bound += ordered_enums[i].2
                             * Scorer::doc_term_weight(
