@@ -42,7 +42,7 @@ impl<'a> EnumeratorFromBitSlice<'a> for AllOnes {
     type IterType = AllOnesIter;
 
     fn iter_from_slice(_bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
-        assert!(n as u64 == u);
+        debug_assert!(n as u64 == u);
         AllOnesIter { len: n, pos: 0 }
     }
 }

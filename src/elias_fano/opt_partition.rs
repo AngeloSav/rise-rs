@@ -302,7 +302,7 @@ where
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
-        assert!(self.n_partitions > 1);
+        debug_assert!(self.n_partitions > 1);
 
         self.cur_partition = part;
 
@@ -509,7 +509,7 @@ pub fn optimal_partition<'a, 'b, T: CostWindow<'a>>(
 where
     'b: 'a,
 {
-    assert!(!sequence.is_empty(), "sequence is empty");
+    debug_assert!(!sequence.is_empty(), "sequence is empty");
     let single_block_cost = T::single_block_cost(sequence);
 
     let mut min_cost = vec![single_block_cost; sequence.len() + 1];
@@ -532,7 +532,7 @@ where
     for i in 0..sequence.len() {
         let mut last_end = i + 1;
         for window in windows.iter_mut() {
-            assert_eq!(window.start(), i);
+            debug_assert!(window.start() == i);
 
             while window.end() < last_end {
                 window.advance_end();

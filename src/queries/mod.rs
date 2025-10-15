@@ -602,7 +602,6 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
         let n_docs = idx.n_docs as u64;
         let query_freqs = query_freqs(terms);
 
-        // contains pair (enum, weight)
         let mut enums = Vec::with_capacity(query_freqs.len());
 
         self.topk_heap.clear();
@@ -789,7 +788,6 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
         let n_docs = idx.n_docs as u64;
         let query_freqs = query_freqs(terms);
 
-        // contains pair (enum, weight)
         let mut enums = Vec::with_capacity(query_freqs.len());
 
         self.topk_heap.clear();
@@ -807,7 +805,6 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
 
         let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
 
-        // ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
         ordered_enums.sort_by(|x, y| x.3.partial_cmp(&y.3).unwrap());
 
         let upper_bounds = ordered_enums

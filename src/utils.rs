@@ -143,7 +143,7 @@ const K_SELECT_IN_BYTE: [u8; 2048] = [
 
 #[inline(always)]
 pub fn select_in_word(word: u64, k: u64) -> u32 {
-    assert!(k < word.count_ones() as u64);
+    debug_assert!(k < word.count_ones() as u64);
     // use core::arch::x86_64::_pdep_u64;
     // let mask = std::u64::MAX << k;
     // return unsafe{ _pdep_u64(mask, word).trailing_zeros() };

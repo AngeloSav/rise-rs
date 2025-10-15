@@ -152,7 +152,7 @@ pub fn score_opt_partition(
         let mut last_end = i + 1;
 
         for window in windows.iter_mut() {
-            assert_eq!(window.start(), i);
+            debug_assert!(window.start() == i);
 
             while window.end() < last_end {
                 window.advance_end();

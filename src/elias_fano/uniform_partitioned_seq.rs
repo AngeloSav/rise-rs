@@ -58,7 +58,7 @@ where
     BaseSequence: FreqList<'a> + WriteBitvector,
 {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
-        assert!(n > 0);
+        debug_assert!(n > 0);
         let mut bv = BitVec::new();
         let n_partitions = usize::div_ceil(n, PARTITION_SIZE);
 
@@ -275,7 +275,7 @@ where
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
-        assert!(self.n_partitions > 1);
+        debug_assert!(self.n_partitions > 1);
 
         self.cur_partition = part;
         self.cur_begin = self.cur_partition * PARTITION_SIZE;
