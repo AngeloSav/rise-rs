@@ -1546,7 +1546,7 @@ impl<'a> BitSliceWithOffset<'a> {
     }
 
     pub fn slice(&self, start: usize, end: usize) -> BitSliceWithOffset<'a> {
-        debug_assert!(start <= end, "end < start!");
+        debug_assert!(start <= end, "end ({}) < start({})!", end, start);
         debug_assert!(start <= self.n_bits, "start point is out of bounds!");
         debug_assert!(end <= self.n_bits, "end point is out of bounds!");
 

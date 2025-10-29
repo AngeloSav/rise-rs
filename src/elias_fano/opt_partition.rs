@@ -303,20 +303,20 @@ where
     #[cold]
     fn switch_partition(&mut self, part: usize) {
         debug_assert!(self.n_partitions > 1);
+        debug_assert!(self.n_partitions > part);
 
         self.cur_partition = part;
 
         if part == 0 {
             self.cur_begin = 0;
-            self.cur_end = self.sizes.move_to_position(part).unwrap().0 as usize;
+            self.cur_end = self.sizes.move_to_position(part).0 as usize;
         } else {
-            self.cur_begin = self.sizes.move_to_position(part - 1).unwrap().0 as usize;
+            self.cur_begin = self.sizes.move_to_position(part - 1).0 as usize;
             self.cur_end = self.sizes.next().unwrap_or(self.len as u64) as usize;
         }
 
         //get bounds of this
-        self.cur_base =
-            self.upper_bounds.move_to_position(part).unwrap().0 + if part == 0 { 0 } else { 1 };
+        self.cur_base = self.upper_bounds.move_to_position(part).0 + if part == 0 { 0 } else { 1 };
         self.cur_ub = self.upper_bounds.next().unwrap_or(self.universe);
 
         // without using a vec for endpoints
@@ -343,7 +343,6 @@ where
         //     self.cur_ub - self.cur_base + 1,
         // );
 
-        //using a vec saves ~1ms from execution times of or
         self.cur_sequence = BaseSequence::iter_from_slice(
             self.sequences.slice(
                 get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
@@ -355,22 +354,20 @@ where
     }
 
     #[cold]
-    fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn slow_move(&mut self, pos: usize) -> (u64, usize) {
         if pos >= self.len {
             if self.n_partitions > 1 {
                 self.switch_partition(self.n_partitions - 1);
             }
-            return self.cur_sequence.move_to_position(self.cur_end);
+            self.cur_sequence.move_to_position(self.cur_end);
+            return (self.universe, self.len);
         }
 
-        let part = self
-            .sizes
-            .next_geq(pos as u64 + 1)
-            .map_or(self.n_partitions - 1, |x| x.1);
+        let part = self.sizes.next_geq(pos as u64 + 1).1;
         self.switch_partition(part);
 
-        let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-        Some((val + self.cur_base, self.position - 1))
+        let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin);
+        (val + self.cur_base, self.position - 1)
     }
 }
 
@@ -379,7 +376,7 @@ where
     BaseSequence: DocList<'a> + for<'b> PartitionableSequence<'b>,
 {
     #[cold]
-    fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if self.n_partitions == 1 {
             if lower_bound < self.cur_base {
                 return self.move_to_position(0);
@@ -388,15 +385,14 @@ where
             }
         }
 
-        let ub_res = self.upper_bounds.next_geq(lower_bound);
-        if ub_res.is_none() {
-            return self.move_to_position(self.len);
-        }
-
-        let (_ub_val, ub_pos) = unsafe { ub_res.unwrap_unchecked() };
+        let (_ub_val, ub_pos) = self.upper_bounds.next_geq(lower_bound);
 
         if ub_pos == 0 {
             return self.move_to_position(0);
+        }
+
+        if ub_pos == self.upper_bounds.len() {
+            return self.move_to_position(self.len);
         }
 
         self.switch_partition(ub_pos - 1);
@@ -409,29 +405,30 @@ impl<'a, BaseSequence> SequenceEnumerator for OptPartitionedSeqIter<'a, BaseSequ
 where
     BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
 {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
+    fn next_val(&mut self) -> (u64, usize) {
         self.position += 1;
 
-        if let Some(x) = self.cur_sequence.next() {
-            self.cur_value = x + self.cur_base;
-            Some((self.cur_value, self.position - 1))
-        } else if self.cur_partition < self.n_partitions - 1 {
-            // go to next partition, if any
-            self.switch_partition(self.cur_partition + 1);
-
-            self.cur_value = self.cur_base + self.cur_sequence.next().unwrap();
-            Some((self.cur_value, self.position - 1))
-        } else {
-            None
+        if self.position - 1 < self.cur_end {
+            self.cur_value = self.cur_sequence.next_val().0 + self.cur_base;
+            return (self.cur_value, self.position - 1);
         }
+
+        if self.position - 1 >= self.len {
+            return (self.universe, self.len);
+        }
+
+        self.switch_partition(self.cur_partition + 1);
+
+        self.cur_value = self.cur_sequence.next_val().0 + self.cur_base;
+        (self.cur_value, self.position - 1)
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         self.position = pos + 1;
 
         if self.position - 1 >= self.cur_begin && self.position - 1 < self.cur_end {
-            let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin)?;
-            return Some((self.cur_base + val, self.position - 1));
+            let (val, _pos) = self.cur_sequence.move_to_position(pos - self.cur_begin);
+            return (self.cur_base + val, self.position - 1);
         }
 
         self.slow_move(pos)
@@ -446,14 +443,11 @@ impl<'a, BaseSequence> NextGEQ for OptPartitionedSeqIter<'a, BaseSequence>
 where
     BaseSequence: DocList<'a> + for<'b> PartitionableSequence<'b>,
 {
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         // println!("nextgeq");
         if core::intrinsics::likely(lower_bound >= self.cur_base && lower_bound <= self.cur_ub) {
             // println!("here");
-            let (val, pos) = self
-                .cur_sequence
-                .next_geq(lower_bound - self.cur_base)
-                .unwrap();
+            let (val, pos) = self.cur_sequence.next_geq(lower_bound - self.cur_base);
             // .unwrap_or_else(|| {
             //     panic!(
             //         "partition {}/{}
@@ -475,7 +469,7 @@ where
             //     );
             // });
             self.position = self.cur_begin + pos as usize + 1;
-            Some((val + self.cur_base, self.position - 1))
+            (val + self.cur_base, self.position - 1)
         } else {
             // println!("here2");
             self.slow_next_geq(lower_bound)
@@ -490,7 +484,11 @@ where
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        let val = self.next_val().0;
+        if val == self.universe {
+            return None;
+        }
+        Some(val)
     }
 }
 

@@ -222,7 +222,7 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
             self.bv.len() as u64 + 1,
         );
 
-        let start = ef_it.move_to_position(i).unwrap().0 as usize;
+        let start = ef_it.move_to_position(i).0 as usize;
         let end = ef_it.next().unwrap() as usize;
 
         self.bv.as_bitslice().slice(start, end)

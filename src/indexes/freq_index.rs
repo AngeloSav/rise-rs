@@ -36,7 +36,7 @@ where
     DocumentSequence: DocList<'a>,
     FreqSequence: FreqList<'a>,
 {
-    current: Option<(u64, usize)>,
+    current: (u64, usize),
     doc_it: DocumentSequence::IterType,
     freq_it: FreqSequence::IterType,
 }
@@ -386,8 +386,8 @@ where
                 for (_i, &s) in itv.clone().enumerate() {
                     // println!("check n {}", i);
                     // assert!(dbg!(s) == dbg!(it.next().unwrap()));
-                    let docid = it_plist.current_doc().unwrap();
-                    let freq = it_plist.freq().unwrap();
+                    let docid = it_plist.current_doc();
+                    let freq = it_plist.freq();
                     assert_eq!(
                         s,
                         (docid, freq),
@@ -462,12 +462,12 @@ where
     DS: DocList<'a>,
     FS: FreqList<'a>,
 {
-    pub fn current_doc(&self) -> Option<u64> {
-        Some(self.current?.0)
+    pub fn current_doc(&self) -> u64 {
+        self.current.0
     }
 
-    pub fn current_pos(&self) -> Option<usize> {
-        Some(self.current?.1)
+    pub fn current_pos(&self) -> usize {
+        self.current.1
     }
 
     pub fn next_geq(&mut self, lower_bound: u64) {
@@ -478,9 +478,9 @@ where
         self.current = self.doc_it.next_val();
     }
 
-    pub fn freq(&mut self) -> Option<u64> {
-        let pos = self.current_pos()?;
-        Some(self.freq_it.move_to_position(pos)?.0)
+    pub fn freq(&mut self) -> u64 {
+        let pos = self.current_pos();
+        self.freq_it.move_to_position(pos).0
     }
 
     pub fn len(&self) -> usize {

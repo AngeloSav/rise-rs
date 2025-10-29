@@ -76,12 +76,7 @@ impl QueryOperator for Or {
             enums.push(it);
         }
 
-        let mut cur_doc = enums
-            .iter()
-            .map(|x| x.current_doc())
-            .min()
-            .unwrap()
-            .unwrap_or(idx.n_docs as u64);
+        let mut cur_doc = enums.iter().map(|x| x.current_doc()).min().unwrap();
         let mut size = 0;
 
         while cur_doc < idx.n_docs as u64 {
@@ -93,14 +88,14 @@ impl QueryOperator for Or {
             let mut next_doc = idx.n_docs as u64;
 
             for it in enums.iter_mut() {
-                let mut cur_term_docid = it.current_doc().unwrap_or(idx.n_docs as u64);
+                let mut cur_term_docid = it.current_doc();
                 // println!("new term ---");
                 // println!("cur_docid = {:?}", cur_term_docid);
                 if core::intrinsics::likely(cur_term_docid == cur_doc) {
                     // println!("update cur!");
                     // next_ctr += 1;
                     it.next_doc();
-                    cur_term_docid = it.current_doc().unwrap_or(idx.n_docs as u64);
+                    cur_term_docid = it.current_doc();
                 }
 
                 // println!("check less ---");
@@ -144,7 +139,7 @@ impl QueryOperator for And {
 
         let max = idx.n_docs as u64;
 
-        let mut candidate = enums[0].current_doc().unwrap_or(max);
+        let mut candidate = enums[0].current_doc();
 
         let mut i = 1;
         let mut size = 0;
@@ -152,7 +147,7 @@ impl QueryOperator for And {
         while candidate < max {
             for it in enums.iter_mut().skip(i) {
                 it.next_geq(candidate);
-                let current = it.current_doc().unwrap_or(max);
+                let current = it.current_doc();
                 if core::intrinsics::likely(current != candidate) {
                     candidate = current;
                     i = 0;
@@ -165,7 +160,7 @@ impl QueryOperator for And {
                 // unsafe { *v.get_unchecked_mut(size) = candidate };
                 size += 1;
                 enums[0].next_doc();
-                candidate = enums[0].current_doc().unwrap_or(max);
+                candidate = enums[0].current_doc();
                 i = 1;
             }
         }
@@ -264,7 +259,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<'_, Scorer> {
 
         let max = idx.n_docs as u64;
 
-        let mut candidate = enums[0].0.current_doc().unwrap_or(max);
+        let mut candidate = enums[0].0.current_doc();
 
         let mut i = 1;
 
@@ -272,7 +267,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<'_, Scorer> {
             for (it, q_weight) in enums.iter_mut().skip(i) {
                 it.next_geq(candidate);
                 // ngeq_ctr += 1;
-                let current = it.current_doc().unwrap_or(max);
+                let current = it.current_doc();
                 if core::intrinsics::likely(current != candidate) {
                     candidate = current;
                     i = 0;
@@ -286,14 +281,14 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<'_, Scorer> {
                 let mut score = 0.0;
 
                 for (it, q_weight) in enums.iter_mut() {
-                    score += *q_weight * Scorer::doc_term_weight(it.freq().unwrap(), norm_len);
+                    score += *q_weight * Scorer::doc_term_weight(it.freq(), norm_len);
                 }
 
                 self.topk_heap.push(score);
 
                 enums[0].0.next_doc();
                 // next_ctr += 1;
-                candidate = enums[0].0.current_doc().unwrap_or(max);
+                candidate = enums[0].0.current_doc();
                 i = 1;
             }
         }
@@ -337,12 +332,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedOr<'_, Scorer> {
             enums.push((it, q_weight));
         }
 
-        let mut cur_doc = enums
-            .iter()
-            .map(|x| x.0.current_doc())
-            .min()
-            .unwrap()
-            .unwrap_or(max);
+        let mut cur_doc = enums.iter().map(|x| x.0.current_doc()).min().unwrap();
 
         while cur_doc < max {
             let mut score = 0.0;
@@ -350,13 +340,13 @@ impl<Scorer: DocScorer> QueryOperator for RankedOr<'_, Scorer> {
             let mut next_doc = max;
 
             for (it, q_weight) in enums.iter_mut() {
-                if it.current_doc() == Some(cur_doc) {
-                    score += *q_weight * Scorer::doc_term_weight(it.freq().unwrap(), norm_len);
+                if it.current_doc() == cur_doc {
+                    score += *q_weight * Scorer::doc_term_weight(it.freq(), norm_len);
                     it.next_doc();
                 }
 
-                if it.current_doc().is_some() && it.current_doc().unwrap() < next_doc {
-                    next_doc = it.current_doc().unwrap();
+                if it.current_doc() < next_doc {
+                    next_doc = it.current_doc();
                 }
             }
 
@@ -411,14 +401,14 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
         let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
         // println!("ordered_enums length: {:?}", ordered_enums.len());
 
-        ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+        ordered_enums.sort_by_key(|x| x.0.current_doc());
         loop {
             let mut upper_bound = 0.0;
             let mut found_pivot = false;
             let mut pivot = 0;
 
             while pivot < ordered_enums.len() {
-                if ordered_enums[pivot].0.current_doc().is_none() {
+                if ordered_enums[pivot].0.current_doc() >= idx.n_docs as u64 {
                     break;
                 }
 
@@ -439,18 +429,18 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
 
             let pivot_id = ordered_enums[pivot].0.current_doc();
 
-            if pivot_id.is_some() && pivot_id == ordered_enums[0].0.current_doc() {
+            if pivot_id == ordered_enums[0].0.current_doc() {
                 //match, score pivot
                 let mut score = 0.0;
-                let norm_len = self.p_data.get_norm_len(pivot_id.unwrap() as usize);
+                let norm_len = self.p_data.get_norm_len(pivot_id as usize);
 
                 for scored_enum in ordered_enums.iter_mut() {
                     if scored_enum.0.current_doc() != pivot_id {
                         break;
                     }
 
-                    score += scored_enum.1
-                        * Scorer::doc_term_weight(scored_enum.0.freq().unwrap(), norm_len);
+                    score +=
+                        scored_enum.1 * Scorer::doc_term_weight(scored_enum.0.freq(), norm_len);
                     scored_enum.0.next_doc();
                     // next_ctr += 1;
                 }
@@ -459,7 +449,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
                 // println!("pivot_id {}, score {}", pivot_id, score);
                 self.topk_heap.push(score);
 
-                ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+                ordered_enums.sort_by_key(|x| x.0.current_doc());
             } else {
                 //no match
                 let mut next_list = pivot;
@@ -467,7 +457,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
                     next_list -= 1;
                 }
 
-                ordered_enums[next_list].0.next_geq(pivot_id.unwrap());
+                ordered_enums[next_list].0.next_geq(pivot_id);
 
                 for i in (next_list + 1)..ordered_enums.len() {
                     if ordered_enums[i].0.current_doc() < ordered_enums[i - 1].0.current_doc() {
@@ -537,8 +527,7 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<'_, Scorer> {
             .iter()
             .map(|x| x.0.current_doc())
             .min()
-            .unwrap()
-            .unwrap_or(n_docs);
+            .unwrap();
 
         while non_essential_lists < ordered_enums.len() && cur_doc < n_docs {
             let mut score = 0.0;
@@ -546,15 +535,13 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<'_, Scorer> {
             let norm_len = self.p_data.get_norm_len(cur_doc as usize);
 
             for i in non_essential_lists..ordered_enums.len() {
-                if ordered_enums[i].0.current_doc() == Some(cur_doc) {
+                if ordered_enums[i].0.current_doc() == cur_doc {
                     score += ordered_enums[i].1
-                        * Scorer::doc_term_weight(ordered_enums[i].0.freq().unwrap(), norm_len);
+                        * Scorer::doc_term_weight(ordered_enums[i].0.freq(), norm_len);
                     ordered_enums[i].0.next_doc();
                 }
-                if ordered_enums[i].0.current_doc().is_some()
-                    && ordered_enums[i].0.current_doc().unwrap() < next_doc
-                {
-                    next_doc = ordered_enums[i].0.current_doc().unwrap();
+                if ordered_enums[i].0.current_doc() < next_doc {
+                    next_doc = ordered_enums[i].0.current_doc();
                 }
             }
 
@@ -563,9 +550,9 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<'_, Scorer> {
                     break;
                 }
                 ordered_enums[i].0.next_geq(cur_doc);
-                if ordered_enums[i].0.current_doc() == Some(cur_doc) {
+                if ordered_enums[i].0.current_doc() == cur_doc {
                     score += ordered_enums[i].1
-                        * Scorer::doc_term_weight(ordered_enums[i].0.freq().unwrap(), norm_len);
+                        * Scorer::doc_term_weight(ordered_enums[i].0.freq(), norm_len);
                 }
             }
 
@@ -619,7 +606,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
 
         let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
 
-        ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+        ordered_enums.sort_by_key(|x| x.0.current_doc());
 
         loop {
             let mut upper_bound = 0.0;
@@ -628,7 +615,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
             let mut pivot_id = idx.n_docs as u64;
 
             while pivot < ordered_enums.len() {
-                if ordered_enums[pivot].0.current_doc().is_none() {
+                if ordered_enums[pivot].0.current_doc() >= idx.n_docs as u64 {
                     break;
                 }
 
@@ -636,10 +623,10 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
 
                 if self.topk_heap.can_enter(upper_bound) {
                     found_pivot = true;
-                    pivot_id = ordered_enums[pivot].0.current_doc().unwrap();
+                    pivot_id = ordered_enums[pivot].0.current_doc();
 
                     while pivot + 1 < ordered_enums.len()
-                        && ordered_enums[pivot + 1].0.current_doc() == Some(pivot_id)
+                        && ordered_enums[pivot + 1].0.current_doc() == pivot_id
                     {
                         pivot += 1;
                     }
@@ -656,7 +643,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
             let mut block_upper_bound = 0.0;
 
             for i in 0..=pivot {
-                if ordered_enums[i].0.current_doc().unwrap() < pivot_id {
+                if ordered_enums[i].0.current_doc() < pivot_id {
                     ordered_enums[i].1.next_geq(pivot_id);
                 }
 
@@ -664,18 +651,18 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
             }
 
             if self.topk_heap.can_enter(block_upper_bound) {
-                if pivot_id == ordered_enums[0].0.current_doc().unwrap() {
+                if pivot_id == ordered_enums[0].0.current_doc() {
                     //match, score pivot
                     let mut score = 0.0;
                     let norm_len = self.p_data.get_norm_len(pivot_id as usize);
 
                     for scored_enum in ordered_enums.iter_mut() {
-                        if scored_enum.0.current_doc() != Some(pivot_id) {
+                        if scored_enum.0.current_doc() != pivot_id {
                             break;
                         }
 
-                        let partial_score = scored_enum.2
-                            * Scorer::doc_term_weight(scored_enum.0.freq().unwrap(), norm_len);
+                        let partial_score =
+                            scored_enum.2 * Scorer::doc_term_weight(scored_enum.0.freq(), norm_len);
 
                         score += partial_score;
                         block_upper_bound -= scored_enum.1.score() * scored_enum.2 - partial_score;
@@ -686,7 +673,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                     }
 
                     for scored_enum in ordered_enums.iter_mut() {
-                        if scored_enum.0.current_doc() != Some(pivot_id) {
+                        if scored_enum.0.current_doc() != pivot_id {
                             break;
                         }
                         scored_enum.0.next_doc();
@@ -694,11 +681,11 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
 
                     self.topk_heap.push(score);
 
-                    ordered_enums.sort_by_key(|x| x.0.current_doc().unwrap_or(idx.n_docs as u64));
+                    ordered_enums.sort_by_key(|x| x.0.current_doc());
                 } else {
                     //no match
                     let mut next_list = pivot;
-                    while ordered_enums[next_list].0.current_doc() == Some(pivot_id) {
+                    while ordered_enums[next_list].0.current_doc() == pivot_id {
                         next_list -= 1;
                     }
 
@@ -728,10 +715,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                 let mut next_jump = idx.n_docs as u64;
 
                 if pivot + 1 < ordered_enums.len() {
-                    next_jump = ordered_enums[pivot + 1]
-                        .0
-                        .current_doc()
-                        .unwrap_or(idx.n_docs as u64);
+                    next_jump = ordered_enums[pivot + 1].0.current_doc();
                 }
 
                 for i in 0..=pivot {
@@ -743,17 +727,13 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                 next = next_jump + 1;
 
                 if pivot + 1 < ordered_enums.len()
-                    && next
-                        > ordered_enums[pivot + 1]
-                            .0
-                            .current_doc()
-                            .unwrap_or(idx.n_docs as u64)
+                    && next > ordered_enums[pivot + 1].0.current_doc()
                 {
-                    next = ordered_enums[pivot + 1].0.current_doc().unwrap();
+                    next = ordered_enums[pivot + 1].0.current_doc();
                 }
 
-                if next <= ordered_enums[pivot].0.current_doc().unwrap() {
-                    next = ordered_enums[pivot].0.current_doc().unwrap() + 1;
+                if next <= ordered_enums[pivot].0.current_doc() {
+                    next = ordered_enums[pivot].0.current_doc() + 1;
                 }
 
                 ordered_enums[next_list].0.next_geq(next);
@@ -821,26 +801,22 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             .iter()
             .map(|x| x.0.current_doc())
             .min()
-            .unwrap()
-            .unwrap_or(n_docs);
-
+            .unwrap();
         while non_essential_lists < ordered_enums.len() && cur_doc < n_docs {
             let mut score = 0.0;
             let mut next_doc = n_docs;
 
             for i in non_essential_lists..ordered_enums.len() {
-                if ordered_enums[i].0.current_doc() == Some(cur_doc) {
+                if ordered_enums[i].0.current_doc() == cur_doc {
                     score += ordered_enums[i].2
                         * Scorer::doc_term_weight(
-                            ordered_enums[i].0.freq().unwrap(),
+                            ordered_enums[i].0.freq(),
                             self.p_data.get_norm_len(cur_doc as usize),
                         );
                     ordered_enums[i].0.next_doc();
                 }
-                if ordered_enums[i].0.current_doc().is_some()
-                    && ordered_enums[i].0.current_doc().unwrap() < next_doc
-                {
-                    next_doc = ordered_enums[i].0.current_doc().unwrap();
+                if ordered_enums[i].0.current_doc() < next_doc {
+                    next_doc = ordered_enums[i].0.current_doc();
                 }
             }
 
@@ -866,10 +842,10 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             if self.topk_heap.can_enter(score + block_upper_bound) {
                 for i in (0..non_essential_lists).rev() {
                     ordered_enums[i].0.next_geq(cur_doc);
-                    if ordered_enums[i].0.current_doc() == Some(cur_doc) {
+                    if ordered_enums[i].0.current_doc() == cur_doc {
                         block_upper_bound += ordered_enums[i].2
                             * Scorer::doc_term_weight(
-                                ordered_enums[i].0.freq().unwrap(),
+                                ordered_enums[i].0.freq(),
                                 self.p_data.get_norm_len(cur_doc as usize),
                             );
                     }

@@ -147,10 +147,10 @@ pub struct RankedBvIter<'a> {
 impl RankedBvIter<'_> {
     const LINEAR_SCAN_THRESHOLD: u64 = 8;
 
-    fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn slow_move(&mut self, pos: usize) -> (u64, usize) {
         if pos >= self.n {
             self.position = self.n;
-            return None;
+            return (self.u, self.n);
         }
 
         let skip: isize = pos as isize - self.position as isize + 1;
@@ -175,7 +175,7 @@ impl RankedBvIter<'_> {
         }
 
         if to_skip != 0 {
-            self.value = self.data.skip_ones(self.value, to_skip - 1)? + 1;
+            self.value = self.data.skip_ones(self.value, to_skip - 1).unwrap() + 1;
         }
         self.position = pos;
 
@@ -184,25 +184,25 @@ impl RankedBvIter<'_> {
 }
 
 impl SequenceEnumerator for RankedBvIter<'_> {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
+    fn next_val(&mut self) -> (u64, usize) {
         if self.value >= self.u as usize {
-            None
+            (self.u, self.n)
         } else {
             let new_pos = unsafe { self.data.next_one_unchecked(self.value) };
             self.value = new_pos + 1;
 
             self.position += 1;
-            Some((new_pos as u64, self.position - 1))
+            (new_pos as u64, self.position - 1)
         }
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         let skip = pos as isize - self.position as isize + 1;
 
         if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
             let mut skipped = 1;
-            while skipped < skip {
-                self.next_val()?;
+            while skipped < skip && self.position < self.n {
+                self.next_val();
                 skipped += 1;
             }
 
@@ -218,20 +218,20 @@ impl SequenceEnumerator for RankedBvIter<'_> {
 }
 
 impl NextGEQ for RankedBvIter<'_> {
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if lower_bound + 1 == self.value as u64 {
-            return Some((self.value as u64 - 1, self.position - 1));
+            return (self.value as u64 - 1, self.position - 1);
         }
 
         // let diff = lower_bound - self.value as u64;
         if lower_bound > self.value as u64
             && (lower_bound - self.value as u64) < Self::LINEAR_SCAN_THRESHOLD
         {
-            let (mut val, mut pos) = self.next_val()?;
-            while val < lower_bound {
-                (val, pos) = self.next_val()?;
+            let (mut val, mut pos) = self.next_val();
+            while val < lower_bound && self.position < self.n {
+                (val, pos) = self.next_val();
             }
-            Some((val, pos))
+            (val, pos)
         } else {
             //slow next_geq
             if lower_bound >= self.u as u64 {
@@ -274,6 +274,10 @@ impl Iterator for RankedBvIter<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        let val = self.next_val().0;
+        if val == self.u {
+            return None;
+        }
+        Some(val)
     }
 }

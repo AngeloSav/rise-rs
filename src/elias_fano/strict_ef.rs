@@ -16,7 +16,7 @@ impl StrictEliasFano {
     pub fn iter(&self) -> StrictEliasFanoIter {
         StrictEliasFanoIter {
             it: self.ef.iter(),
-            cur_value: None,
+            cur_value: (self.ef.u, self.ef.len()),
         }
     }
 }
@@ -63,7 +63,7 @@ impl<'a> EnumeratorFromBitSlice<'a> for StrictEliasFano {
 
         StrictEliasFanoIter {
             it: EliasFano::iter_from_slice(bv, n, new_u),
-            cur_value: None,
+            cur_value: (new_u, n),
         }
     }
 }
@@ -71,19 +71,19 @@ impl<'a> EnumeratorFromBitSlice<'a> for StrictEliasFano {
 #[derive(Debug)]
 pub struct StrictEliasFanoIter<'a> {
     it: EliasFanoIter<'a>,
-    cur_value: Option<(u64, usize)>,
+    cur_value: (u64, usize),
 }
 
 impl SequenceEnumerator for StrictEliasFanoIter<'_> {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
-        let (val, pos) = self.it.next_val()?;
-        self.cur_value = Some((val + pos as u64, pos));
+    fn next_val(&mut self) -> (u64, usize) {
+        let (val, pos) = self.it.next_val();
+        self.cur_value = (val + pos as u64, pos);
         self.cur_value
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
-        let (val, pos) = self.it.move_to_position(pos)?;
-        self.cur_value = Some((val + pos as u64, pos));
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
+        let (val, pos) = self.it.move_to_position(pos);
+        self.cur_value = (val + pos as u64, pos);
         self.cur_value
     }
 
@@ -96,7 +96,7 @@ impl Iterator for StrictEliasFanoIter<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        Some(self.next_val().0)
     }
 }
 

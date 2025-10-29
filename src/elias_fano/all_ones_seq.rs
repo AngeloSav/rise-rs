@@ -63,17 +63,17 @@ pub struct AllOnesIter {
 }
 
 impl SequenceEnumerator for AllOnesIter {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
+    fn next_val(&mut self) -> (u64, usize) {
         if self.pos < self.len {
             let tmp = self.pos;
             self.pos += 1;
-            Some((tmp as u64, tmp))
+            (tmp as u64, tmp)
         } else {
-            None
+            (self.len as u64, self.len)
         }
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         self.pos = pos;
         self.next_val()
     }
@@ -84,9 +84,9 @@ impl SequenceEnumerator for AllOnesIter {
 }
 
 impl NextGEQ for AllOnesIter {
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if lower_bound >= self.len as u64 {
-            None
+            (self.len as u64, self.len)
         } else {
             // Some((lower_bound, lower_bound as usize))
             self.pos = lower_bound as usize;
@@ -99,6 +99,10 @@ impl Iterator for AllOnesIter {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        let val = self.next_val().0;
+        if val == self.len as u64 {
+            return None;
+        }
+        Some(val)
     }
 }

@@ -87,23 +87,23 @@ impl<'a, BaseSequence> SequenceEnumerator for PositiveSequenceIter<'a, BaseSeque
 where
     BaseSequence: FreqList<'a>,
 {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
-        let (cur, pos) = self.it.next_val()?;
+    fn next_val(&mut self) -> (u64, usize) {
+        let (cur, pos) = self.it.next_val();
         let actual_val = cur - self.prev;
         self.prev = cur;
         self.pos = pos + 1;
-        Some((actual_val, pos))
+        (actual_val, pos)
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         if core::intrinsics::likely(pos != self.pos) {
             if pos == 0 {
-                let (cur, pos) = self.it.move_to_position(0)?;
+                let (cur, pos) = self.it.move_to_position(0);
                 self.prev = cur;
                 self.pos = pos + 1;
-                return Some((cur, pos));
+                return (cur, pos);
             } else {
-                self.prev = self.it.move_to_position(pos - 1)?.0
+                self.prev = self.it.move_to_position(pos - 1).0
             }
         }
         self.next_val()
@@ -121,6 +121,10 @@ where
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        let (val, pos) = self.next_val();
+        if pos == self.len() {
+            return None;
+        }
+        Some(val)
     }
 }

@@ -69,6 +69,20 @@ fn test_opt_iter_random() {
 }
 
 #[test]
+fn test_uniform_iter_random() {
+    let v = gen_strictly_increasing_sequence(1 << 12, 1 << 22)
+        .iter()
+        .map(|&x| x as u64)
+        .collect::<Vec<_>>();
+
+    let ef = <UniformPartitionedSequence<IndexedSequence>>::from(v.clone().as_slice());
+
+    for (&a, b) in v.iter().zip(ef.iter()) {
+        assert_eq!(a, b);
+    }
+}
+
+#[test]
 fn test_ef_small() {
     let v = vec![0, 1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1027];
     let a: EliasFano = EliasFano::from(v.clone().as_slice());
@@ -79,8 +93,8 @@ fn test_ef_small() {
     }
 
     let mut it = a.iter();
-    assert_eq!(it.next_val(), Some((0, 0)));
-    assert_eq!(it.next_geq(30), Some((61, 7)));
+    assert_eq!(it.next_val(), (0, 0));
+    assert_eq!(it.next_geq(30), (61, 7));
 }
 
 #[test]
@@ -94,7 +108,7 @@ fn test_strictef_small() {
     }
 
     let mut it = a.iter();
-    assert_eq!(it.next_val(), Some((0, 0)));
+    assert_eq!(it.next_val(), (0, 0));
 }
 
 #[test]
@@ -108,11 +122,11 @@ fn test_ranked_bv_small() {
     }
 
     let mut it = a.iter();
-    assert_eq!(it.next_val(), Some((1, 0)));
-    assert_eq!(it.next_geq(3), Some((3, 2)));
-    assert_eq!(it.next_geq(6), Some((6, 5)));
-    assert_eq!(it.next_geq(8).unwrap().0, 61);
-    assert_eq!(it.next_geq(199).unwrap().0, 200);
+    assert_eq!(it.next_val(), (1, 0));
+    assert_eq!(it.next_geq(3), (3, 2));
+    assert_eq!(it.next_geq(6), (6, 5));
+    assert_eq!(it.next_geq(8).0, 61);
+    assert_eq!(it.next_geq(199).0, 200);
 }
 
 #[test]
@@ -128,11 +142,11 @@ fn test_ranked_bv_small_new() {
     }
 
     let mut it = RankedBv::iter_from_slice(a.as_bitslice(), v.len(), *v.last().unwrap() + 1);
-    assert_eq!(it.next_val(), Some((1, 0)));
-    assert_eq!(it.next_geq(3), Some((3, 2)));
-    assert_eq!(it.next_geq(6), Some((6, 5)));
-    assert_eq!(it.next_geq(8).unwrap().0, 61);
-    assert_eq!(it.next_geq(199).unwrap().0, 200);
+    assert_eq!(it.next_val(), (1, 0));
+    assert_eq!(it.next_geq(3), (3, 2));
+    assert_eq!(it.next_geq(6), (6, 5));
+    assert_eq!(it.next_geq(8).0, 61);
+    assert_eq!(it.next_geq(199).0, 200);
 }
 
 #[test]
@@ -172,26 +186,45 @@ fn test_nextgeq<TY: for<'a> DocList<'a>>() {
         .collect::<Vec<_>>();
 
     let binding = v.clone();
-    let x = TY::write_bitvector(
-        binding.as_slice(),
-        binding.len(),
-        *binding.last().unwrap() + 1,
-    );
+    let universe = *binding.last().unwrap() + 1;
+
+    let x = TY::write_bitvector(binding.as_slice(), binding.len(), universe);
 
     let v_it = v.into_iter();
     let mut it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
 
     for q in queries {
-        let a = v_it.clone().skip_while(|&x| x < q).next();
-        let b = it.next_geq(q).map(|(x, _)| x);
+        let a = v_it
+            .clone()
+            .skip_while(|&x| x < q)
+            .next()
+            .unwrap_or(universe);
+        let b = it.next_geq(q).0;
 
-        assert_eq!(b, a,);
+        assert_eq!(
+            b,
+            a,
+            "query = {} | universe = {} | q > u = {}",
+            q,
+            universe,
+            q > universe
+        );
     }
 }
 
 #[test]
 fn test_nextgeq_ef_random() {
     test_nextgeq::<EliasFano>();
+}
+
+#[test]
+fn test_nextgeq_rbv_random() {
+    test_nextgeq::<RankedBv>();
+}
+
+#[test]
+fn test_nextgeq_indexed_random() {
+    test_nextgeq::<IndexedSequence>();
 }
 
 #[test]

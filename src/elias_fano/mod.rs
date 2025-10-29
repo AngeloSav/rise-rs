@@ -1,5 +1,3 @@
-use std::mem;
-
 use crate::{
     space_usage::SpaceUsage,
     utils::{ceil_log2, msb},
@@ -8,6 +6,7 @@ use crate::{
 };
 use num::integer::div_ceil;
 use serde::{Deserialize, Serialize};
+use std::mem;
 
 pub mod all_ones_seq;
 pub mod indexed_seq;
@@ -170,7 +169,7 @@ impl EliasFanoIter<'_> {
 
     #[cold]
     #[inline(never)]
-    fn slow_next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if lower_bound >= self.u {
             return self.move_to_position(self.len);
         }
@@ -210,7 +209,7 @@ impl EliasFanoIter<'_> {
         // }
 
         if to_skip != 0 {
-            self.i_hi = self.slice_hi.skip_zeros(self.i_hi, to_skip - 1)? + 1;
+            self.i_hi = unsafe { self.slice_hi.skip_zeros_unchecked(self.i_hi, to_skip - 1) } + 1;
         }
         self.position = self.i_hi - hi_lower_bound;
         // self.i_hi += 1;
@@ -218,8 +217,10 @@ impl EliasFanoIter<'_> {
         // self.hi_ctr = hi_lower_bound;
 
         let mut res = self.next_val();
-        while let Some((val, _pos)) = res {
-            if val >= lower_bound {
+
+        #[allow(irrefutable_let_patterns)]
+        while let (val, _pos) = res {
+            if val >= lower_bound || self.position > self.len {
                 break;
             }
 
@@ -230,10 +231,10 @@ impl EliasFanoIter<'_> {
         // self.next_geq(lower_bound)
     }
 
-    fn slow_move(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn slow_move(&mut self, pos: usize) -> (u64, usize) {
         if pos >= self.len {
             self.position = self.len;
-            return None;
+            return (self.u, self.len);
         }
 
         let skip: isize = pos as isize - self.position as isize + 1;
@@ -275,7 +276,7 @@ impl EliasFanoIter<'_> {
 }
 
 impl SequenceEnumerator for EliasFanoIter<'_> {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
+    fn next_val(&mut self) -> (u64, usize) {
         if core::intrinsics::likely(self.position < self.len) {
             // prefetch_read_NTA(self.slice_lo.data, (self.position * self.n_bits_lo) >> 6);
             // prefetch_read_NTA(
@@ -300,19 +301,20 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
             self.i_hi += 1;
 
             self.cur_value = hi | lo;
-            Some((self.cur_value, self.position - 1))
+            (self.cur_value, self.position - 1)
         } else {
-            None
+            self.position = self.len + 1;
+            (self.u, self.len)
         }
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         let skip: isize = pos as isize - self.position as isize + 1;
 
         if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
             let mut skipped = 1;
-            while skipped < skip {
-                self.next_val()?;
+            while skipped < skip && self.position < self.len {
+                self.next_val();
                 skipped += 1;
             }
             return self.next_val();
@@ -327,9 +329,10 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
 }
 
 impl NextGEQ for EliasFanoIter<'_> {
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    //something wrong here
+    fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if core::intrinsics::unlikely(lower_bound == self.cur_value && self.position != 0) {
-            return Some((self.cur_value, self.position - 1));
+            return (self.cur_value, self.position - 1);
         }
 
         let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
@@ -344,10 +347,11 @@ impl NextGEQ for EliasFanoIter<'_> {
             //     (val, pos) = self.next_val()?;
             // }
             // Some((val, pos))
-
             let mut res = self.next_val();
-            while let Some((val, _pos)) = res {
-                if val >= lower_bound {
+
+            #[allow(irrefutable_let_patterns)]
+            while let (val, _pos) = res {
+                if val >= lower_bound || self.position > self.len {
                     break;
                 }
 
@@ -366,7 +370,11 @@ impl Iterator for EliasFanoIter<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        let val = self.next_val().0;
+        if val == self.u {
+            return None;
+        }
+        Some(val)
     }
 }
 

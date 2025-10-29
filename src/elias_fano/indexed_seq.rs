@@ -161,7 +161,7 @@ pub struct IndexedSequenceIter<'a, EF: EFVariant> {
 }
 
 impl<EF: EFVariant> SequenceEnumerator for IndexedSequenceIter<'_, EF> {
-    fn next_val(&mut self) -> Option<(u64, usize)> {
+    fn next_val(&mut self) -> (u64, usize) {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.next_val(),
             IterType::RankedBvItT(it) => it.next_val(),
@@ -169,7 +169,7 @@ impl<EF: EFVariant> SequenceEnumerator for IndexedSequenceIter<'_, EF> {
         }
     }
 
-    fn move_to_position(&mut self, pos: usize) -> Option<(u64, usize)> {
+    fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.move_to_position(pos),
             IterType::RankedBvItT(it) => it.move_to_position(pos),
@@ -187,7 +187,7 @@ impl<EF: EFVariant> SequenceEnumerator for IndexedSequenceIter<'_, EF> {
 }
 
 impl<EF: EFVariant<IterType: NextGEQ>> NextGEQ for IndexedSequenceIter<'_, EF> {
-    fn next_geq(&mut self, lower_bound: u64) -> Option<(u64, usize)> {
+    fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         match &mut self.it {
             IterType::EliasFanoItT(it) => it.next_geq(lower_bound),
             IterType::RankedBvItT(it) => it.next_geq(lower_bound),
@@ -201,7 +201,11 @@ impl<EF: EFVariant> Iterator for IndexedSequenceIter<'_, EF> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val()?.0)
+        match &mut self.it {
+            IterType::EliasFanoItT(it) => it.next(),
+            IterType::RankedBvItT(it) => it.next(),
+            IterType::AllOnesItT(it) => it.next(),
+        }
     }
 }
 
