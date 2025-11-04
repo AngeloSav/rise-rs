@@ -1,4 +1,4 @@
-use clap::{command, Parser};
+use clap::Parser;
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
     queries::{

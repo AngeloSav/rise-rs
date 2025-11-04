@@ -32,7 +32,7 @@ impl EliasFano {
         self.n
     }
 
-    pub fn iter(&self) -> EliasFanoIter {
+    pub fn iter(&self) -> EliasFanoIter<'_> {
         Self::iter_from_slice(self.bv.as_bitslice(), self.n, self.u)
     }
 
@@ -311,7 +311,8 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
     fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         let skip: isize = pos as isize - self.position as isize + 1;
 
-        if self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize {
+        if core::intrinsics::likely(self.position <= pos && skip <= LINEAR_SCAN_THRESHOLD as isize)
+        {
             let mut skipped = 1;
             while skipped < skip && self.position < self.len {
                 self.next_val();
@@ -398,14 +399,23 @@ impl<'a> EnumeratorFromBitSlice<'a> for EliasFano {
         let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
         let pointer_size = ceil_log2(higher_bits_len) as usize;
 
-        let (slice_samples, slice_remainder) =
-            bv.split_at(((higher_bits_len as usize - n as usize) >> LOG_SAMPLING0) * pointer_size);
+        let mut start_split = 0;
+        let mut end_split =
+            ((higher_bits_len as usize - n as usize) >> LOG_SAMPLING0) * pointer_size;
 
-        let (slice_samples1, slice_remainder) =
-            slice_remainder.split_at((n >> LOG_SAMPLING1) * pointer_size);
+        let slice_samples = bv.slice(start_split, end_split);
 
-        let (slice_lo, slice_hi) = slice_remainder.split_at((n as u64 * n_lo_bits) as usize);
-        // println!("ok second split");
+        start_split = end_split;
+        end_split += (n >> LOG_SAMPLING1) * pointer_size;
+        let slice_samples1 = bv.slice(start_split, end_split);
+
+        start_split = end_split;
+        end_split += n * n_lo_bits as usize;
+        let slice_lo = bv.slice(start_split, end_split);
+
+        start_split = end_split;
+        end_split += higher_bits_len as usize;
+        let slice_hi = bv.slice(start_split, end_split);
 
         let lo_bitmask = (1 << n_lo_bits) - 1;
 

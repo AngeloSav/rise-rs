@@ -21,6 +21,15 @@ impl DocScorer for BM25 {
     fn doc_term_weight(freq: u64, norm_len: f32) -> f32 {
         let freq = freq as f32;
         freq / (freq + Self::K * (1.0 - Self::B + Self::B * norm_len))
+        // freq.algebraic_div(
+        //     freq.algebraic_add(
+        //         Self::K.algebraic_mul(
+        //             (1.0 as f32)
+        //                 .algebraic_sub(Self::B)
+        //                 .algebraic_add(Self::B.algebraic_mul(norm_len)),
+        //         ),
+        //     ),
+        // )
     }
 
     fn query_term_weight(freq: u64, df: u64, num_docs: u64) -> f32 {

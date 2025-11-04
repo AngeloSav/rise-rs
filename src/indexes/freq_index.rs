@@ -152,7 +152,9 @@ where
         println!("file mapped!");
 
         let mut docs_iter = mmap_docs
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0 // suppose no remainder
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64)
             // progress bar
             .progress_with(pb_with_message(
@@ -161,7 +163,9 @@ where
             ));
 
         let freqs_iter = mmap_freqs
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0 // suppose no remainder
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64);
 
         docs_iter.next();
@@ -353,7 +357,9 @@ where
         };
 
         let mut docs_iter = mmap_docs
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64)
             // progress bar
             .progress_with(pb_with_message(
@@ -362,7 +368,9 @@ where
             ));
 
         let freqs_iter = mmap_freqs
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0 // suppose no remainder
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64);
 
         docs_iter.next();

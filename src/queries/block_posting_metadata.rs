@@ -52,7 +52,9 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
         };
 
         let mut sizes_iter = mmap_sizes
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0 // suppose no remainder
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64);
 
         let n_docs = sizes_iter.next().expect("malformed .sizes file");
@@ -88,11 +90,15 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
         };
 
         let mut docs_iter = mmap_docs
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0 // suppose no remainder
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64);
 
         let freqs_iter = mmap_freqs
-            .array_chunks::<4>()
+            .as_chunks::<4>()
+            .0 // suppose no remainder
+            .into_iter()
             .map(|chunk| u32::from_le_bytes(*chunk) as u64);
 
         docs_iter.next();
@@ -175,9 +181,9 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
     }
 
     pub fn get_block_posting_metadata_iterator(
-        &self,
+        &'_ self,
         i: usize,
-    ) -> BlockPostingMDataEnumerator<Scorer> {
+    ) -> BlockPostingMDataEnumerator<'_, Scorer> {
         BlockPostingMDataEnumerator {
             current_pos: 0,
             block_start: self.blocks_start[i],

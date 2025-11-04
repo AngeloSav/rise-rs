@@ -48,7 +48,7 @@ pub struct IndexedSequence<EF: EFVariant = EliasFano> {
 }
 
 impl IndexedSequence<EliasFano> {
-    pub fn iter(&self) -> IndexedSequenceIter<EliasFano> {
+    pub fn iter(&self) -> IndexedSequenceIter<'_, EliasFano> {
         IndexedSequenceIter {
             it: match &self.sequence {
                 IndexType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
@@ -60,7 +60,7 @@ impl IndexedSequence<EliasFano> {
 }
 
 impl IndexedSequence<StrictEliasFano> {
-    pub fn iter(&self) -> IndexedSequenceIter<StrictEliasFano> {
+    pub fn iter(&self) -> IndexedSequenceIter<'_, StrictEliasFano> {
         IndexedSequenceIter {
             it: match &self.sequence {
                 IndexType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),

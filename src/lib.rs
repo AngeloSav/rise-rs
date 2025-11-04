@@ -1,8 +1,8 @@
 #![allow(internal_features)]
-#![feature(array_chunks)]
 #![feature(array_windows)]
 #![feature(iter_array_chunks)]
 #![feature(core_intrinsics)]
+#![feature(float_algebraic)]
 
 pub mod bitvector;
 

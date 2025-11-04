@@ -13,7 +13,7 @@ impl StrictEliasFano {
         self.ef.len()
     }
 
-    pub fn iter(&self) -> StrictEliasFanoIter {
+    pub fn iter(&self) -> StrictEliasFanoIter<'_> {
         StrictEliasFanoIter {
             it: self.ef.iter(),
             cur_value: (self.ef.u, self.ef.len()),
@@ -96,7 +96,11 @@ impl Iterator for StrictEliasFanoIter<'_> {
     type Item = u64;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.next_val().0)
+        let (val, pos) = self.next_val();
+        if pos == self.len() {
+            return None;
+        }
+        Some(val)
     }
 }
 

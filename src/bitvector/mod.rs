@@ -478,7 +478,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// assert_eq!(v, vv);
     /// ```
     #[must_use]
-    pub fn ones(&self) -> BitVectorBitPositionsIter<true> {
+    pub fn ones(&self) -> BitVectorBitPositionsIter<'_, true> {
         let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
 
         BitVectorBitPositionsIter::new(bs)
@@ -498,7 +498,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// assert_eq!(v, vec![63, 128, 129, 254, 1026]);
     /// ```
     #[must_use]
-    pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<true> {
+    pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<'_, true> {
         let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
 
         BitVectorBitPositionsIter::with_pos(bs, pos)
@@ -519,7 +519,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// assert_eq!(v, negate_vector(&vv));
     /// ```
     #[must_use]
-    pub fn zeros(&self) -> BitVectorBitPositionsIter<false> {
+    pub fn zeros(&self) -> BitVectorBitPositionsIter<'_, false> {
         let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
 
         BitVectorBitPositionsIter::new(bs)
@@ -527,7 +527,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector, starting at a specified bit position.
     #[must_use]
-    pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<false> {
+    pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<'_, false> {
         let bs = unsafe { BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0) };
 
         BitVectorBitPositionsIter::with_pos(bs, pos)
@@ -561,7 +561,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         }
     }
 
-    pub fn iter_gamma(&self) -> BitVectorGammaIter {
+    pub fn iter_gamma(&self) -> BitVectorGammaIter<'_> {
         BitVectorGammaIter::new(unsafe {
             BitSliceWithOffset::from_raw_parts(self.data.as_ref(), self.n_bits, 0)
         })
@@ -668,7 +668,6 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     /// assert_eq!(bv.get(1), Some(false));
     /// assert_eq!(bv.get(10), None);
     /// ```
-    #[must_use]
     #[inline]
     fn get(&self, index: usize) -> Option<bool> {
         if index >= self.len() {
@@ -691,7 +690,6 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     ///
     /// assert_eq!(unsafe{bv.get_unchecked(5)}, true);
     /// ```
-    #[must_use]
     #[inline]
     unsafe fn get_unchecked(&self, index: usize) -> bool {
         Self::get_bit_slice(self.data.as_ref(), index)
@@ -1198,7 +1196,6 @@ where
     V: MyPrimInt,
     <V as TryInto<usize>>::Error: std::fmt::Debug,
 {
-    #[must_use]
     fn from_iter<T>(iter: T) -> Self
     where
         T: IntoIterator<Item = V>,
@@ -1219,7 +1216,6 @@ where
     V: MyPrimInt,
     <V as TryInto<usize>>::Error: std::fmt::Debug,
 {
-    #[must_use]
     fn from_iter<T>(iter: T) -> Self
     where
         T: IntoIterator<Item = V>,
@@ -1771,7 +1767,7 @@ impl<'a> BitSliceWithOffset<'a> {
     /// assert_eq!(bswo.ones().collect::<Vec<_>>(), v);
     /// ```
     #[must_use]
-    pub fn ones(&self) -> BitVectorBitPositionsIter<true> {
+    pub fn ones(&self) -> BitVectorBitPositionsIter<'_, true> {
         BitVectorBitPositionsIter::with_pos(self.clone(), 0)
     }
 
@@ -1793,7 +1789,7 @@ impl<'a> BitSliceWithOffset<'a> {
     /// assert_eq!(bswo.ones_with_pos(5).collect::<Vec<_>>(), v);
     /// ```
     #[must_use]
-    pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<true> {
+    pub fn ones_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<'_, true> {
         BitVectorBitPositionsIter::with_pos(self.clone(), pos)
     }
 
@@ -1812,13 +1808,13 @@ impl<'a> BitSliceWithOffset<'a> {
     /// assert_eq!(v, negate_vector(&vv));
     /// ```
     #[must_use]
-    pub fn zeros(&self) -> BitVectorBitPositionsIter<false> {
+    pub fn zeros(&self) -> BitVectorBitPositionsIter<'_, false> {
         BitVectorBitPositionsIter::with_pos(self.clone(), 0)
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 0 in the bit vector, starting at a specified bit position.
     #[must_use]
-    pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<false> {
+    pub fn zeros_with_pos(&self, pos: usize) -> BitVectorBitPositionsIter<'_, false> {
         BitVectorBitPositionsIter::with_pos(self.clone(), pos)
     }
 
@@ -1877,7 +1873,6 @@ impl<'a> BitSliceWithOffset<'a> {
 
 impl AccessBin for BitSliceWithOffset<'_> {
     #[inline]
-    #[must_use]
     fn get(&self, index: usize) -> Option<bool> {
         if index >= self.n_bits {
             return None;
