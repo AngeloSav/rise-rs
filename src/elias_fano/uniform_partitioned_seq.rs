@@ -171,7 +171,7 @@ where
             return UniformPartitionedSeqIter {
                 position: 0,
                 cur_base,
-                cur_ub: u,
+                cur_ub: cur_base + ub,
                 cur_begin: 0,
                 cur_end: n,
                 cur_partition: 0,
@@ -297,7 +297,8 @@ where
 
     #[cold]
     fn slow_move(&mut self, pos: usize) -> (u64, usize) {
-        if pos >= self.len {
+        debug_assert!(pos <= self.len);
+        if pos == self.len {
             if self.n_partitions > 1 {
                 self.switch_partition(self.n_partitions - 1);
             }
@@ -321,11 +322,13 @@ where
     #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if self.n_partitions == 1 {
+            let (val, pos);
             if lower_bound < self.cur_base {
-                return self.move_to_position(0);
+                (val, pos) = self.move_to_position(0);
             } else {
-                return self.move_to_position(self.len);
+                (val, pos) = self.move_to_position(self.len);
             }
+            return (self.cur_base + val, pos);
         }
 
         let (_ub_val, ub_pos) = self.upper_bounds.next_geq(lower_bound);
@@ -392,10 +395,15 @@ where
 {
     fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
+            // println!(
+            //     "fast next geq in partition {}/{}, universe {}, lower_bound {}, cur_base {}, len {}, cur_seq len {}",
+            //     self.cur_partition, self.n_partitions, self.universe, lower_bound, self.cur_base, self.len, self.cur_sequence.len()
+            // );
             let (val, pos) = self.cur_sequence.next_geq(lower_bound - self.cur_base);
             self.position = self.cur_begin + pos as usize + 1;
             (val + self.cur_base, self.position - 1)
         } else {
+            // println!("slow next geq");
             self.slow_next_geq(lower_bound)
         }
     }

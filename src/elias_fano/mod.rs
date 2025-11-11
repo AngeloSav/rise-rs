@@ -330,7 +330,6 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
 }
 
 impl NextGEQ for EliasFanoIter<'_> {
-    //something wrong here
     fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if core::intrinsics::unlikely(lower_bound == self.cur_value && self.position != 0) {
             return (self.cur_value, self.position - 1);
@@ -343,11 +342,6 @@ impl NextGEQ for EliasFanoIter<'_> {
             || (self.cur_value < lower_bound
                 && (hi_lower_bound as usize - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD)
         {
-            // let (mut val, mut pos) = self.next_val()?;
-            // while val < lower_bound {
-            //     (val, pos) = self.next_val()?;
-            // }
-            // Some((val, pos))
             let mut res = self.next_val();
 
             #[allow(irrefutable_let_patterns)]

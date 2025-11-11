@@ -268,6 +268,12 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<'_, Scorer> {
                 it.next_geq(candidate);
                 // ngeq_ctr += 1;
                 let current = it.current_doc();
+                debug_assert!(
+                    current >= candidate,
+                    "Current {} , candidate {}",
+                    current,
+                    candidate
+                );
                 if core::intrinsics::likely(current != candidate) {
                     candidate = current;
                     i = 0;
@@ -394,9 +400,9 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
             //     max_weight,
             //     self.p_data.get_norm_len(term)
             // );
-
             enums.push((it, q_weight, max_weight));
         }
+        // println!("---------------");
 
         let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
         // println!("ordered_enums length: {:?}", ordered_enums.len());
