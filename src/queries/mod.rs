@@ -649,7 +649,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
             let mut block_upper_bound = 0.0;
 
             for i in 0..=pivot {
-                if ordered_enums[i].0.current_doc() < pivot_id {
+                if ordered_enums[i].1.docid() < pivot_id {
                     ordered_enums[i].1.next_geq(pivot_id);
                 }
 

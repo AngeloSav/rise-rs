@@ -13,11 +13,11 @@ use super::block_partitioning::{partition_static, partition_variable};
 #[allow(dead_code)]
 #[derive(Epserde, Debug)]
 pub struct BlockPostingMetadata<Scorer: DocScorer> {
-    norms_len: Vec<f32>,
-    max_term_weight: Vec<f32>,
-    blocks_start: Vec<usize>,
-    blocks_docid: Vec<u32>,
-    blocks_max_term_weight: Vec<f32>,
+    norms_len: Box<[f32]>,
+    max_term_weight: Box<[f32]>,
+    blocks_start: Box<[usize]>,
+    blocks_docid: Box<[u32]>,
+    blocks_max_term_weight: Box<[f32]>,
     _phantom: PhantomData<Scorer>,
 }
 
@@ -154,11 +154,11 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
         );
 
         let p_data = Self {
-            norms_len,
-            max_term_weight,
-            blocks_start,
-            blocks_docid,
-            blocks_max_term_weight,
+            norms_len: norms_len.into_boxed_slice(),
+            max_term_weight: max_term_weight.into_boxed_slice(),
+            blocks_start: blocks_start.into_boxed_slice(),
+            blocks_docid: blocks_docid.into_boxed_slice(),
+            blocks_max_term_weight: blocks_max_term_weight.into_boxed_slice(),
             _phantom: PhantomData,
         };
 

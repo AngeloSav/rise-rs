@@ -331,26 +331,24 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
 
 impl NextGEQ for EliasFanoIter<'_> {
     fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
-        if core::intrinsics::unlikely(lower_bound == self.cur_value && self.position != 0) {
-            return (self.cur_value, self.position - 1);
-        }
+        // if core::intrinsics::unlikely(lower_bound == self.cur_value && self.position != 0) {
+        //     return (self.cur_value, self.position - 1);
+        // }
 
         let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
         let cur_hi = self.i_hi - self.position;
 
-        if self.position == 0
-            || (self.cur_value < lower_bound
-                && (hi_lower_bound as usize - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD)
-        {
-            let mut res = self.next_val();
+        if core::intrinsics::likely(
+            self.cur_value < lower_bound
+                && (hi_lower_bound as usize - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD,
+        ) {
+            let mut res;
 
-            #[allow(irrefutable_let_patterns)]
-            while let (val, _pos) = res {
-                if val >= lower_bound || self.position > self.len {
+            loop {
+                res = self.next_val();
+                if res.0 >= lower_bound || self.position > self.len {
                     break;
                 }
-
-                res = self.next_val();
             }
 
             res
