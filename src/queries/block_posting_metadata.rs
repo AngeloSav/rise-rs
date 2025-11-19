@@ -24,7 +24,7 @@ pub struct BlockPostingMetadata<Scorer: DocScorer> {
 impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
     pub fn load_file(path: &str) -> Self {
         // load the .mdata file
-        println!("loading metadata from {}", path);
+        log::info!("loading metadata from {}", path);
         let reader = std::fs::read(path).expect("could not read p_data file");
 
         unsafe { Self::deserialize_eps(&reader).expect("could not deserialize p_data") }

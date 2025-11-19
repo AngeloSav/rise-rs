@@ -218,7 +218,7 @@ where
 
     pub fn load_index(index_path: &str) -> Self {
         let serialized = fs::read(index_path).unwrap();
-        println!("Serialized size: {:?} bytes", serialized.len());
+        log::info!("Serialized size: {:?} bytes", serialized.len());
 
         let ds = bincode::deserialize::<Self>(&serialized).unwrap();
 

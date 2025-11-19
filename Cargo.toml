@@ -25,6 +25,7 @@ memmap2 = "0.9.5"
 mem_dbg = "0.3.0"
 log = "0.4.27"
 epserde = { version = "0.10.3", features = ["derive", "mmap"] }
+env_logger = "0.11.8"
 
 [[bench]]
 name = "bit_vector_access"

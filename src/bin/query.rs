@@ -1,4 +1,5 @@
 use clap::Parser;
+use env_logger::Env;
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
     queries::{
@@ -16,19 +17,19 @@ use std::{fs, io::BufReader, time::Duration};
 #[command(version, about, long_about = None)]
 struct Args {
     /// Type of index we want to build
-    #[arg()]
-    idx_kind: IdxKind,
+    #[arg(long)]
+    index_kind: IdxKind,
 
     /// Path of the index file
-    #[arg()]
+    #[arg(long)]
     index_path: String,
 
     /// Path of the file containing the queries
-    #[arg()]
+    #[arg(long)]
     query_path: String,
 
-    // Query operator we want to use
-    #[arg()]
+    // Query algorithms we want to use
+    #[arg(long)]
     query_kind: Vec<QueryKind>,
 
     /// path of the metadata file containing the data used for scoring
@@ -39,7 +40,7 @@ struct Args {
     #[arg(short, long, default_value_t = 10)]
     k: usize,
 
-    /// Process the first n queries
+    /// Process the first n queries, if not given process all queries
     #[arg(short, long)]
     n_queries: Option<usize>,
 
@@ -58,7 +59,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     T: DocList<'a>,
     S: FreqList<'a>,
 {
-    println!("starting testing! query type: {}", Q::query_name());
+    log::info!("starting testing! query type: {}", Q::query_name());
 
     let n_queries = parsed_queries.len();
     let mut timer = TimingQueries::new(n_runs, parsed_queries.len());
@@ -68,10 +69,10 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     for term in parsed_queries {
         check += query_strategy.query(&idx, term);
     }
-    println!("check_warmup: {}", check);
+    log::info!("check_warmup: {}", check);
 
-    for i in 0..n_runs {
-        log::info!("run {}/{}", i + 1, n_runs);
+    for _ in 0..n_runs {
+        // log::info!("run {}/{}", i + 1, n_runs);
         // check = 0;
         timer.start();
 
@@ -97,8 +98,10 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
 fn main() {
     let args = Args::parse();
 
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+
     let queries_file =
-        BufReader::new(fs::File::open(args.query_path).expect("can't open qury file"));
+        BufReader::new(fs::File::open(args.query_path).expect("can't open query file"));
 
     let queries = if let Some(x) = args.n_queries {
         queries_file
@@ -125,13 +128,13 @@ fn main() {
     macro_rules! query_idx {
         ($t:path) => {{
             let idx = <$t>::load_index(&args.index_path);
-            println!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
+            log::info!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
 
             let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
                 &args.meta_path.clone().expect("meta path not given"),
             );
 
-            println!("preparing for query");
+            log::info!("preparing for query");
             for &qk in &args.query_kind {
                 match qk {
                     QueryKind::BooleanAnd => perform_query(&idx, &parsed, And, n_runs),
@@ -165,7 +168,7 @@ fn main() {
         }};
     }
 
-    match args.idx_kind {
+    match args.index_kind {
         IdxKind::EFSingle => query_idx!(EFIdx),
         IdxKind::UPEf => query_idx!(UPEFIdx),
         IdxKind::UPIs => query_idx!(UPISIdx),
