@@ -29,7 +29,7 @@ struct Args {
     query_path: String,
 
     // Query algorithms we want to use
-    #[arg(long)]
+    #[arg(long, value_delimiter = ',')]
     query_kind: Vec<QueryKind>,
 
     /// path of the metadata file containing the data used for scoring

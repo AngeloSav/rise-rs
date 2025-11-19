@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import tomllib
 import os
 import subprocess
@@ -11,8 +13,7 @@ def build_args(values):
 
         # Handle lists
         if isinstance(v, list):
-            for item in v:
-                args.append(f"--{k}={item}")
+            args.append(f"--{k}={','.join(v)}")
         # Empty string → flag
         elif v == "":
             args.append(f"--{k}")
