@@ -12,7 +12,7 @@ n-runs=2
 n-queries=1000
 
 [gov2]
-query-kind=['wand','maxscore']
+query-kind=['ranked-or', 'wand','maxscore']
 meta-path='/data1/InvertedIndexes/built_indexes/pef/gov2.static.mdata'
 
 [blockmax_static]
