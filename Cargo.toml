@@ -2,7 +2,10 @@
 name = "pef"
 version = "0.1.0"
 edition = "2021"
-authors = ["Rossano Venturini <rossano.venturini@unipi.it>"]
+authors = [
+    "Rossano Venturini <rossano.venturini@unipi.it>",
+    "Angelo Savino <a.savino6@studenti.unipi.it>",
+]
 readme = "README.md"
 description = "Rust implementation of Partitioned Elias-Fano encoding"
 license = "MIT"

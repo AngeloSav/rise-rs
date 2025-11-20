@@ -10,6 +10,7 @@ use pef::{
     EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
 };
 use std::io::BufRead;
+use std::path::Path;
 use std::{fs, io::BufReader, time::Duration};
 
 #[derive(Parser, Debug)]
@@ -55,6 +56,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     mut query_strategy: Q,
     n_runs: usize,
     index_ty: &str,
+    mdata_filename: &str,
 ) where
     T: DocList<'a>,
     S: FreqList<'a>,
@@ -83,14 +85,13 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     }
 
     println!(
-        "RESULT {} [exp={}, index_ty={}, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+        "RESULT {} [exp={}, index_ty={}, n_queries={}, avg={:?}, mdata_filename={}, space_usage_MiB={:.2}]",
         check,
         Q::query_name(),
         index_ty,
         n_queries,
-        Duration::from_nanos(timer.get().0.try_into().unwrap()),
-        Duration::from_nanos(timer.get().1.try_into().unwrap()),
         Duration::from_nanos(timer.get().2.try_into().unwrap()),
+        mdata_filename,
         idx.space_usage_MiB()
     );
 }
@@ -135,34 +136,43 @@ fn main() {
             );
 
             let index_ty = stringify!($t);
+            let mdata_filename = Path::new(args.meta_path.as_ref().unwrap())
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
 
             for &qk in &args.query_kind {
                 match qk {
-                    QueryKind::BooleanAnd => perform_query(&idx, &parsed, And, n_runs, index_ty),
-                    QueryKind::BooleanOr => perform_query(&idx, &parsed, Or, n_runs, index_ty),
+                    QueryKind::BooleanAnd => {
+                        perform_query(&idx, &parsed, And, n_runs, index_ty, mdata_filename)
+                    }
+                    QueryKind::BooleanOr => {
+                        perform_query(&idx, &parsed, Or, n_runs, index_ty, mdata_filename)
+                    }
                     QueryKind::RankedAnd => {
                         let r_and = RankedAnd::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, r_and, n_runs, index_ty);
+                        perform_query(&idx, &parsed, r_and, n_runs, index_ty, mdata_filename);
                     }
                     QueryKind::RankedOr => {
                         let r_or = RankedOr::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, r_or, n_runs, index_ty);
+                        perform_query(&idx, &parsed, r_or, n_runs, index_ty, mdata_filename);
                     }
                     QueryKind::Wand => {
                         let wand = Wand::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, wand, n_runs, index_ty);
+                        perform_query(&idx, &parsed, wand, n_runs, index_ty, mdata_filename);
                     }
                     QueryKind::Maxscore => {
                         let maxscore = MaxScore::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, maxscore, n_runs, index_ty);
+                        perform_query(&idx, &parsed, maxscore, n_runs, index_ty, mdata_filename);
                     }
                     QueryKind::BMWand => {
                         let bmwand = BMWand::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, bmwand, n_runs, index_ty);
+                        perform_query(&idx, &parsed, bmwand, n_runs, index_ty, mdata_filename);
                     }
                     QueryKind::BMMaxscore => {
                         let bmmaxscore = BMMaxScore::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, bmmaxscore, n_runs, index_ty);
+                        perform_query(&idx, &parsed, bmmaxscore, n_runs, index_ty, mdata_filename);
                     }
                 }
             }

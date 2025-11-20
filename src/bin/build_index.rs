@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
 use pef::space_usage::SpaceUsage;
 use pef::utils::init_logger;
@@ -8,20 +8,16 @@ use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path of the collection (without ".docs" or similar)
-    #[arg()]
+    #[arg(long)]
     input_path: String,
 
     /// Type of index we want to build
-    #[arg()]
+    #[arg(long)]
     idx_kind: IdxKind,
 
-    /// Path of the output index (optional)
+    /// Path of the output index
     #[arg(short, long)]
-    out_path: Option<String>,
-
-    /// Rebuilds the index
-    #[arg(short, long, default_value_t = false)]
-    force_rebuild: bool,
+    out_path: String,
 
     /// Checks the index against the original files
     #[arg(short, long, default_value_t = false)]
@@ -33,18 +29,11 @@ fn main() {
     init_logger();
 
     let input_path = args.input_path;
-
-    let out_path = match args.out_path {
-        Some(x) => x,
-        None => {
-            let tail = args.idx_kind.to_possible_value().unwrap();
-            format!("{}.{}.out", input_path, tail.get_name())
-        }
-    };
+    let out_path = args.out_path;
 
     macro_rules! build_idx {
         ($t:path) => {{
-            let idx = <$t>::load_or_build_and_save(&input_path, &out_path, args.force_rebuild);
+            let idx = <$t>::load_or_build_and_save(&input_path, &out_path, true);
             println!(
                 "Index contains {} docs, {} terms, size: {} bytes ({} GiB)",
                 idx.n_docs,

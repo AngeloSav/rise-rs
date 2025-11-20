@@ -52,7 +52,7 @@ def main(toml_path):
         cmd = [bin_path] + args
 
         print(f"\nExperiment name: {section} ---------------------------")
-        print(f">>> Running command: {' '.join(cmd)}\n\n")
+        print(f">>> Running command: {' '.join(cmd)}\n\n", file=sys.stderr)
         subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
