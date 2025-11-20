@@ -1,3 +1,4 @@
+use env_logger::Env;
 use std::time::Instant;
 
 use num::PrimInt;
@@ -214,4 +215,8 @@ pub fn gamma_size(n: u64) -> usize {
 /// Returns the type name of its argument.
 pub fn type_of<T>(_: &T) -> &'static str {
     std::any::type_name::<T>()
+}
+
+pub fn init_logger() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 }

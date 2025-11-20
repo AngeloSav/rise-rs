@@ -1,6 +1,7 @@
 use clap::{Parser, ValueEnum};
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
 use pef::space_usage::SpaceUsage;
+use pef::utils::init_logger;
 use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
 #[derive(Parser, Debug)]
@@ -27,17 +28,9 @@ struct Args {
     check_correctness: bool,
 }
 
-// we should use a logger
-//     use env_logger::Env;
-//
-//     env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
-//     log::debug!("debug message");
-//     log::info!("info message");
-//     log::warn!("warn message");
-//     log::error!("error message");
-
 fn main() {
     let args = Args::parse();
+    init_logger();
 
     let input_path = args.input_path;
 

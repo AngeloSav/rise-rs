@@ -1,5 +1,4 @@
 use clap::Parser;
-use env_logger::Env;
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
     queries::{
@@ -7,7 +6,7 @@ use pef::{
         RankedOr, Wand,
     },
     space_usage::SpaceUsage,
-    utils::{type_of, TimingQueries},
+    utils::{init_logger, TimingQueries},
     EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
 };
 use std::io::BufRead;
@@ -28,7 +27,7 @@ struct Args {
     #[arg(long)]
     query_path: String,
 
-    // Query algorithms we want to use
+    /// Query algorithms we want to use
     #[arg(long, value_delimiter = ',')]
     query_kind: Vec<QueryKind>,
 
@@ -55,6 +54,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     parsed_queries: &Vec<Vec<usize>>,
     mut query_strategy: Q,
     n_runs: usize,
+    index_ty: &str,
 ) where
     T: DocList<'a>,
     S: FreqList<'a>,
@@ -83,10 +83,10 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
     }
 
     println!(
-        "RESULT {} [exp={}, index_ty={:?}, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
+        "RESULT {} [exp={}, index_ty={}, n_queries={}, min={:?}, max={:?}, avg={:?}, space_usage_MiB={:.2}]",
         check,
         Q::query_name(),
-        type_of(&idx),
+        index_ty,
         n_queries,
         Duration::from_nanos(timer.get().0.try_into().unwrap()),
         Duration::from_nanos(timer.get().1.try_into().unwrap()),
@@ -98,7 +98,7 @@ fn perform_query<'a, Q: QueryOperator, T, S>(
 fn main() {
     let args = Args::parse();
 
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+    init_logger();
 
     let queries_file =
         BufReader::new(fs::File::open(args.query_path).expect("can't open query file"));
@@ -134,34 +134,35 @@ fn main() {
                 &args.meta_path.clone().expect("meta path not given"),
             );
 
-            log::info!("preparing for query");
+            let index_ty = stringify!($t);
+
             for &qk in &args.query_kind {
                 match qk {
-                    QueryKind::BooleanAnd => perform_query(&idx, &parsed, And, n_runs),
-                    QueryKind::BooleanOr => perform_query(&idx, &parsed, Or, n_runs),
+                    QueryKind::BooleanAnd => perform_query(&idx, &parsed, And, n_runs, index_ty),
+                    QueryKind::BooleanOr => perform_query(&idx, &parsed, Or, n_runs, index_ty),
                     QueryKind::RankedAnd => {
                         let r_and = RankedAnd::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, r_and, n_runs);
+                        perform_query(&idx, &parsed, r_and, n_runs, index_ty);
                     }
                     QueryKind::RankedOr => {
                         let r_or = RankedOr::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, r_or, n_runs);
+                        perform_query(&idx, &parsed, r_or, n_runs, index_ty);
                     }
                     QueryKind::Wand => {
                         let wand = Wand::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, wand, n_runs);
+                        perform_query(&idx, &parsed, wand, n_runs, index_ty);
                     }
                     QueryKind::Maxscore => {
                         let maxscore = MaxScore::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, maxscore, n_runs);
+                        perform_query(&idx, &parsed, maxscore, n_runs, index_ty);
                     }
                     QueryKind::BMWand => {
                         let bmwand = BMWand::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, bmwand, n_runs);
+                        perform_query(&idx, &parsed, bmwand, n_runs, index_ty);
                     }
                     QueryKind::BMMaxscore => {
                         let bmmaxscore = BMMaxScore::new(&p_data, args.k);
-                        perform_query(&idx, &parsed, bmmaxscore, n_runs);
+                        perform_query(&idx, &parsed, bmmaxscore, n_runs, index_ty);
                     }
                 }
             }

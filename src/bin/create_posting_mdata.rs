@@ -1,5 +1,8 @@
 use clap::Parser;
-use pef::queries::{bm25::BM25, BlockPostingMetadata};
+use pef::{
+    queries::{bm25::BM25, BlockPostingMetadata},
+    utils::init_logger,
+};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -19,6 +22,8 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    init_logger();
 
     BlockPostingMetadata::<BM25>::create_file(
         args.base_path.as_str(),
