@@ -29,6 +29,16 @@ impl TopKHeap {
         self.heap.peek().map(|x| x.0 .0)
     }
 
+    // returns ordered items of the heap
+    // NOTE: this implementation may be inefficient as it clones the whole heap before iterating over it
+    pub fn into_sorted_vec(&self) -> Vec<f32> {
+        self.heap
+            .clone()
+            .into_iter_sorted()
+            .map(|x| x.0 .0)
+            .collect::<Vec<_>>()
+    }
+
     #[inline]
     pub fn len(&self) -> usize {
         self.heap.len()

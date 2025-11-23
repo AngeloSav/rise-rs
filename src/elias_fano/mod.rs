@@ -75,8 +75,8 @@ impl WriteBitvector for EliasFano {
 
         let pointer_size = ceil_log2(higher_bits_len) as u64;
 
-        let mut bv_lo = BitVec::new();
-        let mut bv_hi = BitVec::new();
+        let mut bv_lo = BitVec::with_capacity(n_lo_bits as usize);
+        let mut bv_hi = BitVec::with_capacity(higher_bits_len as usize);
         let mut bv_0ptrs = BitVec::with_zeros(
             ((higher_bits_len as usize - n) >> LOG_SAMPLING0) * pointer_size as usize,
         );

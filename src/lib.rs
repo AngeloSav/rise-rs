@@ -3,6 +3,7 @@
 #![feature(iter_array_chunks)]
 #![feature(core_intrinsics)]
 #![feature(float_algebraic)]
+#![feature(binary_heap_into_iter_sorted)]
 
 pub mod bitvector;
 
