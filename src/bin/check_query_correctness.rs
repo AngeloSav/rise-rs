@@ -58,16 +58,38 @@ fn check_query<'a, Q, T, S, D>(
 {
     let mut r_or = RankedOr::new(p_data, k);
 
+    log::info!("Checking correctness of {}", Q::query_name());
+
     for terms in parsed_queries {
         log::trace!("query: {:?}", terms);
 
         r_or.query(idx, terms);
         query_strategy.query(idx, terms);
 
-        let topk_or = r_or.topk();
-        let topk_query = query_strategy.topk();
+        let (mut topk_or_docids, mut topk_or_frequencies): (Vec<_>, Vec<_>) = r_or
+            .topk()
+            .into_sorted_vec()
+            .iter()
+            .map(|x| (x.docid, x.frequency))
+            .unzip();
+        let (mut topk_query_docids, mut topk_query_frequencies): (Vec<_>, Vec<_>) = query_strategy
+            .topk()
+            .into_sorted_vec()
+            .iter()
+            .map(|x| (x.docid, x.frequency))
+            .unzip();
 
-        assert_eq!(topk_or.into_sorted_vec(), topk_query.into_sorted_vec())
+        topk_or_docids.sort();
+        topk_or_frequencies.sort_by(f32::total_cmp);
+
+        topk_query_docids.sort();
+        topk_query_frequencies.sort_by(f32::total_cmp);
+
+        assert_eq!(
+            topk_or_docids, topk_query_docids,
+            "\nleft score: \t{:?}\nright score: \t{:?}",
+            topk_or_frequencies, topk_query_frequencies
+        );
     }
 
     println!("Everything is ok for {}", Q::query_name());

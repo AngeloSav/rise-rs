@@ -51,13 +51,14 @@ def main(toml_path):
         args = build_args(merged_values)
         cmd = [bin_path] + args
 
-        print(f"\nExperiment name: {section} ---------------------------")
+        print(f"\nExperiment name: {section} ---------------------------", file=sys.stderr)
         print(f">>> Running command: {' '.join(cmd)}\n\n", file=sys.stderr)
         subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"Usage: python {sys.argv[0]} config.toml")
+    if len(sys.argv) < 2:
+        print(f"Usage: python {sys.argv[0]} <config.toml ...>")
         sys.exit(1)
 
-    main(sys.argv[1])
+    for file in sys.argv[1:]:
+        main(file)

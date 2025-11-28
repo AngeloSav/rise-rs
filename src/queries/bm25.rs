@@ -7,11 +7,12 @@ use crate::DocScorer;
 pub struct BM25;
 
 impl BM25 {
-    const B: f32 = 0.5;
+    const B: f32 = 0.5; // 0.75?
     const K: f32 = 1.2;
 }
 
 impl TypeHash for BM25 {
+    // should include b and k if we make it generic
     fn type_hash(hasher: &mut impl core::hash::Hasher) {
         "BM25".hash(hasher);
     }

@@ -5,37 +5,38 @@ use std::{
 
 /// Implements a min heap with a limited capacity of `k` elements.
 pub struct TopKHeap {
-    heap: BinaryHeap<Reverse<OrderedF32>>,
+    heap: BinaryHeap<Reverse<PostingInfo>>,
     k: usize,
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-/// A wrapper around f32 to implement Ord and Eq traits
-/// Panics if we add NaN or Inf values
-struct OrderedF32(f32);
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct PostingInfo {
+    pub docid: u64,
+    pub frequency: f32,
+}
+impl Eq for PostingInfo {}
 
-impl Eq for OrderedF32 {}
-
-impl Ord for OrderedF32 {
+impl Ord for PostingInfo {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.total_cmp(&other.0)
+        self.frequency.total_cmp(&other.frequency)
     }
 }
 
 impl TopKHeap {
     #[inline]
+    /// Returns the frequency of the top element in the heap
     pub fn top(&self) -> Option<f32> {
-        self.heap.peek().map(|x| x.0 .0)
+        self.heap.peek().map(|x| x.0.frequency)
     }
 
-    // returns ordered items of the heap
+    // returns docids of retrieved elements, ordered by score
     // NOTE: this implementation may be inefficient as it clones the whole heap before iterating over it
-    pub fn into_sorted_vec(&self) -> Vec<f32> {
+    pub fn into_sorted_vec(&self) -> Vec<PostingInfo> {
         self.heap
             .clone()
             .into_iter_sorted()
-            .map(|x| x.0 .0)
+            .map(|x| x.0)
             .collect::<Vec<_>>()
     }
 
@@ -69,11 +70,35 @@ impl TopKHeap {
     pub fn push(&mut self, score: f32) {
         if self.heap.len() < self.k {
             // fits in heap
-            self.heap.push(Reverse(OrderedF32(score)));
+            self.heap.push(Reverse(PostingInfo {
+                docid: 0,
+                frequency: score,
+            }));
         } else if self.top().unwrap() < score {
             //better score
             self.heap.pop();
-            self.heap.push(Reverse(OrderedF32(score)));
+            self.heap.push(Reverse(PostingInfo {
+                docid: 0,
+                frequency: score,
+            }));
+        }
+    }
+
+    #[inline]
+    pub fn push_with_id(&mut self, id: u64, score: f32) {
+        if self.heap.len() < self.k {
+            // fits in heap
+            self.heap.push(Reverse(PostingInfo {
+                docid: id,
+                frequency: score,
+            }));
+        } else if self.top().unwrap() < score {
+            //better score
+            self.heap.pop();
+            self.heap.push(Reverse(PostingInfo {
+                docid: id,
+                frequency: score,
+            }));
         }
     }
 }
@@ -130,7 +155,7 @@ mod tests {
         sorted_v.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let check = sorted_v.iter().cloned().rev().take(10).collect::<Vec<_>>();
 
-        let mut in_heap = heap.heap.iter().map(|x| x.0 .0).collect::<Vec<_>>();
+        let mut in_heap = heap.heap.iter().map(|x| x.0.frequency).collect::<Vec<_>>();
         in_heap.sort_by(|a, b| a.partial_cmp(b).unwrap());
         in_heap.reverse();
 

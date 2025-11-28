@@ -93,6 +93,7 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<'_, Scorer> {
             }
 
             if self.topk_heap.can_enter(score) {
+                // self.topk_heap.push_with_id(cur_doc, score);
                 self.topk_heap.push(score);
 
                 while non_essential_lists < ordered_enums.len()

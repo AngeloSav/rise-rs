@@ -6,7 +6,7 @@ RUST_LOG = "info"
 # In particular, `bin` is the path of the binary that will be run
 [global]
 bin = '../target/release/build_index'
-input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text'
+input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
 
 # Starting from here each section is an experiment -------------------
 

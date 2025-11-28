@@ -68,7 +68,9 @@ impl<Scorer: DocScorer> QueryOperator for RankedOr<'_, Scorer> {
                 }
             }
 
+            // self.topk_heap.push_with_id(cur_doc, score);
             self.topk_heap.push(score);
+
             cur_doc = next_doc;
         }
 
