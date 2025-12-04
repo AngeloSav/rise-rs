@@ -1,0 +1,23 @@
+#sets environment variables
+[env]
+RUST_LOG = "info"
+
+# These arguments will be used in all further experiments, if not redefined in each section
+# In particular, `bin` is the path of the binary that will be run
+[global]
+bin = '../target/release/build_index'
+input-path = '/data1/InvertedIndexes/inverted_indexes/ccnews/cc_url'
+
+# Starting from here each section is an experiment -------------------
+
+[ef]
+idx-kind = 'ef'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.ef.pef.out'
+
+[upis]
+idx-kind = 'upis'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.upis.pef.out'
+
+[opt]
+idx-kind = 'opt'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.opt.pef.out'
