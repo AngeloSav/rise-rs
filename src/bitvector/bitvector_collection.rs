@@ -11,7 +11,6 @@
 
 use crate::{bitvector::*, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector};
 use mem_dbg::{MemDbg, MemSize};
-use serde::{Deserialize, Serialize};
 
 pub type BitVecCollection = BitVectorCollection<Vec<u64>>;
 pub type BitBoxedCollection = BitVectorCollection<Box<[u64]>>;
@@ -71,7 +70,7 @@ pub type BitVecCollectionBuilder = BitVectorCollectionBuilder<Vec<u64>>;
 ///
 /// assert_eq!(bswo.ones().collect::<Vec<usize>>(), vv2);
 /// ```
-#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Default, Clone, Debug, Epserde, Eq, PartialEq)]
 pub struct BitVectorCollectionBuilder<V: AsRef<[u64]>> {
     pub(crate) bv: BitVector<V>,
     endpoints: Vec<usize>,
@@ -190,7 +189,7 @@ impl From<BitVecCollection> for BitBoxedCollection {
 }
 
 /// Immutable Bitvector collection, also the endpoints are compressed using elias fano
-#[derive(Default, Clone, Debug, Serialize, Deserialize, Eq, PartialEq, MemSize, MemDbg)]
+#[derive(Default, Clone, Debug, Epserde, Eq, PartialEq, MemSize, MemDbg)]
 pub struct BitVectorCollection<V: AsRef<[u64]>> {
     pub(crate) bv: BitVector<V>,
     endpoints: BitVector<V>,

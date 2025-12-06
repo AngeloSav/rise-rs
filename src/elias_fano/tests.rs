@@ -174,7 +174,7 @@ fn test_all_ones_small_new() {
     }
 }
 
-fn test_nextgeq<TY: for<'a> DocList<'a>>() {
+fn test_nextgeq<TY: DocList>() {
     let v = gen_strictly_increasing_sequence((1 << 13) + 100, 1 << 32)
         .iter()
         .map(|&x| x as u64)
@@ -237,7 +237,7 @@ fn test_nextgeq_opt_random() {
     test_nextgeq::<OptPartitionedSequence<IndexedSequence>>();
 }
 
-fn test_collect<TY: for<'a> FreqList<'a>>() {
+fn test_collect<TY: for<'a> FreqList>() {
     let v = gen_positive_sequence((1 << 13) + 100, 1 << 12)
         .iter()
         .map(|&x| x as u64)

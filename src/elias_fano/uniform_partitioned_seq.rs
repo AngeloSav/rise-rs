@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, mem};
 
-use serde::{Deserialize, Serialize};
+use epserde::Epserde;
 
 use crate::{
     indexes::freq_index::{DocList, FreqList},
@@ -12,7 +12,7 @@ use crate::{
 
 use super::{EliasFano, EliasFanoIter};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Epserde)]
 pub struct UniformPartitionedSequence<BaseSequence> {
     n: usize,
     u: u64,
@@ -24,7 +24,7 @@ const PARTITION_SIZE: usize = 128;
 
 impl<'a, BaseSequence> UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     pub fn len(&self) -> usize {
         self.n
@@ -35,11 +35,11 @@ where
     }
 }
 
-impl<'a, 'b, BaseSequence> From<&'b [u64]> for UniformPartitionedSequence<BaseSequence>
+impl<'a, BaseSequence> From<&'a [u64]> for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
-    fn from(v: &'b [u64]) -> Self {
+    fn from(v: &'a [u64]) -> Self {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
         let bv = Self::write_bitvector(v, n, u);
@@ -53,9 +53,9 @@ where
     }
 }
 
-impl<'a, BaseSequence> WriteBitvector for UniformPartitionedSequence<BaseSequence>
+impl<BaseSequence> WriteBitvector for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a> + WriteBitvector,
+    BaseSequence: FreqList + WriteBitvector,
 {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         debug_assert!(n > 0);
@@ -143,7 +143,7 @@ fn get_endpoint<'a>(bv: &BitSliceWithOffset<'a>, idx: usize, endpoint_bits: usiz
 }
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for UniformPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     type IterType = UniformPartitionedSeqIter<'a, BaseSequence>;
 
@@ -249,7 +249,7 @@ where
 #[derive(Debug)]
 pub struct UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     position: usize,
     cur_partition: usize,
@@ -259,7 +259,7 @@ where
     endpoints: BitSliceWithOffset<'a>,
     endpoint_bits: usize,
     sequences: BitSliceWithOffset<'a>,
-    cur_sequence: BaseSequence::IterType,
+    cur_sequence: <BaseSequence as EnumeratorFromBitSlice<'a>>::IterType,
     cur_value: u64,
     _phantom: PhantomData<BaseSequence>,
     cur_ub: u64,
@@ -271,7 +271,7 @@ where
 
 impl<'a, BaseSequence> UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
@@ -317,7 +317,7 @@ where
 
 impl<'a, BaseSequence> UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: DocList<'a>,
+    BaseSequence: DocList,
 {
     #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
@@ -349,7 +349,7 @@ where
 
 impl<'a, BaseSequence> SequenceEnumerator for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     fn next_val(&mut self) -> (u64, usize) {
         self.position += 1;
@@ -391,7 +391,7 @@ where
 
 impl<'a, BaseSequence> NextGEQ for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: DocList<'a>,
+    BaseSequence: DocList,
 {
     fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if lower_bound >= self.cur_base && lower_bound <= self.cur_ub {
@@ -411,7 +411,7 @@ where
 
 impl<'a, BaseSequence> Iterator for UniformPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     type Item = u64;
 

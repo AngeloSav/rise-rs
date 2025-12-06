@@ -4,8 +4,9 @@ use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
     WriteBitvector,
 };
+use epserde::prelude::*;
 use num::integer::div_ceil;
-use serde::{Deserialize, Serialize};
+
 use std::mem;
 
 pub mod all_ones_seq;
@@ -15,7 +16,7 @@ pub mod ranked_bv;
 pub mod strict_ef;
 pub mod uniform_partitioned_seq;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Epserde)]
 pub struct EliasFano {
     bv: BitVec,
     n: usize,

@@ -16,20 +16,15 @@ clap = { version = "4.0.29", features = ["derive"] }
 generic-tests = "0.1.2"
 num-traits = "0.2.15"
 rand = "0.8.5"
-serde = { version = "1.0.148", features = ["derive"] }
-serde-big-array = "0.5.1"
-bincode = "1.3.3"
 divan = "0.1.14"
 num = "0.4.2"
 indicatif = "0.17.9"
 rayon = "1.10.0"
-pariter = "0.5.1"
 memmap2 = "0.9.5"
 mem_dbg = "0.3.0"
 log = "0.4.27"
 epserde = { version = "0.10.3", features = ["derive", "mmap"] }
 env_logger = "0.11.8"
-chrono = "0.4.42"
 
 [[bench]]
 name = "bit_vector_access"

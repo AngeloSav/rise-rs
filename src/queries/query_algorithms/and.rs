@@ -6,10 +6,10 @@ use crate::{
 pub struct And;
 
 impl QueryOperator for And {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
     where
-        T: DocList<'a>,
-        S: FreqList<'a>,
+        T: DocList,
+        S: FreqList,
     {
         if terms.is_empty() {
             return 0;

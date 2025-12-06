@@ -20,10 +20,10 @@ impl<'a, Scorer: DocScorer> BMMaxScore<'a, Scorer> {
 }
 
 impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
     where
-        T: DocList<'a>,
-        S: FreqList<'a>,
+        T: DocList,
+        S: FreqList,
     {
         if terms.is_empty() {
             return 0;
@@ -141,7 +141,7 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
     }
 }
 
-impl<'a, Scorer: DocScorer> RankedQueryOperator for BMMaxScore<'_, Scorer> {
+impl<Scorer: DocScorer> RankedQueryOperator for BMMaxScore<'_, Scorer> {
     fn topk(&self) -> &crate::queries::topk_heap::TopKHeap {
         &self.topk_heap
     }

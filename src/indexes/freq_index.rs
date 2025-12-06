@@ -4,8 +4,8 @@ use memmap2::MmapOptions;
 
 use std::fs::File;
 
-use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, fs, marker::PhantomData, mem, path::Path};
+use epserde::prelude::*;
+use std::{fmt::Debug, marker::PhantomData, mem, path::Path};
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollectionBuilder,
@@ -21,7 +21,7 @@ use crate::{
     PartitionableSequence, SequenceEnumerator, WriteBitvector, LENGTH_THRESHOLD,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, MemSize, MemDbg)]
+#[derive(Clone, Debug, Epserde, MemSize, MemDbg)]
 pub struct FreqIndex<DocumentSequence, FreqSequence> {
     pub n_docs: usize,
     pub n_terms: usize,
@@ -33,57 +33,69 @@ pub struct FreqIndex<DocumentSequence, FreqSequence> {
 #[derive(Debug)]
 pub struct PostingListIter<'a, DocumentSequence, FreqSequence>
 where
-    DocumentSequence: DocList<'a>,
-    FreqSequence: FreqList<'a>,
+    DocumentSequence: DocList,
+    FreqSequence: FreqList,
 {
     current: (u64, usize),
-    doc_it: DocumentSequence::IterType,
-    freq_it: FreqSequence::IterType,
+    doc_it: <DocumentSequence as EnumeratorFromBitSlice<'a>>::IterType,
+    freq_it: <FreqSequence as EnumeratorFromBitSlice<'a>>::IterType,
 }
 
 // once we build them, they are immutable
 unsafe impl Send for EliasFano {}
 unsafe impl Send for IndexSequence {}
 unsafe impl Send for StrictSequence {}
-unsafe impl<'a, T> Send for UniformPartitionedSeqIter<'a, T> where T: DocList<'a> {}
+unsafe impl<'a, T> Send for UniformPartitionedSeqIter<'a, T> where T: DocList {}
 unsafe impl<'a, T> Send for OptPartitionedSeqIter<'a, T> where
-    T: DocList<'a> + for<'b> PartitionableSequence<'b>
+    T: DocList + for<'b> PartitionableSequence<'b>
 {
 }
 
 unsafe impl Send for StrictEliasFano {}
-pub trait DocList<'a>:
-    EnumeratorFromBitSlice<'a, IterType: NextGEQ>
+pub trait DocList:
+    for<'a> EnumeratorFromBitSlice<'a, IterType: NextGEQ>
     + for<'b> From<&'b [u64]>
     + WriteBitvector
     + Send
     + Debug
+    + TypeHash
 {
 }
 
-pub trait FreqList<'a>:
-    EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector + Send + Debug
+pub trait FreqList:
+    for<'a> EnumeratorFromBitSlice<'a>
+    + for<'b> From<&'b [u64]>
+    + WriteBitvector
+    + Send
+    + Debug
+    + TypeHash
 {
 }
 
-impl<'a, T> DocList<'a> for T where
-    T: EnumeratorFromBitSlice<'a, IterType: NextGEQ>
+impl<T> DocList for T where
+    T: for<'a> EnumeratorFromBitSlice<'a, IterType: NextGEQ>
         + for<'b> From<&'b [u64]>
         + WriteBitvector
         + Send
         + Debug
+        + TypeHash
 {
 }
 
-impl<'a, T> FreqList<'a> for T where
-    T: EnumeratorFromBitSlice<'a> + for<'b> From<&'b [u64]> + WriteBitvector + Send + Debug
+impl<T> FreqList for T where
+    T: for<'a> EnumeratorFromBitSlice<'a>
+        + for<'b> From<&'b [u64]>
+        + WriteBitvector
+        + Send
+        + Debug
+        + TypeHash
 {
 }
 
 impl<'a, DocumentSequence, FreqSequence> FreqIndex<DocumentSequence, FreqSequence>
 where
-    DocumentSequence: DocList<'a>,
-    FreqSequence: FreqList<'a>,
+    DocumentSequence: DocList,
+    FreqSequence: FreqList,
 {
     pub fn get_plist_iter(
         &'a self,
@@ -139,7 +151,7 @@ where
                 .expect("could not memory map freqs file")
         };
 
-        println!("file mapped!");
+        log::info!("file mapped!");
 
         let mut docs_iter = mmap_docs
             .as_chunks::<4>()
@@ -206,7 +218,7 @@ where
             // }
         }
 
-        println!("processed {} postings", n_postings);
+        log::info!("processed {} postings", n_postings);
 
         FreqIndex {
             n_docs: n_docs.try_into().unwrap(),
@@ -217,13 +229,19 @@ where
         }
     }
 
-    pub fn load_index(index_path: &str) -> Self {
-        let serialized = fs::read(index_path).unwrap();
-        log::info!("Serialized size: {:?} bytes", serialized.len());
+    // pub fn load_index(index_path: &str) -> Self {
+    //     let serialized = fs::read(index_path).unwrap();
 
-        let ds = bincode::deserialize::<Self>(&serialized).unwrap();
+    //     let ds = bincode::deserialize::<Self>(&serialized).unwrap();
 
-        ds
+    //     ds
+    // }
+
+    pub fn load_index(path: &str) -> Self {
+        let reader = std::fs::read(path).expect("could not read index file");
+        log::info!("Serialized size: {:?} bytes", reader.len());
+
+        unsafe { Self::deserialize_eps(&reader).expect("could not deserialize index") }
     }
 
     // #[allow(unreachable_code)]
@@ -373,7 +391,7 @@ where
         let ds: Self;
         let path = Path::new(output_filename);
         if path.exists() && !force_rebuild {
-            println!(
+            log::info!(
                 "The data structure already exists. Filename: {}. I'm going to load it ...",
                 output_filename
             );
@@ -385,11 +403,19 @@ where
             ds = Self::from_files(input_filename);
             t.stop();
             let (t_min, _, _) = t.get();
-            println!("Construction time {:?} millisecs", t_min / 1000000);
+            log::info!("Construction time {:?} millisecs", t_min / 1000000);
 
-            let serialized = bincode::serialize(&ds).unwrap();
-            println!("Serialized size: {:?} bytes", serialized.len());
-            fs::write(path, serialized).unwrap();
+            // let serialized = bincode::serialize(&ds).unwrap();
+            // println!("Serialized size: {:?} bytes", serialized.len());
+            // fs::write(path, serialized).unwrap();
+
+            //save to .mdata file
+            let mut output_file = File::create(path).expect("could not create index file");
+
+            unsafe {
+                ds.serialize(&mut output_file)
+                    .expect("could not serialize index")
+            };
         }
         ds
     }
@@ -419,8 +445,8 @@ impl<T, S> SpaceUsage for FreqIndex<T, S> {
 
 impl<'a, DS, FS> PostingListIter<'a, DS, FS>
 where
-    DS: DocList<'a>,
-    FS: FreqList<'a>,
+    DS: DocList,
+    FS: FreqList,
 {
     pub fn current_doc(&self) -> u64 {
         self.current.0

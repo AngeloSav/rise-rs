@@ -1,5 +1,7 @@
 use std::{marker::PhantomData, slice::Iter};
 
+use epserde::Epserde;
+
 use crate::{
     indexes::freq_index::FreqList, AccessBin, BitSliceWithOffset, BitVec, CostWindow,
     EnumeratorFromBitSlice, EstimateSpace, NextGEQ, PartitionableSequence, SequenceEnumerator,
@@ -13,11 +15,11 @@ use super::{
     EliasFano,
 };
 
-pub trait EFVariant: for<'a> FreqList<'a> + EstimateSpace {}
+pub trait EFVariant: for<'a> FreqList + EstimateSpace {}
 impl EFVariant for EliasFano {}
 impl EFVariant for StrictEliasFano {}
 
-#[derive(Debug)]
+#[derive(Debug, Epserde)]
 enum IndexType<EF: EFVariant> {
     EliasFanoT(EF),
     RankedBvT(RankedBv),
@@ -42,7 +44,7 @@ pub type IndexSequence = IndexedSequence<EliasFano>;
 pub type StrictSequence = IndexedSequence<StrictEliasFano>;
 
 // now you can chose which ef to use but not define others
-#[derive(Debug)]
+#[derive(Debug, Epserde)]
 pub struct IndexedSequence<EF: EFVariant = EliasFano> {
     sequence: IndexType<EF>,
 }

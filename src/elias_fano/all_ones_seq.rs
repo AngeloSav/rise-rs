@@ -1,9 +1,11 @@
+use epserde::Epserde;
+
 use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
     WriteBitvector,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Epserde)]
 pub struct AllOnes {
     n: usize,
 }

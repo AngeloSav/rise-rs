@@ -17,10 +17,10 @@ pub trait QueryOperator {
     fn query_name() -> &'static str;
 
     // this function takes an index `idx`, a number of terms `terms`,
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
     where
-        T: DocList<'a>,
-        S: FreqList<'a>;
+        T: DocList,
+        S: FreqList;
 }
 
 pub trait RankedQueryOperator {

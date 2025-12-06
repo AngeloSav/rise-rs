@@ -50,16 +50,16 @@ struct Args {
 }
 
 #[inline(always)]
-fn perform_query<'a, Q: QueryOperator, T, S>(
-    idx: &'a FreqIndex<T, S>,
+fn perform_query<Q: QueryOperator, T, S>(
+    idx: &FreqIndex<T, S>,
     parsed_queries: &Vec<Vec<usize>>,
     mut query_strategy: Q,
     n_runs: usize,
     index_ty: &str,
     mdata_filename: &str,
 ) where
-    T: DocList<'a>,
-    S: FreqList<'a>,
+    T: DocList,
+    S: FreqList,
 {
     log::info!("starting testing! query type: {}", Q::query_name());
 

@@ -1,13 +1,13 @@
 use std::marker::PhantomData;
 
-use serde::{Deserialize, Serialize};
+use epserde::prelude::*;
 
 use crate::{
     indexes::freq_index::FreqList, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice,
     SequenceEnumerator, WriteBitvector,
 };
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Epserde)]
 pub struct PositiveSequence<BaseSequence> {
     bv: BitVec,
     n: usize,
@@ -15,11 +15,11 @@ pub struct PositiveSequence<BaseSequence> {
     _phantom: PhantomData<BaseSequence>,
 }
 
-impl<'a, BaseSequence> PositiveSequence<BaseSequence> where BaseSequence: FreqList<'a> {}
+impl<'a, BaseSequence> PositiveSequence<BaseSequence> where BaseSequence: FreqList {}
 
 impl<'a, BaseSequence> WriteBitvector for PositiveSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     fn write_bitvector(seq: &[u64], n: usize, _u: u64) -> BitVec {
         // we can discard u as we build a new seqeunce
@@ -47,7 +47,7 @@ where
 
 impl<'a, BaseSequence> From<&'a [u64]> for PositiveSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     fn from(_value: &'a [u64]) -> Self {
         todo!()
@@ -56,7 +56,7 @@ where
 
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for PositiveSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     type IterType = PositiveSequenceIter<'a, BaseSequence>;
 
@@ -76,16 +76,16 @@ where
 #[derive(Debug)]
 pub struct PositiveSequenceIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
-    it: BaseSequence::IterType,
+    it: <BaseSequence as EnumeratorFromBitSlice<'a>>::IterType,
     prev: u64,
     pos: usize,
 }
 
 impl<'a, BaseSequence> SequenceEnumerator for PositiveSequenceIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     fn next_val(&mut self) -> (u64, usize) {
         let (cur, pos) = self.it.next_val();
@@ -116,7 +116,7 @@ where
 
 impl<'a, BaseSequence> Iterator for PositiveSequenceIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a>,
+    BaseSequence: FreqList,
 {
     type Item = u64;
 

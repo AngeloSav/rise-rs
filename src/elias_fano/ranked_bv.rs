@@ -1,3 +1,4 @@
+use epserde::Epserde;
 use num::integer::div_ceil;
 
 use crate::{
@@ -5,7 +6,7 @@ use crate::{
     SequenceEnumerator, WriteBitvector,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Epserde)]
 pub struct RankedBv {
     bv: BitVec,
     n: usize,

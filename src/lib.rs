@@ -1,3 +1,4 @@
+#![warn(unused_extern_crates)]
 #![allow(internal_features)]
 #![feature(array_windows)]
 #![feature(iter_array_chunks)]

@@ -1,6 +1,6 @@
 use std::{marker::PhantomData, mem};
 
-use serde::{Deserialize, Serialize};
+use epserde::Epserde;
 
 use crate::{
     indexes::freq_index::{DocList, FreqList},
@@ -12,7 +12,7 @@ use crate::{
 
 use super::{EliasFano, EliasFanoIter};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Epserde)]
 pub struct OptPartitionedSequence<BaseSequence> {
     n: usize,
     u: u64,
@@ -22,7 +22,7 @@ pub struct OptPartitionedSequence<BaseSequence> {
 
 impl<'a, BaseSequence> OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     pub fn len(&self) -> usize {
         self.n
@@ -36,9 +36,9 @@ where
 const EPS1: f64 = 0.0;
 const EPS2: f64 = 0.3;
 
-impl<'a, BaseSequence> From<&[u64]> for OptPartitionedSequence<BaseSequence>
+impl<BaseSequence> From<&[u64]> for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     fn from(v: &[u64]) -> Self {
         let n = v.len();
@@ -54,9 +54,9 @@ where
     }
 }
 
-impl<'a, BaseSequence> WriteBitvector for OptPartitionedSequence<BaseSequence>
+impl<BaseSequence> WriteBitvector for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     // serialization is done in the following way:
     // If only 1 partition:  | 1 | serialized  BaseSequence |
@@ -163,7 +163,7 @@ fn get_endpoint<'a>(bv: &BitSliceWithOffset<'a>, idx: usize, endpoint_bits: usiz
 
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for OptPartitionedSequence<BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     type IterType = OptPartitionedSeqIter<'a, BaseSequence>;
 
@@ -275,7 +275,7 @@ where
 #[derive(Debug)]
 pub struct OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     position: usize,
     cur_partition: usize,
@@ -285,7 +285,7 @@ where
     endpoints: BitSliceWithOffset<'a>,
     endpoint_bits: usize,
     sequences: BitSliceWithOffset<'a>,
-    cur_sequence: BaseSequence::IterType,
+    cur_sequence: <BaseSequence as EnumeratorFromBitSlice<'a>>::IterType,
     cur_value: u64,
     _phantom: PhantomData<BaseSequence>,
     cur_ub: u64,
@@ -298,7 +298,7 @@ where
 
 impl<'a, BaseSequence> OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     #[cold]
     fn switch_partition(&mut self, part: usize) {
@@ -373,7 +373,7 @@ where
 
 impl<'a, BaseSequence> OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: DocList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: DocList + for<'b> PartitionableSequence<'b>,
 {
     #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
@@ -403,7 +403,7 @@ where
 
 impl<'a, BaseSequence> SequenceEnumerator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     fn next_val(&mut self) -> (u64, usize) {
         self.position += 1;
@@ -441,7 +441,7 @@ where
 
 impl<'a, BaseSequence> NextGEQ for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: DocList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: DocList + for<'b> PartitionableSequence<'b>,
 {
     fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         // println!("nextgeq");
@@ -479,7 +479,7 @@ where
 
 impl<'a, BaseSequence> Iterator for OptPartitionedSeqIter<'a, BaseSequence>
 where
-    BaseSequence: FreqList<'a> + for<'b> PartitionableSequence<'b>,
+    BaseSequence: FreqList + for<'b> PartitionableSequence<'b>,
 {
     type Item = u64;
 

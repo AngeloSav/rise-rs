@@ -52,8 +52,8 @@ fn check_query<'a, Q, T, S, D>(
     k: usize,
 ) where
     Q: QueryOperator + RankedQueryOperator,
-    T: DocList<'a>,
-    S: FreqList<'a>,
+    T: DocList,
+    S: FreqList,
     D: DocScorer,
 {
     let mut r_or = RankedOr::new(p_data, k);

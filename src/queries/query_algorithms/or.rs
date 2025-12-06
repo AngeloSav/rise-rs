@@ -6,10 +6,10 @@ use crate::{
 pub struct Or;
 
 impl QueryOperator for Or {
-    fn query<'a, T, S>(&mut self, idx: &'a FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
     where
-        T: DocList<'a>,
-        S: FreqList<'a>,
+        T: DocList,
+        S: FreqList,
     {
         // let mut next_ctr = 0;
 

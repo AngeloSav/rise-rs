@@ -1,8 +1,10 @@
+use epserde::Epserde;
+
 use crate::{BitVec, EnumeratorFromBitSlice, EstimateSpace, SequenceEnumerator, WriteBitvector};
 
 use super::{EliasFano, EliasFanoIter};
 
-#[derive(Debug)]
+#[derive(Debug, Epserde)]
 pub struct StrictEliasFano {
     ef: EliasFano,
 }

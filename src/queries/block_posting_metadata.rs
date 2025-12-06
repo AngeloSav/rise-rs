@@ -37,13 +37,13 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
         let mut blocks_max_term_weight: Vec<f32> = Vec::new();
 
         if variable_block {
-            println!("using variable-size blocks");
+            log::info!("using variable-size blocks");
         } else {
-            println!("using fixed-size blocks");
+            log::info!("using fixed-size blocks");
         }
 
         let sizes_file = File::open(format!("{}.sizes", path)).expect("could not open .sizes file");
-        println!("creating metadata from .sizes file");
+        log::info!("creating metadata from .sizes file");
 
         let mmap_sizes = unsafe {
             MmapOptions::new()
@@ -143,12 +143,12 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             // processed += 1;
         }
 
-        println!("norms_len len: {}", norms_len.len());
-        println!("max_term_weight len: {}", max_term_weight.len());
+        log::info!("norms_len len: {}", norms_len.len());
+        log::info!("max_term_weight len: {}", max_term_weight.len());
 
-        println!("blocks_start len: {}", blocks_start.len());
-        println!("blocks_docid len: {}", blocks_docid.len());
-        println!(
+        log::info!("blocks_start len: {}", blocks_start.len());
+        log::info!("blocks_docid len: {}", blocks_docid.len());
+        log::info!(
             "blocks_max_term_weight len: {}",
             blocks_max_term_weight.len()
         );
