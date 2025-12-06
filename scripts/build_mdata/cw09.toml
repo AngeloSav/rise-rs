@@ -1,0 +1,18 @@
+#sets environment variables
+[env]
+RUST_LOG = "info"
+
+# These arguments will be used in all further experiments, if not redefined in each section
+# In particular, `bin` is the path of the binary that will be run
+[global]
+bin = '../target/release/create_posting_mdata'
+input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
+
+# Starting from here each section is an experiment -------------------
+
+[mdata.static]
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.static.mdata'
+
+[mdata.variable]
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.var.mdata'
+variable-block = ""
