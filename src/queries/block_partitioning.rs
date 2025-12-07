@@ -1,12 +1,12 @@
 use num::Float;
 
-use crate::{queries::score_part, DocScorer};
+use crate::{config, queries::score_part, DocScorer};
 
 pub fn partition_static<Scorer: DocScorer>(
     seq: impl Iterator<Item = (u64, u64)>, // pairs of (docid, freq)
     norm_lens: &Vec<f32>,
 ) -> (Vec<u32>, Vec<u32>, Vec<f32>) {
-    const BLOCK_SIZE: usize = 128;
+    const BLOCK_SIZE: usize = config::MDATA_BLOCK_SIZE;
 
     let mut sizes = Vec::new();
     let mut block_docid = Vec::new();
@@ -69,9 +69,11 @@ pub fn partition_variable<Scorer: DocScorer>(
 
     let estimated_idf = Scorer::query_term_weight(1, seq_len, norm_lens.len() as u64);
 
-    const EPS1: f32 = 0.01;
-    const EPS2: f32 = 0.4;
-    const FIXED_COST_WAND: f32 = 12.0;
-
-    score_part::score_opt_partition(&doc_score_top, estimated_idf, FIXED_COST_WAND, EPS1, EPS2)
+    score_part::score_opt_partition(
+        &doc_score_top,
+        estimated_idf,
+        config::MDATA_FIXED_COST,
+        config::MDATA_EPS1,
+        config::MDATA_EPS2,
+    )
 }

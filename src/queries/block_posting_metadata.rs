@@ -3,9 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{
-    readers::BinaryCollectionIterator, utils::pb_with_message, DocScorer, MDATA_LENGTH_THRESHOLD,
-};
+use crate::{config, readers::BinaryCollectionIterator, utils::pb_with_message, DocScorer};
 
 use epserde::prelude::*;
 
@@ -85,7 +83,7 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             assert!(doc_list.len() > 0);
 
             let sz = doc_list.len() as u64;
-            if sz > MDATA_LENGTH_THRESHOLD as u64 {
+            if sz > config::MDATA_LENGTH_THRESHOLD as u64 {
                 let v = doc_list.zip(freq_list);
 
                 // add sequence ---------------

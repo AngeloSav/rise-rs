@@ -182,7 +182,7 @@ impl From<BitVecCollection> for BitBoxedCollection {
         } = bvc;
         Self {
             bv: bv.into(),
-            endpoints: endpoints.into(), // TODO: Elias-Fano encoding
+            endpoints: endpoints.into(),
             n_vecs,
         }
     }

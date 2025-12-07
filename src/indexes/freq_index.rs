@@ -2,7 +2,7 @@ use mem_dbg::{MemDbg, MemSize};
 
 use std::fs::{self, File};
 
-use crate::{readers::ds2i_reader::BinaryCollectionIterator, utils::pb_with_message};
+use crate::{config, readers::ds2i_reader::BinaryCollectionIterator, utils::pb_with_message};
 use epserde::prelude::*;
 use std::{fmt::Debug, marker::PhantomData, mem, path::Path};
 
@@ -17,7 +17,7 @@ use crate::{
     space_usage::SpaceUsage,
     utils::TimingQueries,
     BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
-    PartitionableSequence, SequenceEnumerator, WriteBitvector, LENGTH_THRESHOLD,
+    PartitionableSequence, SequenceEnumerator, WriteBitvector,
 };
 
 #[derive(Clone, Debug, Epserde, MemSize, MemDbg)]
@@ -158,7 +158,7 @@ where
             // println!("list n {}, size is {}", idx.n_terms, sz);
             let sz = doc_list.len() as u64;
 
-            if sz > LENGTH_THRESHOLD as u64 {
+            if sz > config::LENGTH_THRESHOLD as u64 {
                 let v_docs: Vec<u64> = doc_list.collect();
                 let v_freqs: Vec<u64> = freq_list.collect();
 
@@ -229,7 +229,7 @@ where
             // }
 
             let sz = doc_list.len() as u64;
-            if sz > LENGTH_THRESHOLD as u64 {
+            if sz > config::LENGTH_THRESHOLD as u64 {
                 let v_docs: Vec<u64> = doc_list.collect();
                 let v_freqs: Vec<u64> = freq_list.collect();
 

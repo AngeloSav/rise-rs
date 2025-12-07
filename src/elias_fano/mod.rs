@@ -1,4 +1,5 @@
 use crate::{
+    config,
     space_usage::SpaceUsage,
     utils::{ceil_log2, msb},
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
@@ -23,9 +24,9 @@ pub struct EliasFano {
     u: u64,
 }
 
-const LOG_SAMPLING0: usize = 9;
-const LOG_SAMPLING1: usize = 8;
-const LINEAR_SCAN_THRESHOLD: usize = 8;
+const LOG_SAMPLING0: usize = config::EF_LOG_SAMPLING0;
+const LOG_SAMPLING1: usize = config::EF_LOG_SAMPLING1;
+const LINEAR_SCAN_THRESHOLD: usize = config::EF_LINEAR_SCAN_THRESHOLD;
 
 impl EliasFano {
     /// Returns the number of elements in the sequence

@@ -2,8 +2,8 @@ use epserde::Epserde;
 use num::integer::div_ceil;
 
 use crate::{
-    utils::ceil_log2, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ,
-    SequenceEnumerator, WriteBitvector,
+    config, utils::ceil_log2, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
+    NextGEQ, SequenceEnumerator, WriteBitvector,
 };
 
 #[derive(Debug, Epserde)]
@@ -13,9 +13,9 @@ pub struct RankedBv {
     u: u64,
 }
 
-const LOG_RANK_SAMPLING: usize = 9; // length of buckets
-const LOG_SAMPLING1: usize = 8;
-const LINEAR_SCAN_THRESHOLD: usize = 8;
+const LOG_RANK_SAMPLING: usize = config::RBV_LOG_RANK_SAMPLING; // length of buckets
+const LOG_SAMPLING1: usize = config::RBV_LOG_SAMPLING1;
+const LINEAR_SCAN_THRESHOLD: usize = config::RBV_LINEAR_SCAN_THRESHOLD;
 
 impl RankedBv {
     /// Returns the number of elements in the sequence

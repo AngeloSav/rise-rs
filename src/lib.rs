@@ -36,8 +36,7 @@ pub mod utils;
 
 pub mod readers;
 
-const LENGTH_THRESHOLD: usize = 0;
-const MDATA_LENGTH_THRESHOLD: usize = LENGTH_THRESHOLD;
+pub mod config;
 
 /// A trait for the support of `get` query over the binary alphabet.
 pub trait AccessBin {
