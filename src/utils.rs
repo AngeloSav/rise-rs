@@ -1,4 +1,5 @@
 use env_logger::Env;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
 
 use num::PrimInt;
@@ -218,5 +219,19 @@ pub fn type_of<T>(_: &T) -> &'static str {
 }
 
 pub fn init_logger() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+}
+
+pub fn pb_with_message(len: u64, msg: String) -> ProgressBar {
+    let pb = ProgressBar::new(len as u64);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{msg} [{bar:40.cyan/blue}] {percent}% {elapsed_precise}")
+            .unwrap()
+            .progress_chars("#>-"),
+    );
+    pb.set_message(msg.clone());
+    pb.with_finish(indicatif::ProgressFinish::WithMessage(
+        format!("{} Done!", msg).into(),
+    ))
 }

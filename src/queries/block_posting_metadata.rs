@@ -1,8 +1,11 @@
-use std::{fs::File, marker::PhantomData};
+use std::{
+    fs::{self, File},
+    marker::PhantomData,
+};
 
-use memmap2::MmapOptions;
-
-use crate::{DocScorer, MDATA_LENGTH_THRESHOLD};
+use crate::{
+    readers::BinaryCollectionIterator, utils::pb_with_message, DocScorer, MDATA_LENGTH_THRESHOLD,
+};
 
 use epserde::prelude::*;
 
@@ -42,22 +45,11 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             log::info!("using fixed-size blocks");
         }
 
-        let sizes_file = File::open(format!("{}.sizes", path)).expect("could not open .sizes file");
-        log::info!("creating metadata from .sizes file");
+        let sizes_iter = BinaryCollectionIterator::new(&format!("{}.sizes", path))
+            .next()
+            .unwrap();
 
-        let mmap_sizes = unsafe {
-            MmapOptions::new()
-                .map(&sizes_file)
-                .expect("could not memory map docs file")
-        };
-
-        let mut sizes_iter = mmap_sizes
-            .as_chunks::<4>()
-            .0 // suppose no remainder
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
-
-        let n_docs = sizes_iter.next().expect("malformed .sizes file");
+        let n_docs = sizes_iter.len() as u64;
 
         let mut norms_len: Vec<f32> = Vec::with_capacity(n_docs as usize);
         let mut max_term_weight: Vec<f32> = Vec::with_capacity(n_docs as usize);
@@ -74,47 +66,27 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             .iter_mut()
             .for_each(|x| *x = ((*x as f64) / avg_len as f64) as f32);
 
-        let docs_file = File::open(format!("{}.docs", path)).expect("could not open docs file");
-        let freq_file = File::open(format!("{}.freqs", path)).expect("could not open freqs file");
+        let mmap_len = fs::metadata(&format!("{}.docs", path)).unwrap().len() / 4;
 
-        let mmap_docs = unsafe {
-            MmapOptions::new()
-                .map(&docs_file)
-                .expect("could not memory map docs file")
-        };
+        let pb = pb_with_message(mmap_len, "Building Metadata".to_string());
 
-        let mmap_freqs = unsafe {
-            MmapOptions::new()
-                .map(&freq_file)
-                .expect("could not memory map freqs file")
-        };
+        let mut docs_iter = BinaryCollectionIterator::new(&format!("{}.docs", path));
+        let freqs_iter = BinaryCollectionIterator::new(&format!("{}.freqs", path));
 
-        let mut docs_iter = mmap_docs
-            .as_chunks::<4>()
-            .0 // suppose no remainder
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
-
-        let freqs_iter = mmap_freqs
-            .as_chunks::<4>()
-            .0 // suppose no remainder
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
-
-        docs_iter.next();
-        let n_docs = docs_iter.next().unwrap();
+        let mut singleton = docs_iter.next().unwrap();
+        let n_docs = singleton.next().unwrap();
 
         let mut it = docs_iter.zip(freqs_iter);
 
         // let mut processed = 0;
 
-        while let Some((sz, sz_freq)) = it.next() {
-            assert!(sz == sz_freq);
-            assert!(sz > 0);
+        while let Some((doc_list, freq_list)) = it.next() {
+            assert!(doc_list.len() == freq_list.len());
+            assert!(doc_list.len() > 0);
 
+            let sz = doc_list.len() as u64;
             if sz > MDATA_LENGTH_THRESHOLD as u64 {
-                let v = (&mut it).take(sz as usize);
-                assert!(v.len() == sz as usize);
+                let v = doc_list.zip(freq_list);
 
                 // add sequence ---------------
                 let (v_sizes, v_block_docid, v_block_max_term_weights) = if !variable_block {
@@ -133,10 +105,9 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
                         .unwrap(),
                 );
                 blocks_max_term_weight.extend(v_block_max_term_weights);
-            } else {
-                //consume iterator
-                (&mut it).nth(sz as usize - 1);
             }
+
+            pb.inc(sz);
             // if processed % 10_000_000 == 0 {
             //     println!("processed {} lists", processed);
             // }

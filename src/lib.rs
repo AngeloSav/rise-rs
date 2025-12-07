@@ -1,5 +1,5 @@
-#![warn(unused_extern_crates)]
 #![allow(internal_features)]
+#![feature(impl_trait_in_assoc_type)]
 #![feature(array_windows)]
 #![feature(iter_array_chunks)]
 #![feature(core_intrinsics)]
@@ -33,6 +33,8 @@ pub mod space_usage;
 
 pub mod gen_sequences;
 pub mod utils;
+
+pub mod readers;
 
 const LENGTH_THRESHOLD: usize = 0;
 const MDATA_LENGTH_THRESHOLD: usize = LENGTH_THRESHOLD;

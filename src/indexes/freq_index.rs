@@ -1,9 +1,8 @@
-use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use mem_dbg::{MemDbg, MemSize};
-use memmap2::MmapOptions;
 
-use std::fs::File;
+use std::fs::{self, File};
 
+use crate::{readers::ds2i_reader::BinaryCollectionIterator, utils::pb_with_message};
 use epserde::prelude::*;
 use std::{fmt::Debug, marker::PhantomData, mem, path::Path};
 
@@ -134,44 +133,17 @@ where
     }
 
     pub fn from_files(input_path: &str) -> Self {
-        let docs_file =
-            File::open(format!("{}.docs", input_path)).expect("could not open docs file");
-        let freq_file =
-            File::open(format!("{}.freqs", input_path)).expect("could not open freqs file");
+        let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
 
-        let mmap_docs = unsafe {
-            MmapOptions::new()
-                .map(&docs_file)
-                .expect("could not memory map docs file")
-        };
+        let pb = pb_with_message(mmap_len, "creating index".to_string());
 
-        let mmap_freqs = unsafe {
-            MmapOptions::new()
-                .map(&freq_file)
-                .expect("could not memory map freqs file")
-        };
+        let mut docs_iter = BinaryCollectionIterator::new(&format!("{}.docs", input_path));
+        let freqs_iter = BinaryCollectionIterator::new(&format!("{}.freqs", input_path));
 
-        log::info!("file mapped!");
+        let mut singleton = docs_iter.next().unwrap();
+        let n_docs = singleton.next().unwrap();
 
-        let mut docs_iter = mmap_docs
-            .as_chunks::<4>()
-            .0 // suppose no remainder
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64)
-            // progress bar
-            .progress_with(pb_with_message(
-                (docs_file.metadata().unwrap().len() / 4) as u64,
-                String::from("Building Index"),
-            ));
-
-        let freqs_iter = mmap_freqs
-            .as_chunks::<4>()
-            .0 // suppose no remainder
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
-
-        docs_iter.next();
-        let n_docs = docs_iter.next().unwrap();
+        log::info!("number of documents: {}", n_docs);
 
         let mut it = docs_iter.zip(freqs_iter);
 
@@ -180,13 +152,16 @@ where
         let mut bvb_docs = BitVectorCollectionBuilder::default();
         let mut bvb_freqs = BitVectorCollectionBuilder::default();
 
-        while let Some((sz, sz_freq)) = it.next() {
-            assert!(sz == sz_freq);
+        while let Some((doc_list, freq_list)) = it.next() {
+            assert_eq!(doc_list.len(), freq_list.len());
             // println!("------------- list n {} -------------", processed);
             // println!("list n {}, size is {}", idx.n_terms, sz);
+            let sz = doc_list.len() as u64;
 
             if sz > LENGTH_THRESHOLD as u64 {
-                let (v_docs, v_freqs): (Vec<_>, Vec<_>) = (&mut it).take(sz as usize).unzip();
+                let v_docs: Vec<u64> = doc_list.collect();
+                let v_freqs: Vec<u64> = freq_list.collect();
+
                 assert!(v_docs.len() == sz as usize);
                 assert!(sz > 0);
 
@@ -198,26 +173,13 @@ where
                     FreqSequence::write_bitvector(&v_freqs, sz as usize, 0),
                 );
 
-                // Self::push_plist_freqs_new(
-                //     &mut bvb_docs,
-                //     &mut bvb_freqs,
-                //     sz as usize,
-                //     &v_docs,
-                //     &v_freqs,
-                //     sz as usize,
-                //     n_docs,
-                // );
-
                 n_terms += 1;
                 n_postings += sz;
-            } else {
-                let _x = (&mut it).nth(sz as usize - 1);
+                pb.inc(sz);
             }
-            // if idx.n_terms % 10_000 == 0 {
-            //     println!("processed {} plists", idx.n_terms);
-            // }
         }
 
+        pb.finish();
         log::info!("processed {} postings", n_postings);
 
         FreqIndex {
@@ -244,131 +206,44 @@ where
         unsafe { Self::deserialize_eps(&reader).expect("could not deserialize index") }
     }
 
-    // #[allow(unreachable_code)]
-    // #[allow(unused_variables)]
-    // pub fn from_files_parallel(input_path: &str) -> Self {
-    //     let docs_file =
-    //         File::open(format!("{}.docs", input_path)).expect("could not open docs file");
-    //     let freq_file =
-    //         File::open(format!("{}.freqs", input_path)).expect("could not open freqs file");
-
-    //     let mmap_docs = unsafe {
-    //         MmapOptions::new()
-    //             .map(&docs_file)
-    //             .expect("could not memory map docs file")
-    //     };
-
-    //     let mmap_freqs = unsafe {
-    //         MmapOptions::new()
-    //             .map(&freq_file)
-    //             .expect("could not memory map freqs file")
-    //     };
-
-    //     println!("file mapped!");
-
-    //     let mut docs_iter = mmap_docs
-    //         .as_chunks::<4>()
-    //         .0 // suppose no remainder
-    //         .into_iter()
-    //         .map(|chunk| u32::from_le_bytes(*chunk) as u64)
-    //         // progress bar
-    //         .progress_with(pb_with_message(
-    //             (docs_file.metadata().unwrap().len() / 4) as u64,
-    //             String::from("Building Index"),
-    //         ));
-
-    //     let freqs_iter = mmap_freqs
-    //         .as_chunks::<4>()
-    //         .0 // suppose no remainder
-    //         .into_iter()
-    //         .map(|chunk| u32::from_le_bytes(*chunk) as u64);
-
-    //     docs_iter.next();
-    //     let n_docs = docs_iter.next().unwrap();
-
-    //     let mut it = docs_iter.zip(freqs_iter);
-
-    //     let mut n_postings = 0;
-    //     let mut n_terms = 0;
-    //     let mut bvb_docs = BitVectorCollectionBuilder::default();
-    //     let mut bvb_freqs = BitVectorCollectionBuilder::default();
-
-    //     // Reduce in adjacent chuncks based on number of threads,
-    //     // then build different BitvectorCollections
-    //     // finally, merge them
-
-    //     println!("processed {} postings", n_postings);
-
-    //     FreqIndex {
-    //         n_docs: n_docs.try_into().unwrap(),
-    //         n_terms,
-    //         docs_sequences: bvb_docs.build(),
-    //         freqs_sequences: bvb_freqs.build(),
-    //         _phantom: PhantomData,
-    //     }
-    // }
-
     pub fn check_correctness(&'a self, input_path: &str) {
-        let docs_file =
-            File::open(format!("{}.docs", input_path)).expect("could not open docs file");
-        let freq_file =
-            File::open(format!("{}.freqs", input_path)).expect("could not open freqs file");
+        let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
 
-        let mmap_docs = unsafe {
-            MmapOptions::new()
-                .map(&docs_file)
-                .expect("could not memory map docs file")
-        };
+        let pb = pb_with_message(mmap_len, "Checking correctness".to_string());
 
-        let mmap_freqs = unsafe {
-            MmapOptions::new()
-                .map(&freq_file)
-                .expect("could not memory map freqs file")
-        };
+        let mut docs_iter = BinaryCollectionIterator::new(&format!("{}.docs", input_path));
+        let freqs_iter = BinaryCollectionIterator::new(&format!("{}.freqs", input_path));
 
-        let mut docs_iter = mmap_docs
-            .as_chunks::<4>()
-            .0
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64)
-            // progress bar
-            .progress_with(pb_with_message(
-                (docs_file.metadata().unwrap().len() / 4) as u64,
-                String::from("Checking Index"),
-            ));
+        let mut singleton = docs_iter.next().unwrap();
+        let n_docs = singleton.next().unwrap();
 
-        let freqs_iter = mmap_freqs
-            .as_chunks::<4>()
-            .0 // suppose no remainder
-            .into_iter()
-            .map(|chunk| u32::from_le_bytes(*chunk) as u64);
-
-        docs_iter.next();
-        docs_iter.next();
+        log::info!("number of documents: {}", n_docs);
 
         let mut it = docs_iter.zip(freqs_iter);
 
         let mut processed = 0;
-        while let Some((sz, sz_freq)) = it.next() {
-            assert!(sz == sz_freq);
+        while let Some((doc_list, freq_list)) = it.next() {
+            assert!(doc_list.len() == freq_list.len());
             // if sz != sz_freq {
             //     panic!("size mismatch in .docs and .freqs files");
             // }
 
+            let sz = doc_list.len() as u64;
             if sz > LENGTH_THRESHOLD as u64 {
-                let v: Vec<(u64, u64)> = (&mut it).take(sz as usize).collect();
+                let v_docs: Vec<u64> = doc_list.collect();
+                let v_freqs: Vec<u64> = freq_list.collect();
 
                 // println!("Checking list {} with size {}", processed, sz);
                 let mut it_plist = self.get_plist_iter(processed);
-                let itv = v.iter();
-                for (_i, &s) in itv.clone().enumerate() {
+                let itv = v_docs.iter().zip(v_freqs.iter());
+                for (_i, s) in itv.clone().enumerate() {
                     // println!("check n {}", i);
                     // assert!(dbg!(s) == dbg!(it.next().unwrap()));
                     let docid = it_plist.current_doc();
                     let freq = it_plist.freq();
                     assert_eq!(
                         s,
-                        (docid, freq),
+                        (&docid, &freq),
                         "PLIST idx {} | Mismatch at freq iter is: {:?}, current position is {:?}",
                         processed,
                         it_plist.freq_it,
@@ -376,11 +251,13 @@ where
                     );
                     it_plist.next_doc();
                 }
+
+                pb.inc(sz);
                 processed += 1;
-            } else {
-                let _x = (&mut it).nth(sz as usize - 1);
             }
         }
+
+        pb.finish();
     }
 
     pub fn load_or_build_and_save(
@@ -419,20 +296,6 @@ where
         }
         ds
     }
-}
-
-fn pb_with_message(len: u64, msg: String) -> ProgressBar {
-    let pb = ProgressBar::new(len as u64);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template("{msg} [{bar:40.cyan/blue}] {percent}% {elapsed}")
-            .unwrap()
-            .progress_chars("#>-"),
-    );
-    pb.set_message(msg.clone());
-    pb.with_finish(indicatif::ProgressFinish::WithMessage(
-        format!("{} Done!", msg).into(),
-    ))
 }
 
 impl<T, S> SpaceUsage for FreqIndex<T, S> {
