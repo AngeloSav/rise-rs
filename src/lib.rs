@@ -29,8 +29,6 @@ pub mod positive_sequences;
 
 pub mod queries;
 
-pub mod space_usage;
-
 pub mod gen_sequences;
 pub mod utils;
 

@@ -1,11 +1,11 @@
 use clap::Parser;
+use mem_dbg::{MemSize, SizeFlags};
 use pef::{
     indexes::freq_index::{DocList, FreqIndex, FreqList},
     queries::{
         And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd,
         RankedOr, Wand,
     },
-    space_usage::SpaceUsage,
     utils::{init_logger, TimingQueries},
     EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
 };
@@ -29,7 +29,7 @@ struct Args {
     query_path: String,
 
     /// Query algorithms we want to use
-    #[arg(long, value_delimiter = ',')]
+    #[arg(long, value_delimiter = ',', num_args = 1..)]
     query_kind: Vec<QueryKind>,
 
     /// path of the metadata file containing the data used for scoring
@@ -92,7 +92,7 @@ fn perform_query<Q: QueryOperator, T, S>(
         n_queries,
         Duration::from_nanos(timer.get().2.try_into().unwrap()),
         mdata_filename,
-        idx.space_usage_MiB()
+        idx.mem_size(SizeFlags::default()) as f64 / (1024.0 * 1024.0)
     );
 }
 

@@ -1,14 +1,11 @@
 use crate::{
     config,
-    space_usage::SpaceUsage,
     utils::{ceil_log2, msb},
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
     WriteBitvector,
 };
 use epserde::prelude::*;
 use num::integer::div_ceil;
-
-use std::mem;
 
 pub mod all_ones_seq;
 pub mod indexed_seq;
@@ -427,12 +424,6 @@ impl<'a> EnumeratorFromBitSlice<'a> for EliasFano {
             cur_value: 0,
             u,
         }
-    }
-}
-
-impl SpaceUsage for EliasFano {
-    fn space_usage_byte(&self) -> usize {
-        self.bv.len() / 8 + 8 + 2 * mem::size_of::<usize>()
     }
 }
 

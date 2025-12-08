@@ -1,6 +1,5 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
-use pef::space_usage::SpaceUsage;
 use pef::utils::init_logger;
 use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
@@ -38,12 +37,6 @@ fn main() {
                 "Index contains {} docs, {} terms, size: {} bytes ({} GiB)",
                 idx.n_docs,
                 idx.n_terms,
-                idx.space_usage_byte(),
-                idx.space_usage_GiB()
-            );
-
-            println!(
-                "memsize says: {} bytes ({} GiB)",
                 idx.mem_size(SizeFlags::default()),
                 idx.mem_size(SizeFlags::default()) as f64 / (1024.0 * 1024.0 * 1024.0)
             );

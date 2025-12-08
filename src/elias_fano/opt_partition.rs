@@ -1,10 +1,9 @@
-use std::{marker::PhantomData, mem};
+use std::marker::PhantomData;
 
 use epserde::Epserde;
 
 use crate::{
     indexes::freq_index::{DocList, FreqList},
-    space_usage::SpaceUsage,
     utils::ceil_log2,
     BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence,
     SequenceEnumerator, WriteBitvector,
@@ -489,12 +488,6 @@ where
             return None;
         }
         Some(val)
-    }
-}
-
-impl<T> SpaceUsage for OptPartitionedSequence<T> {
-    fn space_usage_byte(&self) -> usize {
-        self.bv.len() / 8 + mem::size_of::<usize>() + mem::size_of::<u64>()
     }
 }
 

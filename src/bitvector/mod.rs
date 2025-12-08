@@ -18,7 +18,6 @@ pub mod bitvector_collection;
 use std::u64;
 
 use crate::{
-    space_usage::SpaceUsage,
     utils::{msb, prefetch_read_NTA, select_in_word},
     AccessBin,
 };
@@ -1883,15 +1882,6 @@ impl AccessBin for BitSliceWithOffset<'_> {
     unsafe fn get_unchecked(&self, index: usize) -> bool {
         debug_assert!(index < self.n_bits, "Index out of bounds");
         BitVector::<&[u64]>::get_bit_slice(self.data, index + self.offset)
-    }
-}
-
-impl<T> SpaceUsage for BitVector<T>
-where
-    T: AsRef<[u64]>,
-{
-    fn space_usage_byte(&self) -> usize {
-        self.n_bits / 8 + 8
     }
 }
 

@@ -4,7 +4,7 @@ use std::fs::{self, File};
 
 use crate::{config, readers::ds2i_reader::BinaryCollectionIterator, utils::pb_with_message};
 use epserde::prelude::*;
-use std::{fmt::Debug, marker::PhantomData, mem, path::Path};
+use std::{fmt::Debug, marker::PhantomData, path::Path};
 
 use crate::{
     bitvector::bitvector_collection::BitVectorCollectionBuilder,
@@ -14,7 +14,6 @@ use crate::{
         strict_ef::StrictEliasFano,
         uniform_partitioned_seq::UniformPartitionedSeqIter,
     },
-    space_usage::SpaceUsage,
     utils::TimingQueries,
     BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
     PartitionableSequence, SequenceEnumerator, WriteBitvector,
@@ -295,14 +294,6 @@ where
             };
         }
         ds
-    }
-}
-
-impl<T, S> SpaceUsage for FreqIndex<T, S> {
-    fn space_usage_byte(&self) -> usize {
-        self.docs_sequences.space_usage_byte()
-            + self.freqs_sequences.space_usage_byte()
-            + mem::size_of::<usize>() * 2
     }
 }
 

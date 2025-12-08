@@ -258,17 +258,6 @@ impl<V: AsRef<[u64]>> BitVectorCollection<V> {
     }
 }
 
-impl<W: AsRef<[u64]>> SpaceUsage for BitVectorCollection<W> {
-    fn space_usage_byte(&self) -> usize {
-        // println!("size data: {}", self.bv.space_usage_byte());
-        // println!("size endpoints: {}", self.endpoints.space_usage_byte());
-
-        self.bv.space_usage_byte()
-            + self.endpoints.space_usage_byte()
-            + std::mem::size_of::<usize>()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
