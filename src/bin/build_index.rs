@@ -8,11 +8,11 @@ use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path of the collection (without ".docs" or similar)
-    #[arg(long)]
+    #[arg(short, long)]
     input_path: String,
 
     /// Type of index we want to build
-    #[arg(long)]
+    #[arg(short = 't', long)]
     idx_kind: IdxKind,
 
     /// Path of the output index

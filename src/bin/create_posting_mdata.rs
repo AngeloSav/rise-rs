@@ -8,11 +8,11 @@ use pef::{
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path of the base directory containing the index files
-    #[arg(long)]
+    #[arg(short, long)]
     input_path: String,
 
     /// Output metadata file
-    #[arg(long)]
+    #[arg(short, long)]
     out_path: String,
 
     /// Flag to use variable-size blocks (default: false, i.e., use fixed-size blocks)

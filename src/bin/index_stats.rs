@@ -8,11 +8,11 @@ use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 #[command(version, about, long_about = None)]
 struct Args {
     /// Path of the index file
-    #[arg()]
+    #[arg(short, long)]
     index_path: String,
 
     /// Type of index
-    #[arg()]
+    #[arg(short = 't', long)]
     idx_kind: IdxKind,
 }
 

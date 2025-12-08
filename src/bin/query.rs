@@ -17,11 +17,11 @@ use std::{fs, io::BufReader, time::Duration};
 #[command(version, about, long_about = None)]
 struct Args {
     /// Type of index we want to build
-    #[arg(long)]
+    #[arg(short = 't', long)]
     index_kind: IdxKind,
 
     /// Path of the index file
-    #[arg(long)]
+    #[arg(short, long)]
     index_path: String,
 
     /// Path of the file containing the queries
