@@ -1,5 +1,5 @@
 use crate::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList},
+    indexes::freq_index::{DocList, FreqIndex, FreqList, PostingListIter},
     queries::QueryOperator,
 };
 

@@ -1,5 +1,7 @@
 use freq_index::FreqIndex;
 
+mod block_freq_index;
+
 use crate::{
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},

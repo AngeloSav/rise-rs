@@ -29,7 +29,7 @@ pub struct FreqIndex<DocumentSequence, FreqSequence> {
 }
 
 #[derive(Debug)]
-pub struct PostingListIter<'a, DocumentSequence, FreqSequence>
+pub struct FreqIndexPostingListIter<'a, DocumentSequence, FreqSequence>
 where
     DocumentSequence: DocList,
     FreqSequence: FreqList,
@@ -37,6 +37,15 @@ where
     current: (u64, usize),
     doc_it: <DocumentSequence as EnumeratorFromBitSlice<'a>>::IterType,
     freq_it: <FreqSequence as EnumeratorFromBitSlice<'a>>::IterType,
+}
+
+pub trait PostingListIter {
+    fn current_doc(&self) -> u64;
+    fn current_pos(&self) -> usize;
+    fn next_geq(&mut self, lower_bound: u64);
+    fn next_doc(&mut self);
+    fn freq(&mut self) -> u64;
+    fn len(&self) -> usize;
 }
 
 // once we build them, they are immutable
@@ -98,7 +107,7 @@ where
     pub fn get_plist_iter(
         &'a self,
         i: usize,
-    ) -> PostingListIter<'a, DocumentSequence, FreqSequence> {
+    ) -> FreqIndexPostingListIter<'a, DocumentSequence, FreqSequence> {
         let a: BitSliceWithOffset<'a> = self.docs_sequences.get(i);
         let (sz, pos) = unsafe { a.get_gamma_nonzero_unchecked(0) };
         let mut doc_it =
@@ -108,7 +117,7 @@ where
         let freq_it = FreqSequence::iter_from_slice(a, sz as usize, self.n_docs as u64);
         let current = doc_it.next_val();
 
-        PostingListIter {
+        FreqIndexPostingListIter {
             current,
             doc_it,
             freq_it,
@@ -297,33 +306,33 @@ where
     }
 }
 
-impl<'a, DS, FS> PostingListIter<'a, DS, FS>
+impl<'a, DS, FS> PostingListIter for FreqIndexPostingListIter<'a, DS, FS>
 where
     DS: DocList,
     FS: FreqList,
 {
-    pub fn current_doc(&self) -> u64 {
+    fn current_doc(&self) -> u64 {
         self.current.0
     }
 
-    pub fn current_pos(&self) -> usize {
+    fn current_pos(&self) -> usize {
         self.current.1
     }
 
-    pub fn next_geq(&mut self, lower_bound: u64) {
+    fn next_geq(&mut self, lower_bound: u64) {
         self.current = self.doc_it.next_geq(lower_bound);
     }
 
-    pub fn next_doc(&mut self) {
+    fn next_doc(&mut self) {
         self.current = self.doc_it.next_val();
     }
 
-    pub fn freq(&mut self) -> u64 {
+    fn freq(&mut self) -> u64 {
         let pos = self.current_pos();
         self.freq_it.move_to_position(pos).0
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.doc_it.len()
     }
 }
