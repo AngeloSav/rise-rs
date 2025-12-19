@@ -1,15 +1,14 @@
 use crate::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList, PostingListIter},
+    indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::QueryOperator,
 };
 
 pub struct And;
 
 impl QueryOperator for And {
-    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
-        T: DocList,
-        S: FreqList,
+        I: InvertedIndex,
     {
         if terms.is_empty() {
             return 0;
@@ -25,7 +24,7 @@ impl QueryOperator for And {
         // sort by non-decreasing size
         enums.sort_by_key(|it| it.len());
 
-        let max = idx.n_docs as u64;
+        let max = idx.n_docs() as u64;
 
         let mut candidate = enums[0].current_doc();
 

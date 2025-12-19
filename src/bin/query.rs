@@ -1,7 +1,7 @@
 use clap::Parser;
-use mem_dbg::{MemSize, SizeFlags};
+use mem_dbg::SizeFlags;
 use pef::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList},
+    indexes::{freq_index::InvertedIndex, BlockVByteIdx},
     queries::{
         And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd,
         RankedOr, Wand,
@@ -50,16 +50,15 @@ struct Args {
 }
 
 #[inline(always)]
-fn perform_query<Q: QueryOperator, T, S>(
-    idx: &FreqIndex<T, S>,
+fn perform_query<Q: QueryOperator, I>(
+    idx: &I,
     parsed_queries: &Vec<Vec<usize>>,
     mut query_strategy: Q,
     n_runs: usize,
     index_ty: &str,
     mdata_filename: &str,
 ) where
-    T: DocList,
-    S: FreqList,
+    I: InvertedIndex,
 {
     log::info!("starting testing! query type: {}", Q::query_name());
 
@@ -69,7 +68,7 @@ fn perform_query<Q: QueryOperator, T, S>(
     //warmup
     let mut check = 0;
     for term in parsed_queries {
-        check += query_strategy.query(&idx, term);
+        check += query_strategy.query(idx, term);
     }
     log::info!("check_warmup: {}", check);
 
@@ -79,7 +78,7 @@ fn perform_query<Q: QueryOperator, T, S>(
         timer.start();
 
         for term in parsed_queries {
-            check += query_strategy.query(&idx, term);
+            check += query_strategy.query(idx, term);
         }
         timer.stop();
     }
@@ -184,5 +183,6 @@ fn main() {
         IdxKind::UPEf => query_idx!(UPEFIdx),
         IdxKind::UPIs => query_idx!(UPISIdx),
         IdxKind::Opt => query_idx!(OptEFIdx),
+        IdxKind::BlockVByte => query_idx!(BlockVByteIdx),
     }
 }

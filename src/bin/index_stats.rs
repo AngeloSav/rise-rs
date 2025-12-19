@@ -1,5 +1,6 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
+use pef::indexes::BlockVByteIdx;
 use pef::utils::init_logger;
 use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
@@ -46,5 +47,6 @@ fn main() {
         IdxKind::UPEf => build_idx!(UPEFIdx),
         IdxKind::UPIs => build_idx!(UPISIdx),
         IdxKind::Opt => build_idx!(OptEFIdx),
+        IdxKind::BlockVByte => build_idx!(BlockVByteIdx),
     }
 }

@@ -11,7 +11,8 @@ use crate::{
 
 fn test_codec_monotone<C: BlockCodec>(data: &[u64]) {
     let encoded = C::encode_monotone(data.iter().cloned());
-    let (decoded, read_bytes) = C::decode_monotone(&encoded, data.len());
+    let mut decoded = vec![0u64; data.len()];
+    let read_bytes = C::decode_monotone(&encoded, data.len(), &mut decoded);
 
     assert_eq!(data, &decoded[..]);
     assert_eq!(encoded.len(), read_bytes);
@@ -19,7 +20,8 @@ fn test_codec_monotone<C: BlockCodec>(data: &[u64]) {
 
 fn test_codec<C: BlockCodec>(data: &[u64]) {
     let encoded = C::encode(data.iter().cloned());
-    let (decoded, read_bytes) = C::decode(&encoded, data.len());
+    let mut decoded = vec![0u64; data.len()];
+    let read_bytes = C::decode(&encoded, data.len(), &mut decoded);
 
     assert_eq!(data, &decoded[..]);
     assert_eq!(encoded.len(), read_bytes);

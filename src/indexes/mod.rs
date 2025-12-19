@@ -1,3 +1,4 @@
+use block_freq_index::BlockFreqIndex;
 use freq_index::FreqIndex;
 
 mod block_freq_index;
@@ -30,3 +31,5 @@ pub type OptEFIdx = FreqIndex<
     OptPartitionedSequence<IndexSequence>,
     PositiveSequence<OptPartitionedSequence<StrictSequence>>,
 >;
+
+pub type BlockVByteIdx = BlockFreqIndex<block_freq_index::block_codices::vbyte_codec::VbyteCodec>;

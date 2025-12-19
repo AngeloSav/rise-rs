@@ -1,9 +1,3 @@
-use dsi_bitstream::{
-    codes::{byte_len_vbyte, VByteLeRead, VByteLeWrite},
-    impls::{BufBitReader, BufBitWriter, MemWordReader, MemWordWriterVec},
-    traits::LE,
-};
-
 use crate::indexes::{block_freq_index::block_codices::BlockCodec, freq_index::PostingListIter};
 
 pub struct BlockPostingList<T>
@@ -57,21 +51,7 @@ where
             out[begin_block_maxs + b] = max_docid as u32;
 
             let encoded_docs = T::encode_monotone(doc_block.iter().map(|&d| d - block_base));
-
-            debug_assert_eq!(
-                T::decode_monotone(&encoded_docs, doc_block.len()).0,
-                doc_block
-                    .iter()
-                    .map(|&d| d - block_base)
-                    .collect::<Vec<u64>>()
-            );
-
             let encoded_freqs = T::encode(freq_block.iter().map(|x| x - 1));
-
-            debug_assert_eq!(
-                T::decode(&encoded_freqs, freq_block.len()).0,
-                freq_block.iter().map(|x| x - 1).collect::<Vec<u64>>()
-            );
 
             out.extend(encoded_docs);
             out.extend(encoded_freqs);
@@ -99,8 +79,8 @@ where
             block_maxs: &data[begin_block_maxs..begin_block_endpoints],
             block_endpoints: &data[begin_block_endpoints..begin_blocks],
             blocks_data: &data[begin_blocks..],
-            docs_buf: Vec::with_capacity(Self::BLOCK_SIZE),
-            freqs_buf: Vec::with_capacity(Self::BLOCK_SIZE),
+            docs_buf: vec![0u64; Self::BLOCK_SIZE],
+            freqs_buf: vec![0u64; Self::BLOCK_SIZE],
             n_blocks,
             universe,
             _codec: std::marker::PhantomData,
@@ -174,8 +154,11 @@ where
         };
 
         let block_data = &self.blocks_data[endpoint..];
-        let read_bytes;
-        (self.docs_buf, read_bytes) = T::decode_monotone(block_data, self.cur_block_size);
+        let read_bytes = T::decode_monotone(
+            block_data,
+            self.cur_block_size,
+            self.docs_buf.as_mut_slice(),
+        );
         // prefetch freqs base maybe ??
 
         self.cur_freqs_data = &block_data[read_bytes..];
@@ -187,10 +170,13 @@ where
     }
 
     fn decode_freqs_block(&mut self) {
-        let (freqs, _read_bytes) = T::decode(self.cur_freqs_data, self.cur_block_size);
+        let _read_bytes = T::decode(
+            self.cur_freqs_data,
+            self.cur_block_size,
+            self.freqs_buf.as_mut_slice(),
+        );
         // prefetch next block in some way
 
-        self.freqs_buf = freqs.iter().map(|&f| f + 1).collect();
         self.decoded_freqs = true;
     }
 
@@ -251,7 +237,7 @@ where
         if !self.decoded_freqs {
             self.decode_freqs_block();
         }
-        self.freqs_buf[self.pos_in_block]
+        self.freqs_buf[self.pos_in_block] + 1
     }
 
     fn len(&self) -> usize {

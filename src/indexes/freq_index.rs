@@ -99,31 +99,11 @@ impl<T> FreqList for T where
 {
 }
 
-impl<'a, DocumentSequence, FreqSequence> FreqIndex<DocumentSequence, FreqSequence>
+impl<DocumentSequence, FreqSequence> FreqIndex<DocumentSequence, FreqSequence>
 where
     DocumentSequence: DocList,
     FreqSequence: FreqList,
 {
-    pub fn get_plist_iter(
-        &'a self,
-        i: usize,
-    ) -> FreqIndexPostingListIter<'a, DocumentSequence, FreqSequence> {
-        let a: BitSliceWithOffset<'a> = self.docs_sequences.get(i);
-        let (sz, pos) = unsafe { a.get_gamma_nonzero_unchecked(0) };
-        let mut doc_it =
-            DocumentSequence::iter_from_slice(a.split_at(pos).1, sz as usize, self.n_docs as u64);
-
-        let a: BitSliceWithOffset<'a> = self.freqs_sequences.get(i);
-        let freq_it = FreqSequence::iter_from_slice(a, sz as usize, self.n_docs as u64);
-        let current = doc_it.next_val();
-
-        FreqIndexPostingListIter {
-            current,
-            doc_it,
-            freq_it,
-        }
-    }
-
     fn push_plist_freqs(
         docs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>,
         freqs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>,
@@ -143,8 +123,6 @@ where
     pub fn from_files(input_path: &str) -> Self {
         let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
 
-        let pb = pb_with_message(mmap_len, "creating index".to_string());
-
         let mut docs_iter = BinaryCollectionIterator::new(&format!("{}.docs", input_path));
         let freqs_iter = BinaryCollectionIterator::new(&format!("{}.freqs", input_path));
 
@@ -152,6 +130,7 @@ where
         let n_docs = singleton.next().unwrap();
 
         log::info!("number of documents: {}", n_docs);
+        let pb = pb_with_message(mmap_len, "creating index".to_string());
 
         let mut it = docs_iter.zip(freqs_iter);
 
@@ -214,10 +193,8 @@ where
         unsafe { Self::deserialize_eps(&reader).expect("could not deserialize index") }
     }
 
-    pub fn check_correctness(&'a self, input_path: &str) {
+    pub fn check_correctness(&self, input_path: &str) {
         let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
-
-        let pb = pb_with_message(mmap_len, "Checking correctness".to_string());
 
         let mut docs_iter = BinaryCollectionIterator::new(&format!("{}.docs", input_path));
         let freqs_iter = BinaryCollectionIterator::new(&format!("{}.freqs", input_path));
@@ -226,6 +203,7 @@ where
         let n_docs = singleton.next().unwrap();
 
         log::info!("number of documents: {}", n_docs);
+        let pb = pb_with_message(mmap_len, "Checking correctness".to_string());
 
         let mut it = docs_iter.zip(freqs_iter);
 
@@ -306,7 +284,52 @@ where
     }
 }
 
-impl<'a, DS, FS> PostingListIter for FreqIndexPostingListIter<'a, DS, FS>
+pub trait InvertedIndex: MemSize + MemDbg {
+    type IterType<'a>: PostingListIter
+    where
+        Self: 'a;
+
+    fn n_docs(&self) -> usize;
+    fn n_terms(&self) -> usize;
+    fn get_plist_iter(&self, i: usize) -> Self::IterType<'_>;
+}
+
+impl<DL, FL> InvertedIndex for FreqIndex<DL, FL>
+where
+    DL: DocList,
+    FL: FreqList,
+{
+    type IterType<'a>
+        = FreqIndexPostingListIter<'a, DL, FL>
+    where
+        Self: 'a;
+
+    fn n_docs(&self) -> usize {
+        self.n_docs
+    }
+
+    fn n_terms(&self) -> usize {
+        self.n_terms
+    }
+
+    fn get_plist_iter(&self, i: usize) -> FreqIndexPostingListIter<'_, DL, FL> {
+        let a: BitSliceWithOffset<'_> = self.docs_sequences.get(i);
+        let (sz, pos) = unsafe { a.get_gamma_nonzero_unchecked(0) };
+        let mut doc_it = DL::iter_from_slice(a.split_at(pos).1, sz as usize, self.n_docs as u64);
+
+        let a: BitSliceWithOffset<'_> = self.freqs_sequences.get(i);
+        let freq_it = FL::iter_from_slice(a, sz as usize, self.n_docs as u64);
+        let current = doc_it.next_val();
+
+        FreqIndexPostingListIter {
+            current,
+            doc_it,
+            freq_it,
+        }
+    }
+}
+
+impl<DS, FS> PostingListIter for FreqIndexPostingListIter<'_, DS, FS>
 where
     DS: DocList,
     FS: FreqList,

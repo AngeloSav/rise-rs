@@ -8,10 +8,10 @@ pub trait BlockCodec {
     fn encode(data: impl IntoIterator<Item = u64>) -> Vec<u32>;
 
     /// Decodes `n` elements from a byte vector back into a vector of monotonically increasing u64 integers.
-    /// Returns a vector of u64 integers and the number of words read
-    fn decode_monotone(data: &[u32], n: usize) -> (Vec<u64>, usize);
+    /// Returns the number of words read
+    fn decode_monotone(data: &[u32], n: usize, out: &mut [u64]) -> usize;
 
     /// Decodes `n` elements from a byte vector back into a vector of u64 integers.
-    /// Returns a vector of u64 integers and the number of words read
-    fn decode(data: &[u32], n: usize) -> (Vec<u64>, usize);
+    /// Returns the number of words read
+    fn decode(data: &[u32], n: usize, out: &mut [u64]) -> usize;
 }

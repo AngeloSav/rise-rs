@@ -1,5 +1,7 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
+use pef::indexes::freq_index::InvertedIndex;
+use pef::indexes::BlockVByteIdx;
 use pef::utils::init_logger;
 use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
@@ -35,8 +37,8 @@ fn main() {
             let idx = <$t>::load_or_build_and_save(&input_path, &out_path, true);
             println!(
                 "Index contains {} docs, {} terms, size: {} bytes ({} GiB)",
-                idx.n_docs,
-                idx.n_terms,
+                idx.n_docs(),
+                idx.n_terms(),
                 idx.mem_size(SizeFlags::default()),
                 idx.mem_size(SizeFlags::default()) as f64 / (1024.0 * 1024.0 * 1024.0)
             );
@@ -59,5 +61,6 @@ fn main() {
         IdxKind::UPEf => build_idx!(UPEFIdx),
         IdxKind::UPIs => build_idx!(UPISIdx),
         IdxKind::Opt => build_idx!(OptEFIdx),
+        IdxKind::BlockVByte => build_idx!(BlockVByteIdx),
     }
 }

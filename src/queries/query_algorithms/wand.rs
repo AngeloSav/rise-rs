@@ -1,5 +1,5 @@
 use crate::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList, PostingListIter},
+    indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::{
         query_algorithms::query_freqs, topk_heap::TopKHeap, BlockPostingMetadata, QueryOperator,
         RankedQueryOperator,
@@ -20,10 +20,9 @@ impl<'a, Scorer: DocScorer> Wand<'a, Scorer> {
 }
 
 impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
-    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
-        T: DocList,
-        S: FreqList,
+        I: InvertedIndex,
     {
         if terms.is_empty() {
             return 0;
@@ -42,7 +41,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
         for (term, freq) in query_freqs {
             let it = idx.get_plist_iter(term);
             let q_weight =
-                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
+                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs() as u64);
 
             let max_t_weight = self.p_data.get_max_term_weight(term);
             let max_weight = q_weight * self.p_data.get_max_term_weight(term);
@@ -69,7 +68,7 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
             let mut pivot = 0;
 
             while pivot < ordered_enums.len() {
-                if ordered_enums[pivot].0.current_doc() >= idx.n_docs as u64 {
+                if ordered_enums[pivot].0.current_doc() >= idx.n_docs() as u64 {
                     break;
                 }
 

@@ -1,15 +1,14 @@
 use crate::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList, PostingListIter},
+    indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::QueryOperator,
 };
 
 pub struct Or;
 
 impl QueryOperator for Or {
-    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
-        T: DocList,
-        S: FreqList,
+        I: InvertedIndex,
     {
         // let mut next_ctr = 0;
 
@@ -26,13 +25,13 @@ impl QueryOperator for Or {
         let mut cur_doc = enums.iter().map(|x| x.current_doc()).min().unwrap();
         let mut size = 0;
 
-        while cur_doc < idx.n_docs as u64 {
+        while cur_doc < idx.n_docs() as u64 {
             // println!("new round ---------------------");
             // println!("pushing {:?}", cur_doc);
             // unsafe { *v.get_unchecked_mut(size) = cur_doc };
             size += 1;
 
-            let mut next_doc = idx.n_docs as u64;
+            let mut next_doc = idx.n_docs() as u64;
 
             for it in enums.iter_mut() {
                 let mut cur_term_docid = it.current_doc();

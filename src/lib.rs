@@ -59,6 +59,8 @@ pub enum IdxKind {
     UPIs,
     #[value(name = "opt")]
     Opt,
+    #[value(name = "block_vbyte")]
+    BlockVByte,
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug)]

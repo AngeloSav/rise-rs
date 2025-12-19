@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::indexes::freq_index::{DocList, FreqIndex, FreqList};
+use crate::indexes::freq_index::InvertedIndex;
 
 mod block_partitioning;
 pub mod block_posting_metadata;
@@ -17,10 +17,9 @@ pub trait QueryOperator {
     fn query_name() -> &'static str;
 
     // this function takes an index `idx`, a number of terms `terms`,
-    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
-        T: DocList,
-        S: FreqList;
+        I: InvertedIndex;
 }
 
 pub trait RankedQueryOperator {

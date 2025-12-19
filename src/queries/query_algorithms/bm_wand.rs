@@ -1,5 +1,5 @@
 use crate::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList, PostingListIter},
+    indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::{
         query_algorithms::query_freqs, topk_heap::TopKHeap, BlockPostingMetadata, QueryOperator,
         RankedQueryOperator,
@@ -19,15 +19,14 @@ impl<'a, Scorer: DocScorer> BMWand<'a, Scorer> {
     }
 }
 impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
-    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
-        T: DocList,
-        S: FreqList,
+        I: InvertedIndex,
     {
         if terms.is_empty() {
             return 0;
         }
-        let n_docs = idx.n_docs as u64;
+        let n_docs = idx.n_docs() as u64;
         let query_freqs = query_freqs(terms);
 
         let mut enums = Vec::with_capacity(query_freqs.len());
@@ -37,7 +36,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
         for (term, freq) in query_freqs {
             let it = idx.get_plist_iter(term);
             let q_weight =
-                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
+                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs() as u64);
 
             let max_weight = q_weight * self.p_data.get_max_term_weight(term);
             let wand_iter = self.p_data.get_block_posting_metadata_iterator(term);
@@ -53,10 +52,10 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
             let mut upper_bound = 0.0;
             let mut found_pivot = false;
             let mut pivot = 0;
-            let mut pivot_id = idx.n_docs as u64;
+            let mut pivot_id = idx.n_docs() as u64;
 
             while pivot < ordered_enums.len() {
-                if ordered_enums[pivot].0.current_doc() >= idx.n_docs as u64 {
+                if ordered_enums[pivot].0.current_doc() >= idx.n_docs() as u64 {
                     break;
                 }
 
@@ -153,7 +152,7 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                     }
                 }
 
-                let mut next_jump = idx.n_docs as u64;
+                let mut next_jump = idx.n_docs() as u64;
 
                 if pivot + 1 < ordered_enums.len() {
                     next_jump = ordered_enums[pivot + 1].0.current_doc();

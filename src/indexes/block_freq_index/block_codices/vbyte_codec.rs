@@ -3,9 +3,12 @@ use dsi_bitstream::{
     impls::{BufBitReader, BufBitWriter, MemWordReader, MemWordWriterVec},
     traits::{BitSeek, LE},
 };
+use epserde::prelude::*;
+use mem_dbg::{MemDbg, MemSize};
 
 use crate::indexes::block_freq_index::block_codices::BlockCodec;
 
+#[derive(Clone, Debug, MemSize, MemDbg, Epserde)]
 pub struct VbyteCodec;
 
 impl BlockCodec for VbyteCodec {
@@ -33,28 +36,27 @@ impl BlockCodec for VbyteCodec {
     }
 
     // This allocates a vector, no nee to do it if we return an iterator ?
-    fn decode_monotone(data: &[u32], n: usize) -> (Vec<u64>, usize) {
-        let (dgaps, read_bytes) = Self::decode(data, n);
-        let psums = dgaps
-            .into_iter()
-            .scan(0, |s, x| {
-                let res = *s + x;
-                *s = res;
-                Some(res)
-            })
-            .collect();
-        (psums, read_bytes)
-    }
-
-    fn decode(data: &[u32], n: usize) -> (Vec<u64>, usize) {
-        let mut result = Vec::with_capacity(n);
+    fn decode_monotone(data: &[u32], n: usize, out: &mut [u64]) -> usize {
         let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(data));
+        let mut prec = 0;
 
-        for _ in 0..n {
-            let x = reader.read_vbyte_le().expect("error in vbyte decoding");
-            result.push(x);
+        for i in 0..n {
+            let dgap = reader.read_vbyte_le().expect("error in vbyte decoding");
+            out[i] = prec + dgap;
+            prec = out[i];
         }
 
-        (result, (reader.bit_pos().unwrap() as usize).div_ceil(32))
+        (reader.bit_pos().unwrap() as usize).div_ceil(32)
+    }
+
+    fn decode(data: &[u32], n: usize, out: &mut [u64]) -> usize {
+        let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(data));
+
+        for i in 0..n {
+            let x = reader.read_vbyte_le().expect("error in vbyte decoding");
+            out[i] = x;
+        }
+
+        (reader.bit_pos().unwrap() as usize).div_ceil(32)
     }
 }

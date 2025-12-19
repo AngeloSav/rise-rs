@@ -1,5 +1,5 @@
 use crate::{
-    indexes::freq_index::{DocList, FreqIndex, FreqList, PostingListIter},
+    indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::{
         query_algorithms::query_freqs, topk_heap::TopKHeap, BlockPostingMetadata, QueryOperator,
         RankedQueryOperator,
@@ -19,15 +19,14 @@ impl<'a, Scorer: DocScorer> MaxScore<'a, Scorer> {
 }
 
 impl<Scorer: DocScorer> QueryOperator for MaxScore<'_, Scorer> {
-    fn query<T, S>(&mut self, idx: &FreqIndex<T, S>, terms: &[usize]) -> usize
+    fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
-        T: DocList,
-        S: FreqList,
+        I: InvertedIndex,
     {
         if terms.is_empty() {
             return 0;
         }
-        let n_docs = idx.n_docs as u64;
+        let n_docs = idx.n_docs() as u64;
         let query_freqs = query_freqs(terms);
 
         // contains pair (enum, weight)
@@ -38,7 +37,7 @@ impl<Scorer: DocScorer> QueryOperator for MaxScore<'_, Scorer> {
         for (term, freq) in query_freqs {
             let it = idx.get_plist_iter(term);
             let q_weight =
-                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs as u64);
+                Scorer::query_term_weight(freq as u64, it.len() as u64, idx.n_docs() as u64);
 
             let max_weight = q_weight * self.p_data.get_max_term_weight(term);
 
