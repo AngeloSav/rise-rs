@@ -29,19 +29,14 @@ where
     // n | [max docid of each block] | [block endpoints] | [(docids in block, freqs in block) ...]
 
     /// writes to out the encoded posting list
-    pub fn write(doc_list: &[u64], freq_list: &[u64], out: &mut Vec<u8>) {
+    pub fn write(doc_list: &[u64], freq_list: &[u64], out: &mut Vec<u32>) {
         // write n of docs at the beginning
-        {
-            let mut writer = BufBitWriter::<LE, _>::new(MemWordWriterVec::new(&mut *out));
-            writer
-                .write_vbyte_le(doc_list.len() as u64)
-                .expect("error in writing n to block posting list");
-        }
+        out.push(doc_list.len() as u32);
 
         let n_blocks = (doc_list.len() + Self::BLOCK_SIZE - 1) / Self::BLOCK_SIZE; // ceiling division
         let begin_block_maxs = out.len();
-        let begin_block_endpoints = begin_block_maxs + 4 * n_blocks;
-        let begin_blocks = begin_block_endpoints + 4 * (n_blocks - 1);
+        let begin_block_endpoints = begin_block_maxs + n_blocks;
+        let begin_blocks = begin_block_endpoints + (n_blocks - 1);
 
         out.resize(begin_blocks, 0);
 
@@ -59,8 +54,7 @@ where
 
             let max_docid = *doc_block.last().unwrap();
 
-            out[begin_block_maxs + b * 4..begin_block_maxs + (b + 1) * 4]
-                .copy_from_slice(&(max_docid as u32).to_le_bytes());
+            out[begin_block_maxs + b] = max_docid as u32;
 
             let encoded_docs = T::encode_monotone(doc_block.iter().map(|&d| d - block_base));
 
@@ -84,27 +78,21 @@ where
 
             if b != n_blocks - 1 {
                 let new_endpoint = out.len() - begin_blocks;
-                out[begin_block_endpoints + b * 4..begin_block_endpoints + (b + 1) * 4]
-                    .copy_from_slice(&((new_endpoint) as u32).to_le_bytes());
+                out[begin_block_endpoints + b] = new_endpoint as u32;
             }
 
             block_base = max_docid + 1;
         }
     }
 
-    pub fn iter_from_slice(data: &[u8], universe: u64) -> BlockPostingListIter<'_, T> {
-        let n_docs = {
-            let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(data));
-            reader
-                .read_vbyte_le()
-                .expect("error in reading n from block posting list")
-        };
+    pub fn iter_from_slice(data: &[u32], universe: u64) -> BlockPostingListIter<'_, T> {
+        let n_docs = data[0] as u64;
 
         let n_blocks = (n_docs as usize + Self::BLOCK_SIZE - 1) / Self::BLOCK_SIZE;
 
-        let begin_block_maxs = byte_len_vbyte(n_docs); // after n_docs
-        let begin_block_endpoints = begin_block_maxs + 4 * n_blocks;
-        let begin_blocks = begin_block_endpoints + 4 * (n_blocks - 1);
+        let begin_block_maxs = 1; // after n_docs
+        let begin_block_endpoints = begin_block_maxs + n_blocks;
+        let begin_blocks = begin_block_endpoints + (n_blocks - 1);
 
         let mut it = BlockPostingListIter {
             len: n_docs as usize,
@@ -138,12 +126,12 @@ where
     T: BlockCodec,
 {
     // buffers and slices
-    block_maxs: &'a [u8],
-    block_endpoints: &'a [u8],
-    blocks_data: &'a [u8],
+    block_maxs: &'a [u32],
+    block_endpoints: &'a [u32],
+    blocks_data: &'a [u32],
     docs_buf: Vec<u64>,
     freqs_buf: Vec<u64>,
-    cur_freqs_data: &'a [u8],
+    cur_freqs_data: &'a [u32],
 
     // bookkeping for blocks
     n_blocks: usize,
@@ -167,9 +155,7 @@ where
 {
     fn decode_docs_block(&mut self, block: usize) {
         let endpoint = if block != 0 {
-            let mut buf = [0u8; 4];
-            buf.copy_from_slice(&self.block_endpoints[(block - 1) * 4..(block - 1) * 4 + 4]);
-            u32::from_le_bytes(buf) as usize
+            self.block_endpoints[block - 1] as usize
         } else {
             0
         };
@@ -209,9 +195,7 @@ where
     }
 
     fn block_max(&self, block: usize) -> u64 {
-        let mut buf = [0u8; 4];
-        buf.copy_from_slice(&self.block_maxs[block * 4..block * 4 + 4]);
-        u32::from_le_bytes(buf) as u64
+        self.block_maxs[block] as u64
     }
 }
 
