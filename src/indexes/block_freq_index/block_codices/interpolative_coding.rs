@@ -1,4 +1,7 @@
-use crate::{indexes::block_freq_index::block_codices::BlockCodec, utils::ceil_log2};
+use crate::{
+    indexes::block_freq_index::block_codices::BlockCodec,
+    utils::{ceil_log2, msb},
+};
 use dsi_bitstream::{
     codes::{VByteLeRead, VByteLeWrite},
     impls::{BufBitReader, BufBitWriter, MemWordReader, MemWordWriterVec},
@@ -16,19 +19,41 @@ impl InterpolativeCodec {
         value: u64,
         u: u64,
     ) {
-        let bits_needed = ceil_log2(u);
+        let b = msb(u);
+        let m = (1u64 << (b + 1)) - u;
 
-        output_writer
-            .write_bits(value, bits_needed as usize)
-            .expect("error in interpolative coding");
+        if value < m {
+            output_writer
+                .write_bits(value, b as usize)
+                .expect("error in interpolative coding");
+        } else {
+            let value = value + m;
+
+            output_writer
+                .write_bits(value >> 1, b as usize)
+                .expect("error in interpolative coding");
+
+            output_writer
+                .write_bits(value & 1, 1)
+                .expect("error in interpolative coding");
+        }
     }
 
     fn read_int(reader: &mut BufBitReader<LE, MemWordReader<u32, &[u32]>>, u: u64) -> u64 {
-        let bits_needed = ceil_log2(u);
+        let b = msb(u);
+        let m = (1u64 << (b + 1)) - u;
 
-        let value = reader
-            .read_bits(bits_needed as usize)
+        let mut value = reader
+            .read_bits(b as usize)
             .expect("error in interpolative decoding");
+
+        if value >= m {
+            let low_bit = reader
+                .read_bits(1)
+                .expect("error in interpolative decoding");
+            value = (value << 1) + low_bit - m;
+        }
+
         value
     }
 
