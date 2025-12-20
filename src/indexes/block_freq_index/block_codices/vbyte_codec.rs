@@ -14,13 +14,13 @@ pub struct VbyteCodec;
 impl BlockCodec for VbyteCodec {
     fn encode_monotone(data: impl IntoIterator<Item = u64>) -> Vec<u32> {
         // convert to dgaps
-        let psums = data.into_iter().scan(0, |s, x| {
+        let dgaps = data.into_iter().scan(0, |s, x| {
             let res = x - *s;
             *s = x;
             Some(res)
         });
 
-        Self::encode(psums)
+        Self::encode(dgaps)
     }
 
     fn encode(data: impl IntoIterator<Item = u64>) -> Vec<u32> {
@@ -35,7 +35,6 @@ impl BlockCodec for VbyteCodec {
         encoded
     }
 
-    // This allocates a vector, no nee to do it if we return an iterator ?
     fn decode_monotone(data: &[u32], n: usize, out: &mut [u64]) -> usize {
         let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(data));
         let mut prec = 0;

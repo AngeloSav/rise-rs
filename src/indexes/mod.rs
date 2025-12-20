@@ -33,3 +33,5 @@ pub type OptEFIdx = FreqIndex<
 >;
 
 pub type BlockVByteIdx = BlockFreqIndex<block_freq_index::block_codices::vbyte_codec::VbyteCodec>;
+pub type BlockInterpolativeIdx =
+    BlockFreqIndex<block_freq_index::block_codices::interpolative_coding::InterpolativeCodec>;

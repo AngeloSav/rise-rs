@@ -1,3 +1,4 @@
+pub mod interpolative_coding;
 pub mod vbyte_codec;
 
 pub trait BlockCodec {

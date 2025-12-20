@@ -1,7 +1,7 @@
 use num::Integer;
 use rand::Rng;
 
-/// Generates a random strictly increasing sequence of `n` values up to `u`.
+/// Generates a random strictly increasing sequence of `n` values in the range `[1, u)`.
 pub fn gen_positive_sequence(n: usize, u: usize) -> Vec<usize> {
     if u == n {
         return (0..n).collect();

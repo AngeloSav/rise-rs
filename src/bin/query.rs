@@ -1,7 +1,7 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
-    indexes::{freq_index::InvertedIndex, BlockVByteIdx},
+    indexes::{freq_index::InvertedIndex, BlockInterpolativeIdx, BlockVByteIdx},
     queries::{
         And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd,
         RankedOr, Wand,
@@ -184,5 +184,6 @@ fn main() {
         IdxKind::UPIs => query_idx!(UPISIdx),
         IdxKind::Opt => query_idx!(OptEFIdx),
         IdxKind::BlockVByte => query_idx!(BlockVByteIdx),
+        IdxKind::BlockInterpolative => query_idx!(BlockInterpolativeIdx),
     }
 }

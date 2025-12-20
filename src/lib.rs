@@ -61,6 +61,8 @@ pub enum IdxKind {
     Opt,
     #[value(name = "block_vbyte")]
     BlockVByte,
+    #[value(name = "block_interpolative")]
+    BlockInterpolative,
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug)]
