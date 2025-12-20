@@ -15,6 +15,8 @@ fn test_codec_monotone<C: BlockCodec>(data: &[u64]) {
     let encoded = C::encode_monotone(data.iter().cloned());
     let mut decoded = vec![0u64; data.len()];
 
+    println!("Encoded size: {} bytes", encoded.len());
+
     let read_bytes = C::decode_monotone(&encoded, data.len(), &mut decoded);
 
     assert_eq!(data, &decoded[..]);
@@ -25,6 +27,8 @@ fn test_codec<C: BlockCodec>(data: &[u64]) {
     let encoded = C::encode(data.iter().cloned());
     let mut decoded = vec![0u64; data.len()];
     let read_bytes = C::decode(&encoded, data.len(), &mut decoded);
+
+    println!("Encoded size: {} bytes", encoded.len());
 
     assert_eq!(data, &decoded[..]);
     assert_eq!(encoded.len(), read_bytes);
@@ -52,7 +56,7 @@ fn test_codec_vbyte() {
 
 #[test]
 fn test_codec_interpolative() {
-    let n = 20;
+    let n = 4000;
     let u = 100_000;
     let v = gen_positive_sequence(n, u)
         .iter()
@@ -67,6 +71,18 @@ fn test_codec_interpolative() {
         .collect::<Vec<u64>>();
 
     test_codec_monotone::<InterpolativeCodec>(&v);
+}
+
+#[test]
+fn test_bic_all_zeros() {
+    let data = vec![0; 10000];
+    test_codec::<InterpolativeCodec>(&data);
+}
+
+#[test]
+fn test_bic_full_sequence() {
+    let data = (0..10000).collect::<Vec<u64>>();
+    test_codec_monotone::<InterpolativeCodec>(&data);
 }
 
 fn test_block_posting_list_iter<BC>()

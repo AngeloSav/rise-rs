@@ -10,8 +10,28 @@ use mem_dbg::{MemDbg, MemSize};
 #[derive(Clone, Debug, MemSize, MemDbg, Epserde)]
 pub struct InterpolativeCodec;
 
-/// TODO: we can waste less bits when the range is small ???
 impl InterpolativeCodec {
+    fn write_int(
+        output_writer: &mut BufBitWriter<LE, MemWordWriterVec<u32, &mut Vec<u32>>>,
+        value: u64,
+        u: u64,
+    ) {
+        let bits_needed = ceil_log2(u);
+
+        output_writer
+            .write_bits(value, bits_needed as usize)
+            .expect("error in interpolative coding");
+    }
+
+    fn read_int(reader: &mut BufBitReader<LE, MemWordReader<u32, &[u32]>>, u: u64) -> u64 {
+        let bits_needed = ceil_log2(u);
+
+        let value = reader
+            .read_bits(bits_needed as usize)
+            .expect("error in interpolative decoding");
+        value
+    }
+
     fn encode_monotone_helper(
         data: &[u64],
         output_writer: &mut BufBitWriter<LE, MemWordWriterVec<u32, &mut Vec<u32>>>,
@@ -27,12 +47,12 @@ impl InterpolativeCodec {
         let max_value = high - (r - m);
         let offset = s_m - min_value;
 
-        let range = max_value - min_value + 1;
-        let bits_needed = ceil_log2(range);
+        // println!();
+        // dbg!(l, r, low, high, m, s_m, max_value, min_value, offset);
 
-        output_writer
-            .write_bits(offset, bits_needed as usize)
-            .expect("error in interpolative coding");
+        let range = max_value - min_value + 1;
+
+        Self::write_int(output_writer, offset, range);
 
         if l < m {
             Self::encode_monotone_helper(data, output_writer, low, s_m - 1, l, m - 1);
@@ -41,6 +61,7 @@ impl InterpolativeCodec {
             Self::encode_monotone_helper(data, output_writer, s_m + 1, high, m + 1, r);
         }
     }
+
     fn decode_monotone_helper(
         reader: &mut BufBitReader<LE, MemWordReader<u32, &[u32]>>,
         output: &mut [u64],
@@ -54,11 +75,9 @@ impl InterpolativeCodec {
         let max_value = high - (r - m);
 
         let range = max_value - min_value + 1;
-        let bits_needed = ceil_log2(range);
 
-        let offset = reader
-            .read_bits(bits_needed as usize)
-            .expect("error in interpolative decoding");
+        let offset = Self::read_int(reader, range);
+
         let s_m = min_value + offset;
 
         output[m as usize] = s_m;
@@ -92,9 +111,10 @@ impl BlockCodec for InterpolativeCodec {
         output
     }
     fn encode(data: impl IntoIterator<Item = u64>) -> Vec<u32> {
-        let psums = data.into_iter().scan(0, |s, x| {
-            let res = x + *s;
-            *s = res;
+        let psums = data.into_iter().enumerate().scan(0, |s, (i, x)| {
+            // add i because we are encoding strictly increasing sequences
+            let res = x + *s as u64 + i as u64;
+            *s = x + *s;
             Some(res)
         });
 
@@ -116,7 +136,8 @@ impl BlockCodec for InterpolativeCodec {
         // println!("DECODED OUT: {:?}", &out[..n]);
 
         for i in (1..n).rev() {
-            out[i] -= out[i - 1];
+            out[i] -= out[i - 1] as u64 + 1;
+            // out[i] -= i as u64 - out[i - 1];
         }
 
         read_bytes
