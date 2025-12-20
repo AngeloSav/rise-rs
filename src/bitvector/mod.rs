@@ -18,8 +18,8 @@ pub mod bitvector_collection;
 use std::u64;
 
 use crate::{
-    utils::{msb, prefetch_read_NTA, select_in_word},
     AccessBin,
+    utils::{msb, prefetch_read_NTA, select_in_word},
 };
 use epserde::Epserde;
 use mem_dbg::{MemDbg, MemSize};
@@ -168,7 +168,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     pub unsafe fn get_bits_unchecked(&self, index: usize, len: usize) -> u64 {
         debug_assert!(len <= 64 && index + len <= self.n_bits);
 
-        Self::get_bits_slice(self.data.as_ref(), index, len)
+        unsafe { Self::get_bits_slice(self.data.as_ref(), index, len) }
     }
 
     // TODO: make the to functions a trait and implement for &[u64] together with set_bit and set_bits for &mut [T]. This way we can have a generic type T which implements those traits for &[T] and &mut [T].
@@ -181,12 +181,12 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         let (block, shift) = (index >> 6, index & 63);
 
         // dbg!(data.len(), block, shift, len);
-        let w = *data.get_unchecked(block) >> shift;
+        let w = *unsafe { data.get_unchecked(block) } >> shift;
 
         if shift + len <= 64 {
             w
         } else {
-            w | (*data.get_unchecked(block + 1) << (64 - shift))
+            w | (*unsafe { data.get_unchecked(block + 1) } << (64 - shift))
         }
     }
 
@@ -210,11 +210,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         // SAFETY: index is ok due to the above check
         let res = unsafe { self.next_one_unchecked(index) };
 
-        if res < self.n_bits {
-            Some(res)
-        } else {
-            None
-        }
+        if res < self.n_bits { Some(res) } else { None }
     }
 
     /// Returns the position of the next 1 bit in the bit vector starting from position `index`.
@@ -226,7 +222,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     pub unsafe fn next_one_unchecked(&self, index: usize) -> usize {
         // SAFETY: index is ok due to the above check
 
-        Self::next_bit_slice_unchecked::<true>(self.data.as_ref(), index, self.n_bits)
+        unsafe { Self::next_bit_slice_unchecked::<true>(self.data.as_ref(), index, self.n_bits) }
     }
 
     #[inline]
@@ -239,11 +235,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         // SAFETY: index is ok due to the above check
         let res = unsafe { self.next_zero_unchecked(index) };
 
-        if res < self.n_bits {
-            Some(res)
-        } else {
-            None
-        }
+        if res < self.n_bits { Some(res) } else { None }
     }
 
     /// Returns the position of the next 0 bit in the bit vector starting from position `index`.
@@ -255,7 +247,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     pub unsafe fn next_zero_unchecked(&self, index: usize) -> usize {
         // SAFETY: index is ok due to the above check
 
-        Self::next_bit_slice_unchecked::<false>(self.data.as_ref(), index, self.n_bits)
+        unsafe { Self::next_bit_slice_unchecked::<false>(self.data.as_ref(), index, self.n_bits) }
     }
 
     // Private function that returns the position of the next 1 bit in the bit vector starting
@@ -276,9 +268,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         let mask = !((1 << shift) - 1);
 
         let mut w = if BIT {
-            *data.get_unchecked(block)
+            *unsafe { data.get_unchecked(block) }
         } else {
-            !*data.get_unchecked(block)
+            !*unsafe { data.get_unchecked(block) }
         } & mask;
 
         let mut index = index;
@@ -287,9 +279,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
             //take next word
             index += 64;
             w = if BIT {
-                *data.get_unchecked(index >> 6)
+                *unsafe { data.get_unchecked(index >> 6) }
             } else {
-                !*data.get_unchecked(index >> 6)
+                !*unsafe { data.get_unchecked(index >> 6) }
             };
         }
 
@@ -314,9 +306,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         let mut k = k;
 
         let w = if BIT {
-            *data.get_unchecked(block)
+            *unsafe { data.get_unchecked(block) }
         } else {
-            !*data.get_unchecked(block)
+            !*unsafe { data.get_unchecked(block) }
         } >> shift;
 
         if w.count_ones() as usize > k {
@@ -344,31 +336,31 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     #[inline(always)]
     pub unsafe fn get_word56_slice(data: &[u64], index: usize) -> u64 {
         let ptr = data.as_ptr() as *const u8;
-        let ptr = *(ptr.add(index / 8) as *const [u8; 8]);
+        let ptr = unsafe { *(ptr.add(index / 8) as *const [u8; 8]) };
         u64::from_ne_bytes(ptr) >> (index % 8)
     }
 
     #[inline]
     #[must_use]
     pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
-        Self::get_gamma_slice_unchecked(self.data.as_ref(), index, self.n_bits)
+        unsafe { Self::get_gamma_slice_unchecked(self.data.as_ref(), index, self.n_bits) }
     }
 
     #[inline]
     #[must_use]
     unsafe fn get_gamma_slice_unchecked(data: &[u64], index: usize, n_bits: usize) -> (u64, usize) {
-        let pos = Self::next_bit_slice_unchecked::<true>(data, index, n_bits) + 1;
+        let pos = unsafe { Self::next_bit_slice_unchecked::<true>(data, index, n_bits) } + 1;
         let l = pos - index - 1;
 
         // SAFETY: if pos was Some, then l is in bounds
-        let v = (1_u64 << l) | Self::get_bits_slice(data, pos, l);
+        let v = (1_u64 << l) | unsafe { Self::get_bits_slice(data, pos, l) };
         (v - 1, pos + l)
     }
 
     #[inline]
     #[must_use]
     pub unsafe fn get_delta_unchecked(&self, index: usize) -> (u64, usize) {
-        Self::get_delta_slice_unchecked(self.data.as_ref(), index, self.n_bits)
+        unsafe { Self::get_delta_slice_unchecked(self.data.as_ref(), index, self.n_bits) }
     }
 
     #[inline]
@@ -383,9 +375,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         // let gamma_part = v - 1;
         // let new_pos = pos + l;
 
-        let (gamma_part, new_pos) = Self::get_gamma_slice_unchecked(data, index, n_bits);
+        let (gamma_part, new_pos) = unsafe { Self::get_gamma_slice_unchecked(data, index, n_bits) };
 
-        let lo = Self::get_bits_slice(data, new_pos, gamma_part as usize);
+        let lo = unsafe { Self::get_bits_slice(data, new_pos, gamma_part as usize) };
         ((1 << gamma_part | lo) - 1, new_pos + gamma_part as usize)
     }
 
@@ -397,9 +389,9 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         index: usize,
         n_bits: usize,
     ) -> (u64, usize) {
-        let bits = Self::get_bits_slice(data, index, GAMMA_BITS);
+        let bits = unsafe { Self::get_bits_slice(data, index, GAMMA_BITS) };
         if bits == 0 {
-            return Self::get_gamma_slice_unchecked(data, index, n_bits);
+            return unsafe { Self::get_gamma_slice_unchecked(data, index, n_bits) };
         }
 
         let (v, d) = GAMMA_TABLE[bits as usize];
@@ -409,7 +401,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         } else {
             let l = d as usize;
             let pos = index + l + 1;
-            let v = (1_u64 << l) | Self::get_bits_slice(data, pos, l);
+            let v = (1_u64 << l) | unsafe { Self::get_bits_slice(data, pos, l) };
             (v - 1, pos + l)
         }
     }
@@ -423,7 +415,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
             return 0;
         }
 
-        Self::get_bits_unmasked_slice(data, index, len) & compute_mask(len)
+        unsafe { Self::get_bits_unmasked_slice(data, index, len) & compute_mask(len) }
     }
 
     // Private function to decode a bit at a given index on a slice. The function does not
@@ -434,7 +426,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
         let word = index >> 6;
         let pos_in_word = index & 63;
 
-        (*data.get_unchecked(word) >> pos_in_word) & 1 != 0
+        (*unsafe { data.get_unchecked(word) } >> pos_in_word) & 1 != 0
     }
 
     /// Gets a whole 64-bit word from the bit vector at index `i` in the underlying vector of u64.
@@ -460,7 +452,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     #[must_use]
     #[inline]
     pub unsafe fn get_word_unchecked(&self, i: usize) -> u64 {
-        *self.data.as_ref().get_unchecked(i)
+        *unsafe { self.data.as_ref().get_unchecked(i) }
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.
@@ -691,7 +683,7 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     /// ```
     #[inline]
     unsafe fn get_unchecked(&self, index: usize) -> bool {
-        Self::get_bit_slice(self.data.as_ref(), index)
+        unsafe { Self::get_bit_slice(self.data.as_ref(), index) }
     }
 }
 
@@ -1172,7 +1164,9 @@ macro_rules! impl_my_prim_int {
     }
 }
 
-impl_my_prim_int![i8, u8, i16, u16, i32, u32, i64, u64, isize, usize, u128, i128];
+impl_my_prim_int![
+    i8, u8, i16, u16, i32, u32, i64, u64, isize, usize, u128, i128
+];
 
 /// Creates a `BitVector` from an iterator over non-negative integer values.
 ///
@@ -1366,7 +1360,7 @@ impl<const BIT: bool> BitVectorBitPositionsIter<'_, BIT> {
     #[must_use]
     #[inline]
     pub unsafe fn get_bits_unchecked(&mut self, len: usize) -> u64 {
-        let v = self.bs.get_bits_unchecked(self.cur_position, len);
+        let v = unsafe { self.bs.get_bits_unchecked(self.cur_position, len) };
         self.cur_position += len;
 
         v
@@ -1616,35 +1610,39 @@ impl<'a> BitSliceWithOffset<'a> {
     #[inline]
     pub unsafe fn get_bits_unchecked(&self, index: usize, len: usize) -> u64 {
         debug_assert!(index + len <= self.n_bits, "Index out of bounds");
-        BitVector::<&[u64]>::get_bits_slice(self.data, index + self.offset, len)
+        unsafe { BitVector::<&[u64]>::get_bits_slice(self.data, index + self.offset, len) }
     }
 
     #[inline]
     #[must_use]
     pub unsafe fn get_gamma_unchecked(&self, index: usize) -> (u64, usize) {
-        let (v, pos) = BitVector::<&[u64]>::get_gamma_slice_unchecked(
-            self.data,
-            index + self.offset,
-            self.n_bits + self.offset,
-        );
+        let (v, pos) = unsafe {
+            BitVector::<&[u64]>::get_gamma_slice_unchecked(
+                self.data,
+                index + self.offset,
+                self.n_bits + self.offset,
+            )
+        };
         (v, pos - self.offset)
     }
 
     #[inline]
     #[must_use]
     pub unsafe fn get_gamma_nonzero_unchecked(&self, index: usize) -> (u64, usize) {
-        let (val, pos) = self.get_gamma_unchecked(index);
+        let (val, pos) = unsafe { self.get_gamma_unchecked(index) };
         (val + 1, pos)
     }
 
     #[inline]
     #[must_use]
     pub unsafe fn get_delta_unchecked(&self, index: usize) -> (u64, usize) {
-        let (v, pos) = BitVector::<&[u64]>::get_delta_slice_unchecked(
-            self.data,
-            index + self.offset,
-            self.n_bits + self.offset,
-        );
+        let (v, pos) = unsafe {
+            BitVector::<&[u64]>::get_delta_slice_unchecked(
+                self.data,
+                index + self.offset,
+                self.n_bits + self.offset,
+            )
+        };
 
         (v, pos - self.offset)
     }
@@ -1656,19 +1654,17 @@ impl<'a> BitSliceWithOffset<'a> {
         // SAFETY: safe access due to the above checks
         let p = unsafe { self.next_one_unchecked(index) };
 
-        if p < self.n_bits {
-            Some(p)
-        } else {
-            None
-        }
+        if p < self.n_bits { Some(p) } else { None }
     }
 
     pub unsafe fn next_one_unchecked(&self, index: usize) -> usize {
-        BitVector::<&[u64]>::next_bit_slice_unchecked::<true>(
-            self.data,
-            index + self.offset,
-            self.n_bits + self.offset,
-        ) - self.offset
+        unsafe {
+            BitVector::<&[u64]>::next_bit_slice_unchecked::<true>(
+                self.data,
+                index + self.offset,
+                self.n_bits + self.offset,
+            ) - self.offset
+        }
     }
 
     pub fn next_zero(&self, index: usize) -> Option<usize> {
@@ -1678,19 +1674,17 @@ impl<'a> BitSliceWithOffset<'a> {
         // SAFETY: safe access due to the above checks
         let p = unsafe { self.next_zero_unchecked(index) };
 
-        if p < self.n_bits {
-            Some(p)
-        } else {
-            None
-        }
+        if p < self.n_bits { Some(p) } else { None }
     }
 
     pub unsafe fn next_zero_unchecked(&self, index: usize) -> usize {
-        BitVector::<&[u64]>::next_bit_slice_unchecked::<false>(
-            self.data,
-            index + self.offset,
-            self.n_bits + self.offset,
-        ) - self.offset
+        unsafe {
+            BitVector::<&[u64]>::next_bit_slice_unchecked::<false>(
+                self.data,
+                index + self.offset,
+                self.n_bits + self.offset,
+            ) - self.offset
+        }
     }
 
     pub fn skip_zeros(&self, index: usize, k: usize) -> Option<usize> {
@@ -1700,20 +1694,18 @@ impl<'a> BitSliceWithOffset<'a> {
         // SAFETY: safe access due to the above checks
         let p = unsafe { self.skip_zeros_unchecked(index, k) };
 
-        if p < self.n_bits {
-            Some(p)
-        } else {
-            None
-        }
+        if p < self.n_bits { Some(p) } else { None }
     }
 
     pub unsafe fn skip_zeros_unchecked(&self, index: usize, k: usize) -> usize {
-        BitVector::<&[u64]>::skip_bits_slice_unchecked::<false>(
-            self.data,
-            index + self.offset,
-            self.n_bits + self.offset,
-            k,
-        ) - self.offset
+        unsafe {
+            BitVector::<&[u64]>::skip_bits_slice_unchecked::<false>(
+                self.data,
+                index + self.offset,
+                self.n_bits + self.offset,
+                k,
+            ) - self.offset
+        }
     }
 
     pub fn skip_ones(&self, index: usize, k: usize) -> Option<usize> {
@@ -1723,21 +1715,19 @@ impl<'a> BitSliceWithOffset<'a> {
         // SAFETY: safe access due to the above checks
         let p = unsafe { self.skip_ones_unchecked(index, k) };
 
-        if p < self.n_bits {
-            Some(p)
-        } else {
-            None
-        }
+        if p < self.n_bits { Some(p) } else { None }
     }
 
     #[inline(always)]
     pub unsafe fn skip_ones_unchecked(&self, index: usize, k: usize) -> usize {
-        BitVector::<&[u64]>::skip_bits_slice_unchecked::<true>(
-            self.data,
-            index + self.offset,
-            self.n_bits + self.offset,
-            k,
-        ) - self.offset
+        unsafe {
+            BitVector::<&[u64]>::skip_bits_slice_unchecked::<true>(
+                self.data,
+                index + self.offset,
+                self.n_bits + self.offset,
+                k,
+            ) - self.offset
+        }
     }
 
     /// This function retrieves a word containing `index` by doing an unaligned read
@@ -1745,7 +1735,7 @@ impl<'a> BitSliceWithOffset<'a> {
     /// UB: if the index is in the last word of the array
     #[inline]
     pub unsafe fn get_word56(&self, index: usize) -> u64 {
-        BitVector::<&[u64]>::get_word56_slice(self.data, self.offset + index)
+        unsafe { BitVector::<&[u64]>::get_word56_slice(self.data, self.offset + index) }
     }
 
     /// Returns a non-consuming iterator over positions of bits set to 1 in the bit vector.
@@ -1881,7 +1871,7 @@ impl AccessBin for BitSliceWithOffset<'_> {
 
     unsafe fn get_unchecked(&self, index: usize) -> bool {
         debug_assert!(index < self.n_bits, "Index out of bounds");
-        BitVector::<&[u64]>::get_bit_slice(self.data, index + self.offset)
+        unsafe { BitVector::<&[u64]>::get_bit_slice(self.data, index + self.offset) }
     }
 }
 

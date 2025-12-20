@@ -1,7 +1,4 @@
-use crate::{
-    indexes::block_freq_index::block_codices::BlockCodec,
-    utils::{ceil_log2, msb},
-};
+use crate::{indexes::block_freq_index::block_codices::BlockCodec, utils::msb};
 use dsi_bitstream::{
     codes::{VByteLeRead, VByteLeWrite},
     impls::{BufBitReader, BufBitWriter, MemWordReader, MemWordWriterVec},
