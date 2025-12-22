@@ -1,4 +1,4 @@
-use std::{fs::File, rc::Rc};
+use std::{fs::File, io::BufWriter, rc::Rc};
 
 use memmap2::{Mmap, MmapOptions};
 
@@ -102,4 +102,69 @@ pub fn from_files(input_path: &str) -> (impl Iterator<Item = (List, List)>, u64)
     let it = docs_iter.zip(freqs_iter);
 
     (it, n_docs)
+}
+
+pub fn write_to_files(
+    out_path: &str,
+    n_docs: u32,
+    docs: &Vec<Vec<u32>>,
+    freqs: &Vec<Vec<u32>>,
+    sizes: &Vec<u32>,
+) {
+    use std::io::Write;
+    let mut docs_file = BufWriter::new(
+        File::create(format!("{}.docs", out_path)).expect("could not create docs output file"),
+    );
+    let mut freqs_file = BufWriter::new(
+        File::create(format!("{}.freqs", out_path)).expect("could not create freqs output file"),
+    );
+    let mut sizes_file = BufWriter::new(
+        File::create(format!("{}.sizes", out_path)).expect("could not create sizes output file"),
+    );
+
+    log::info!("writing docs...");
+
+    docs_file
+        .write_all(&1u32.to_le_bytes())
+        .expect("could not write docs header");
+    docs_file
+        .write_all(&n_docs.to_le_bytes())
+        .expect("could not write docs header");
+
+    for list in docs {
+        let sz = list.len() as u32;
+        docs_file
+            .write_all(&sz.to_le_bytes())
+            .expect("could not write docs size");
+        for &v in list {
+            docs_file
+                .write_all(&v.to_le_bytes())
+                .expect("could not write docs value");
+        }
+    }
+
+    log::info!("docs written, writing freqs...");
+
+    for list in freqs {
+        let sz = list.len() as u32;
+        freqs_file
+            .write_all(&sz.to_le_bytes())
+            .expect("could not write freqs size");
+        for &v in list {
+            freqs_file
+                .write_all(&v.to_le_bytes())
+                .expect("could not write freqs value");
+        }
+    }
+
+    log::info!("freqs written, writing sizes...");
+
+    sizes_file
+        .write_all(&(sizes.len() as u32).to_le_bytes())
+        .expect("could not write sizes length");
+    for &sz in sizes {
+        sizes_file
+            .write_all(&sz.to_le_bytes())
+            .expect("could not write sizes value");
+    }
 }

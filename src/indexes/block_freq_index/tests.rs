@@ -3,7 +3,7 @@ use crate::{
     indexes::{
         block_freq_index::{
             block_codices::{
-                interpolative_coding::InterpolativeCodec, vbyte_codec::VbyteCodec, BlockCodec,
+                BlockCodec, interpolative_coding::InterpolativeCodec, vbyte_codec::VbyteCodec,
             },
             block_posting_list::BlockPostingList,
         },
