@@ -53,6 +53,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // iterator of lists of docids
+    println!(
+        "Reading posting lists from {}",
+        format!("{}.docs", &args.input_path).as_str()
+    );
     let mut it_docs =
         pef::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
 
@@ -62,6 +66,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // PROCESS DATA BELOW --------------------------------
 
     // Construct the forward index
+    println!("Constructing forward index for {} documents", n_docs);
+
     let mut docs = Vec::with_capacity(n_docs);
 
     for doc_id in 0..n_docs {
@@ -73,6 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    println!("Computing RGB partitioning with min_len={}", args.min_len);
     let mut uniq_terms: usize = 0;
     let mut term_id: usize = 0;
     let mut n_terms: usize = 0;
@@ -91,6 +98,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         term_id += 1;
     }
 
+    println!(
+        "Total terms: {}, unique terms considered: {}",
+        n_terms, uniq_terms
+    );
+
     for doc in docs.iter_mut() {
         doc.terms.shrink_to_fit();
     }
@@ -100,6 +112,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     docs[..num_non_empty].sort_by_key(|a| a.org_id);
     docs[num_non_empty..].sort_by_key(|a| a.org_id);
+
+    println!(
+        "Processing {} non empty documents out of {}",
+        num_non_empty,
+        docs.len()
+    );
 
     // Use iterative processing
     rgb::recursive_graph_bisection_iterative(
@@ -124,9 +142,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         pef::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
 
     // iterator of lists of freqs
+    println!(
+        "Reading frequencies lists from {}",
+        format!("{}.freqs", &args.input_path).as_str()
+    );
     let it_freqs =
         pef::readers::BinaryCollectionIterator::new(format!("{}.freqs", &args.input_path).as_str());
 
+    println!(
+        "Reading sizess lists from {}",
+        format!("{}.sizes", &args.input_path).as_str()
+    );
     let mut it_sizes =
         pef::readers::BinaryCollectionIterator::new(format!("{}.sizes", &args.input_path).as_str());
 
