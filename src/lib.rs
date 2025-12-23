@@ -1,6 +1,5 @@
 #![allow(internal_features)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(array_windows)]
 #![feature(iter_array_chunks)]
 #![feature(core_intrinsics)]
 #![feature(float_algebraic)]
@@ -10,10 +9,10 @@ pub mod bitvector;
 
 use std::fmt::Debug;
 
+pub use bitvector::BitVector;
 pub use bitvector::bitvector_collection::{
     BitBoxedCollection, BitVecCollection, BitVecCollectionBuilder,
 };
-pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
 
 use clap::ValueEnum;
