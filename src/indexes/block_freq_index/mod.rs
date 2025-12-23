@@ -7,7 +7,7 @@ use epserde::prelude::*;
 use mem_dbg::{MemDbg, MemSize};
 
 use crate::{
-    config,
+    BitVec, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector, config,
     indexes::{
         block_freq_index::{
             block_codices::BlockCodec,
@@ -16,8 +16,7 @@ use crate::{
         freq_index::{InvertedIndex, PostingListIter},
     },
     readers::BinaryCollectionIterator,
-    utils::{pb_with_message, TimingQueries},
-    BitVec, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector,
+    utils::{TimingQueries, pb_with_message},
 };
 
 pub mod block_codices;
@@ -27,14 +26,14 @@ pub mod block_posting_list;
 pub struct BlockFreqIndex<BC> {
     pub n_docs: usize,
     pub n_terms: usize,
-    data: Vec<u32>,
+    data: Vec<u8>,
     endpoints: BitVec,
     _phantom: std::marker::PhantomData<BC>,
 }
 
 pub struct BlockFreqIndexBuilder<BC> {
     n_docs: usize,
-    lists: Vec<u32>,
+    lists: Vec<u8>,
     endpoints: Vec<u64>,
     _phantom: std::marker::PhantomData<BC>,
 }

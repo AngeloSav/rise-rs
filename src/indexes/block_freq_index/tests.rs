@@ -3,7 +3,8 @@ use crate::{
     indexes::{
         block_freq_index::{
             block_codices::{
-                BlockCodec, interpolative_coding::InterpolativeCodec, vbyte_codec::VbyteCodec,
+                BlockCodec, interpolative_coding::InterpolativeCodec,
+                streamvbyte_codec::StreamVByteCodec,
             },
             block_posting_list::BlockPostingList,
         },
@@ -11,9 +12,9 @@ use crate::{
     },
 };
 
-fn test_codec_monotone<C: BlockCodec>(data: &[u64]) {
+fn test_codec_monotone<C: BlockCodec>(data: &[u32]) {
     let encoded = C::encode_monotone(data.iter().cloned());
-    let mut decoded = vec![0u64; data.len()];
+    let mut decoded = vec![0; data.len()];
 
     println!("Encoded size: {} bytes", encoded.len());
 
@@ -23,9 +24,9 @@ fn test_codec_monotone<C: BlockCodec>(data: &[u64]) {
     assert_eq!(encoded.len(), read_bytes);
 }
 
-fn test_codec<C: BlockCodec>(data: &[u64]) {
+fn test_codec<C: BlockCodec>(data: &[u32]) {
     let encoded = C::encode(data.iter().cloned());
-    let mut decoded = vec![0u64; data.len()];
+    let mut decoded = vec![0; data.len()];
     let read_bytes = C::decode(&encoded, data.len(), &mut decoded);
 
     println!("Encoded size: {} bytes", encoded.len());
@@ -40,35 +41,35 @@ fn test_codec_vbyte() {
     let u = 100_000;
     let v = gen_positive_sequence(n, u)
         .iter()
-        .map(|&x| x as u64)
-        .collect::<Vec<u64>>();
+        .map(|&x| x as u32)
+        .collect::<Vec<_>>();
 
-    test_codec::<VbyteCodec>(&v);
+    test_codec::<StreamVByteCodec>(&v);
 
     let n = 4000;
     let v = gen_strictly_increasing_sequence(n, u)
         .iter()
-        .map(|&x| x as u64)
-        .collect::<Vec<u64>>();
+        .map(|&x| x as u32)
+        .collect::<Vec<_>>();
 
-    test_codec_monotone::<VbyteCodec>(&v);
+    test_codec_monotone::<StreamVByteCodec>(&v);
 }
 
 #[test]
 fn test_codec_interpolative() {
-    let n = 4000;
+    let n = 4095;
     let u = 100_000;
     let v = gen_positive_sequence(n, u)
         .iter()
-        .map(|&x| x as u64)
-        .collect::<Vec<u64>>();
+        .map(|&x| x as u32)
+        .collect::<Vec<_>>();
 
     test_codec::<InterpolativeCodec>(&v);
 
     let v = gen_strictly_increasing_sequence(n, u)
         .iter()
-        .map(|&x| x as u64)
-        .collect::<Vec<u64>>();
+        .map(|&x| x as u32)
+        .collect::<Vec<_>>();
 
     test_codec_monotone::<InterpolativeCodec>(&v);
 }
@@ -81,15 +82,34 @@ fn test_bic_all_zeros() {
 
 #[test]
 fn test_bic_full_sequence() {
-    let data = (0..10000).collect::<Vec<u64>>();
+    let data = (0..10000).collect::<Vec<u32>>();
     test_codec_monotone::<InterpolativeCodec>(&data);
 }
+
+// #[test]
+// fn test_codec_svb() {
+//     let n = 4000;
+//     let u = 100_000;
+//     let v = gen_positive_sequence(n, u)
+//         .iter()
+//         .map(|&x| x as u64)
+//         .collect::<Vec<u64>>();
+
+//     test_codec::<StreamVByteCodec>(&v);
+
+//     let v = gen_strictly_increasing_sequence(n, u)
+//         .iter()
+//         .map(|&x| x as u64)
+//         .collect::<Vec<u64>>();
+
+//     test_codec_monotone::<StreamVByteCodec>(&v);
+// }
 
 fn test_block_posting_list_iter<BC>()
 where
     BC: BlockCodec,
 {
-    let n = 4000;
+    let n = 4095;
     let u = 100_000;
     let freqs = gen_positive_sequence(n, u)
         .iter()
@@ -123,7 +143,7 @@ where
 
 #[test]
 fn test_block_posting_list_iter_vbyte() {
-    test_block_posting_list_iter::<VbyteCodec>();
+    test_block_posting_list_iter::<StreamVByteCodec>();
 }
 
 #[test]

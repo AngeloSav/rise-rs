@@ -55,12 +55,12 @@ impl InterpolativeCodec {
     }
 
     fn encode_monotone_helper(
-        data: &[u64],
+        data: &[u32],
         output_writer: &mut BufBitWriter<LE, MemWordWriterVec<u32, &mut Vec<u32>>>,
-        low: u64,
-        high: u64,
-        l: u64,
-        r: u64,
+        low: u32,
+        high: u32,
+        l: u32,
+        r: u32,
     ) {
         let m = l + (r - l) / 2;
         let s_m = data[m as usize];
@@ -74,7 +74,7 @@ impl InterpolativeCodec {
 
         let range = max_value - min_value + 1;
 
-        Self::write_int(output_writer, offset, range);
+        Self::write_int(output_writer, offset as u64, range as u64);
 
         if l < m {
             Self::encode_monotone_helper(data, output_writer, low, s_m - 1, l, m - 1);
@@ -86,11 +86,11 @@ impl InterpolativeCodec {
 
     fn decode_monotone_helper(
         reader: &mut BufBitReader<LE, MemWordReader<u32, &[u32]>>,
-        output: &mut [u64],
-        low: u64,
-        high: u64,
-        l: u64,
-        r: u64,
+        output: &mut [u32],
+        low: u32,
+        high: u32,
+        l: u32,
+        r: u32,
     ) {
         let m = l + (r - l) / 2;
         let min_value = low + (m - l);
@@ -98,7 +98,7 @@ impl InterpolativeCodec {
 
         let range = max_value - min_value + 1;
 
-        let offset = Self::read_int(reader, range);
+        let offset = Self::read_int(reader, range as u64) as u32;
 
         let s_m = min_value + offset;
 
@@ -115,8 +115,8 @@ impl InterpolativeCodec {
 }
 
 impl BlockCodec for InterpolativeCodec {
-    fn encode_monotone(data: impl IntoIterator<Item = u64>) -> Vec<u32> {
-        let data = data.into_iter().collect::<Vec<u64>>();
+    fn encode_monotone(data: impl IntoIterator<Item = u32>) -> Vec<u8> {
+        let data = data.into_iter().map(|x| x as u32).collect::<Vec<_>>();
 
         // println!("ENCODING DATA: {:?}", &data);
 
@@ -124,44 +124,77 @@ impl BlockCodec for InterpolativeCodec {
         let mut output = Vec::new();
         let mut writer = BufBitWriter::<LE, _>::new(MemWordWriterVec::<u32, _>::new(&mut output));
         writer
-            .write_vbyte_le(last)
+            .write_vbyte_le(last as u64)
             .expect("error in vbyte encoding");
 
-        Self::encode_monotone_helper(&data, &mut writer, 0, last, 0, (data.len() - 1) as u64);
+        Self::encode_monotone_helper(&data, &mut writer, 0, last, 0, (data.len() - 1) as u32);
 
         drop(writer);
-        output
+
+        cast_vecu32_to_vecu8(output)
     }
-    fn encode(data: impl IntoIterator<Item = u64>) -> Vec<u32> {
+
+    fn encode(data: impl IntoIterator<Item = u32>) -> Vec<u8> {
         let psums = data.into_iter().enumerate().scan(0, |s, (i, x)| {
             // add i because we are encoding strictly increasing sequences
-            let res = x + *s as u64 + i as u64;
+            let res = x + *s as u32 + i as u32;
             *s = x + *s;
             Some(res)
         });
 
         Self::encode_monotone(psums)
     }
-    fn decode_monotone(data: &[u32], n: usize, out: &mut [u64]) -> usize {
-        let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(data));
 
-        let last = reader.read_vbyte_le().expect("error in vbyte decoding");
+    fn decode_monotone(data: &[u8], n: usize, out: &mut [u32]) -> usize {
+        let casted_slice = unsafe { cast_sliceu8_to_sliceu32(data) };
+        let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(casted_slice));
 
-        Self::decode_monotone_helper(&mut reader, out, 0, last, 0, (n - 1) as u64);
+        let last = reader.read_vbyte_le().expect("error in vbyte decoding") as u32;
+
+        Self::decode_monotone_helper(&mut reader, out, 0, last, 0, (n - 1) as u32);
 
         let read_bytes = (reader.bit_pos().unwrap() as usize).div_ceil(32);
-        read_bytes
+        read_bytes * 4
     }
-    fn decode(data: &[u32], n: usize, out: &mut [u64]) -> usize {
+
+    fn decode(data: &[u8], n: usize, out: &mut [u32]) -> usize {
         let read_bytes = Self::decode_monotone(data, n, out);
 
         // println!("DECODED OUT: {:?}", &out[..n]);
 
         for i in (1..n).rev() {
-            out[i] -= out[i - 1] as u64 + 1;
+            out[i] -= out[i - 1] as u32 + 1;
             // out[i] -= i as u64 - out[i - 1];
         }
 
         read_bytes
     }
+}
+
+// pub fn cast_vecu8_to_vecu32(mut v: Vec<u8>) -> Vec<u32> {
+//     v.resize(v.len().div_ceil(4) * 4, 0);
+
+//     let len = v.len() / 4;
+//     let capacity = v.capacity() / 4;
+//     let ptr = v.as_ptr() as *mut u32;
+//     std::mem::forget(v);
+//     unsafe { Vec::from_raw_parts(ptr, len, capacity) }
+// }
+
+pub fn cast_vecu32_to_vecu8(v: Vec<u32>) -> Vec<u8> {
+    let len = v.len() * 4;
+    let capacity = v.capacity() * 4;
+    let ptr = v.as_ptr() as *mut u8;
+    std::mem::forget(v);
+    unsafe { Vec::from_raw_parts(ptr, len, capacity) }
+}
+
+// pub fn cast_sliceu32_to_sliceu8(v: &[u32]) -> &[u8] {
+//     let len = v.len() * 4;
+//     unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, len) }
+// }
+
+pub unsafe fn cast_sliceu8_to_sliceu32(v: &[u8]) -> &[u32] {
+    let len = v.len() / 4;
+    unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u32, len) }
 }

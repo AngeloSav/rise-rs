@@ -23,14 +23,14 @@ where
     // n | [max docid of each block] | [block endpoints] | [(docids in block, freqs in block) ...]
 
     /// writes to out the encoded posting list
-    pub fn write(doc_list: &[u64], freq_list: &[u64], out: &mut Vec<u32>) {
+    pub fn write(doc_list: &[u64], freq_list: &[u64], out: &mut Vec<u8>) {
         // write n of docs at the beginning
-        out.push(doc_list.len() as u32);
+        out.extend(&(doc_list.len() as u32).to_le_bytes());
 
         let n_blocks = (doc_list.len() + Self::BLOCK_SIZE - 1) / Self::BLOCK_SIZE; // ceiling division
         let begin_block_maxs = out.len();
-        let begin_block_endpoints = begin_block_maxs + n_blocks;
-        let begin_blocks = begin_block_endpoints + (n_blocks - 1);
+        let begin_block_endpoints = begin_block_maxs + n_blocks * 4;
+        let begin_blocks = begin_block_endpoints + (n_blocks - 1) * 4;
 
         out.resize(begin_blocks, 0);
 
@@ -48,39 +48,42 @@ where
 
             let max_docid = *doc_block.last().unwrap();
 
-            out[begin_block_maxs + b] = max_docid as u32;
+            out[begin_block_maxs + b * 4..begin_block_maxs + (b + 1) * 4]
+                .copy_from_slice(&(max_docid as u32).to_le_bytes());
 
-            let encoded_docs = T::encode_monotone(doc_block.iter().map(|&d| d - block_base));
-            let encoded_freqs = T::encode(freq_block.iter().map(|x| x - 1));
+            let encoded_docs =
+                T::encode_monotone(doc_block.iter().map(|&d| (d - block_base) as u32));
+            let encoded_freqs = T::encode(freq_block.iter().map(|x| (x - 1) as u32));
 
             out.extend(encoded_docs);
             out.extend(encoded_freqs);
 
             if b != n_blocks - 1 {
                 let new_endpoint = out.len() - begin_blocks;
-                out[begin_block_endpoints + b] = new_endpoint as u32;
+                out[begin_block_endpoints + b * 4..begin_block_endpoints + (b + 1) * 4]
+                    .copy_from_slice(&(new_endpoint as u32).to_le_bytes());
             }
 
             block_base = max_docid + 1;
         }
     }
 
-    pub fn iter_from_slice(data: &[u32], universe: u64) -> BlockPostingListIter<'_, T> {
-        let n_docs = data[0] as u64;
+    pub fn iter_from_slice(data: &[u8], universe: u64) -> BlockPostingListIter<'_, T> {
+        let n_docs = u32::from_le_bytes(data[0..4].try_into().unwrap()) as u64;
 
         let n_blocks = (n_docs as usize + Self::BLOCK_SIZE - 1) / Self::BLOCK_SIZE;
 
-        let begin_block_maxs = 1; // after n_docs
-        let begin_block_endpoints = begin_block_maxs + n_blocks;
-        let begin_blocks = begin_block_endpoints + (n_blocks - 1);
+        let begin_block_maxs = 4; // after n_docs
+        let begin_block_endpoints = begin_block_maxs + n_blocks * 4;
+        let begin_blocks = begin_block_endpoints + (n_blocks - 1) * 4;
 
         let mut it = BlockPostingListIter {
             len: n_docs as usize,
             block_maxs: &data[begin_block_maxs..begin_block_endpoints],
             block_endpoints: &data[begin_block_endpoints..begin_blocks],
             blocks_data: &data[begin_blocks..],
-            docs_buf: vec![0u64; Self::BLOCK_SIZE],
-            freqs_buf: vec![0u64; Self::BLOCK_SIZE],
+            docs_buf: vec![0; Self::BLOCK_SIZE],
+            freqs_buf: vec![0; Self::BLOCK_SIZE],
             n_blocks,
             universe,
             _codec: std::marker::PhantomData,
@@ -106,12 +109,12 @@ where
     T: BlockCodec,
 {
     // buffers and slices
-    block_maxs: &'a [u32],
-    block_endpoints: &'a [u32],
-    blocks_data: &'a [u32],
-    docs_buf: Vec<u64>,
-    freqs_buf: Vec<u64>,
-    cur_freqs_data: &'a [u32],
+    block_maxs: &'a [u8],
+    block_endpoints: &'a [u8],
+    blocks_data: &'a [u8],
+    docs_buf: Vec<u32>,
+    freqs_buf: Vec<u32>,
+    cur_freqs_data: &'a [u8],
 
     // bookkeping for blocks
     n_blocks: usize,
@@ -135,7 +138,10 @@ where
 {
     fn decode_docs_block(&mut self, block: usize) {
         let endpoint = if block != 0 {
-            self.block_endpoints[block - 1] as usize
+            self.block_endpoints[(block - 1) * 4..block * 4]
+                .try_into()
+                .map(u32::from_le_bytes)
+                .expect("slice with incorrect length") as usize
         } else {
             0
         };
@@ -162,10 +168,10 @@ where
         // prefetch freqs base maybe ??
 
         self.cur_freqs_data = &block_data[read_bytes..];
-        self.docs_buf[0] += self.cur_base;
+        self.docs_buf[0] += self.cur_base as u32;
         self.pos_in_block = 0;
         self.cur_block = block;
-        self.cur_docid = self.docs_buf[0];
+        self.cur_docid = self.docs_buf[0] as u64;
         self.decoded_freqs = false;
     }
 
@@ -181,7 +187,10 @@ where
     }
 
     fn block_max(&self, block: usize) -> u64 {
-        self.block_maxs[block] as u64
+        self.block_maxs[block * 4..(block + 1) * 4]
+            .try_into()
+            .map(u32::from_le_bytes)
+            .expect("slice with incorrect length") as u64
     }
 }
 
@@ -215,7 +224,7 @@ where
 
         while self.current_doc() < lower_bound {
             self.pos_in_block += 1;
-            self.cur_docid = self.docs_buf[self.pos_in_block] + self.cur_base;
+            self.cur_docid = self.docs_buf[self.pos_in_block] as u64 + self.cur_base;
         }
     }
 
@@ -229,7 +238,7 @@ where
                 self.decode_docs_block(self.cur_block + 1);
             }
         } else {
-            self.cur_docid = self.docs_buf[self.pos_in_block] + self.cur_base;
+            self.cur_docid = self.docs_buf[self.pos_in_block] as u64 + self.cur_base;
         }
     }
 
@@ -237,7 +246,7 @@ where
         if !self.decoded_freqs {
             self.decode_freqs_block();
         }
-        self.freqs_buf[self.pos_in_block] + 1
+        self.freqs_buf[self.pos_in_block] as u64 + 1
     }
 
     fn len(&self) -> usize {

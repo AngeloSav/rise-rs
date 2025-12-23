@@ -4,6 +4,7 @@ use freq_index::FreqIndex;
 mod block_freq_index;
 
 use crate::{
+    EliasFano,
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},
         opt_partition::OptPartitionedSequence,
@@ -11,7 +12,6 @@ use crate::{
         uniform_partitioned_seq::UniformPartitionedSequence,
     },
     positive_sequences::positive_sequence::PositiveSequence,
-    EliasFano,
 };
 
 pub mod freq_index;
@@ -32,6 +32,7 @@ pub type OptEFIdx = FreqIndex<
     PositiveSequence<OptPartitionedSequence<StrictSequence>>,
 >;
 
-pub type BlockVByteIdx = BlockFreqIndex<block_freq_index::block_codices::vbyte_codec::VbyteCodec>;
+pub type BlockVByteIdx =
+    BlockFreqIndex<block_freq_index::block_codices::streamvbyte_codec::StreamVByteCodec>;
 pub type BlockInterpolativeIdx =
     BlockFreqIndex<block_freq_index::block_codices::interpolative_coding::InterpolativeCodec>;

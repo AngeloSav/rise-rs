@@ -26,7 +26,6 @@ log = "0.4.27"
 epserde = { version = "0.10.3", features = ["derive", "mmap"] }
 env_logger = "0.11.8"
 dsi-bitstream = "0.6.0"
-fastpfor = "0.6.3"
 
 [[bench]]
 name = "bit_vector_access"
