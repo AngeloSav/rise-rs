@@ -10,10 +10,10 @@ pub mod bitvector;
 
 use std::fmt::Debug;
 
+pub use bitvector::BitVector;
 pub use bitvector::bitvector_collection::{
     BitBoxedCollection, BitVecCollection, BitVecCollectionBuilder,
 };
-pub use bitvector::BitVector;
 pub use bitvector::{BitBoxed, BitSlice, BitSliceWithOffset, BitVec};
 
 use clap::ValueEnum;
