@@ -19,7 +19,7 @@ use std::u64;
 
 use crate::{
     AccessBin,
-    utils::{msb, prefetch_read_NTA, select_in_word},
+    utils::{msb, select_in_word},
 };
 use epserde::Epserde;
 use mem_dbg::{MemDbg, MemSize};
@@ -1844,10 +1844,6 @@ impl<'a> BitSliceWithOffset<'a> {
         count += word.count_ones() as usize;
 
         count
-    }
-
-    pub fn prefetch_index(&self, pos: usize) {
-        prefetch_read_NTA(self.data, (self.offset + pos) / 64);
     }
 }
 

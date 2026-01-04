@@ -1,5 +1,10 @@
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::Write;
+
 use clap::Parser;
 
+use epserde::ser::Serialize;
 use rgb::forward::Doc;
 
 use rusty_perm::PermApply as _;
@@ -132,10 +137,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         1,
     );
 
-    let mut permutation = vec![0usize; docs.len()];
+    let mut permutation = vec![0u32; docs.len()];
     for (new_id, comp) in docs.iter().enumerate() {
-        permutation[comp.org_id as usize] = new_id;
+        permutation[comp.org_id as usize] = new_id as u32;
     }
+
+    drop(docs);
 
     // iterator of lists of docids
     let mut it_docs =
@@ -150,17 +157,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         pef::readers::BinaryCollectionIterator::new(format!("{}.freqs", &args.input_path).as_str());
 
     println!(
-        "Reading sizess lists from {}",
+        "Reading sizes lists from {}",
         format!("{}.sizes", &args.input_path).as_str()
     );
     let mut it_sizes =
         pef::readers::BinaryCollectionIterator::new(format!("{}.sizes", &args.input_path).as_str());
 
     // new data to write back
+    println!("Permuting and writing permuted index to {}", &args.out_path);
+
     let _n_docs = it_docs.next().unwrap().next().unwrap() as usize;
 
-    let mut docs_new: Vec<Vec<u32>> = Vec::with_capacity(n_terms as usize);
-    let mut freqs_new: Vec<Vec<u32>> = Vec::with_capacity(n_terms as usize);
+    let mut output_docs_file = BufWriter::new(
+        File::create(format!("{}.docs", &args.out_path))
+            .expect("could not create docs output file"),
+    );
+    let mut output_freqs_file = BufWriter::new(
+        File::create(format!("{}.freqs", &args.out_path))
+            .expect("could not create freqs output file"),
+    );
+    let mut output_sizes_file = BufWriter::new(
+        File::create(format!("{}.sizes", &args.out_path))
+            .expect("could not create sizes output file"),
+    );
+
+    let push_binary_list_to_file = |writer: &mut BufWriter<File>, list: Vec<u32>| {
+        let sz = list.len() as u32;
+        writer
+            .write_all(&sz.to_le_bytes())
+            .expect("could not write docs size");
+        for v in list {
+            writer
+                .write_all(&v.to_le_bytes())
+                .expect("could not write docs value");
+        }
+    };
+
+    // let mut docs_new: Vec<Vec<u32>> = Vec::with_capacity(n_terms as usize);
+    // let mut freqs_new: Vec<Vec<u32>> = Vec::with_capacity(n_terms as usize);
+
+    // push n docs to `.docs` file
+    push_binary_list_to_file(&mut output_docs_file, vec![n_docs as u32]);
 
     for list in it_docs.zip(it_freqs) {
         assert_eq!(list.0.len(), list.1.len());
@@ -171,8 +208,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         doc_perm.apply(&mut doc_ids).unwrap();
         doc_perm.apply(&mut freqs).unwrap();
 
-        docs_new.push(doc_ids);
-        freqs_new.push(freqs);
+        push_binary_list_to_file(&mut output_docs_file, doc_ids);
+        push_binary_list_to_file(&mut output_freqs_file, freqs);
+
+        // docs_new.push(doc_ids);
+        // freqs_new.push(freqs);
     }
 
     let sizes_list = it_sizes.next().unwrap();
@@ -183,20 +223,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (old_id, size) in sizes_list.enumerate() {
         let new_id = permutation[old_id];
-        sizes_new[new_id] = size as u32;
+        sizes_new[new_id as usize] = size as u32;
     }
 
+    push_binary_list_to_file(&mut output_sizes_file, sizes_new);
     // writeback the data -----------------------------
-    pef::readers::ds2i_reader::write_to_files(
-        &args.out_path,
-        n_docs as u32,
-        &docs_new,
-        &freqs_new,
-        &sizes_new,
-    );
+    // pef::readers::ds2i_reader::write_to_files(
+    //     &args.out_path,
+    //     n_docs as u32,
+    //     &docs_new,
+    //     &freqs_new,
+    //     &sizes_new,
+    // );
 
     // Leggi e permuta le query e salvale con la stessa estensione del dataset permutato
     // also save permutation.
+
+    let perm_file = format!("{}.perm", &args.out_path);
+    println!("Writing permutation to {}", &perm_file);
+
+    unsafe { permutation.store(perm_file)? };
 
     Ok(())
 }
