@@ -6,18 +6,27 @@ RUST_LOG = "info"
 # In particular, `bin` is the path of the binary that will be run
 [global]
 bin = '../target/release/build_index'
-input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
+# input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
+input-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
 
 # Starting from here each section is an experiment -------------------
 
+[bic.build]
+idx-kind = 'block_interpolative'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.bic.pef.out'
+
+[vbyte.build]
+idx-kind = 'block_vbyte'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.vbyte.pef.out'
+
 [ef.build]
 idx-kind = 'ef'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.ef.pef.out'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.ef.pef.out'
 
 [upis.build]
 idx-kind = 'upis'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.upis.pef.out'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.upis.pef.out'
 
 [opt.build]
 idx-kind = 'opt'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.opt.pef.out'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.opt.pef.out'

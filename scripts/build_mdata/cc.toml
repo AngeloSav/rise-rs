@@ -6,13 +6,15 @@ RUST_LOG = "info"
 # In particular, `bin` is the path of the binary that will be run
 [global]
 bin = '../target/release/create_posting_mdata'
-input-path = '/data1/InvertedIndexes/inverted_indexes/ccnews/cc_url'
+# input-path = '/data1/InvertedIndexes/inverted_indexes/ccnews/cc_url'
+input-path = '/data1/InvertedIndexes/rgb/ccnews/ccnews.rgb.bin'
+
 
 # Starting from here each section is an experiment -------------------
 
 [mdata.static]
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [mdata.variable]
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.var.mdata'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
 variable-block = ""

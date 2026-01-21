@@ -51,8 +51,15 @@ where
             out[begin_block_maxs + b * 4..begin_block_maxs + (b + 1) * 4]
                 .copy_from_slice(&(max_docid as u32).to_le_bytes());
 
-            let encoded_docs =
-                T::encode_monotone(doc_block.iter().map(|&d| (d - block_base) as u32));
+            // let encoded_docs =
+            //     T::encode_monotone(doc_block.iter().map(|&d| (d - block_base) as u32));
+
+            let encoded_docs = T::encode(doc_block.iter().scan(block_base, |base, &d| {
+                let delta = (d - *base) as u32;
+                *base = d + 1;
+                Some(delta)
+            }));
+
             let encoded_freqs = T::encode(freq_block.iter().map(|x| (x - 1) as u32));
 
             out.extend(encoded_docs);
@@ -160,7 +167,7 @@ where
         };
 
         let block_data = &self.blocks_data[endpoint..];
-        let read_bytes = T::decode_monotone(
+        let read_bytes = T::decode(
             block_data,
             self.cur_block_size,
             self.docs_buf.as_mut_slice(),
@@ -224,7 +231,7 @@ where
 
         while self.current_doc() < lower_bound {
             self.pos_in_block += 1;
-            self.cur_docid = self.docs_buf[self.pos_in_block] as u64 + self.cur_base;
+            self.cur_docid += self.docs_buf[self.pos_in_block] as u64 + 1;
         }
     }
 
@@ -238,7 +245,7 @@ where
                 self.decode_docs_block(self.cur_block + 1);
             }
         } else {
-            self.cur_docid = self.docs_buf[self.pos_in_block] as u64 + self.cur_base;
+            self.cur_docid += self.docs_buf[self.pos_in_block] as u64 + 1;
         }
     }
 

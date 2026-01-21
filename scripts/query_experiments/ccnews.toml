@@ -17,53 +17,90 @@ n-queries = 1000
 # SINGLE EF -----------------------------------------
 
 [ef]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.ef.pef.out'
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.ef.pef.out'
 index-kind = 'ef'
 
 [ef.cc_url]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [ef.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [ef.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.var.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
 
 # UNIFORM PARTITIONING EXPERIMENTS -------------------
 
 [up]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.upis.pef.out'
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.upis.pef.out'
 index-kind = 'upis'
 
 [up.cc_url]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [up.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [up.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.var.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
 
 # OPT ----------------------------------------------------
 
 [opt]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.upis.pef.out'
-index-kind = 'upis'
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.opt.pef.out'
+index-kind = 'opt'
 
 [opt.cc_url]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [opt.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.static.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 
 [opt.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.var.mdata'
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
+
+# BIC -----------------------------------------
+
+[bic]
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.bic.pef.out'
+index-kind = 'block_interpolative'
+
+[bic.cc_url]
+query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+
+[bic.blockmax_static]
+query-kind = ['bm-wand', 'bm-maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+
+[bic.blockmax_variable]
+query-kind = ['bm-wand', 'bm-maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
+
+
+# SVB -----------------------------------------
+
+[svb]
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.vbyte.pef.out'
+index-kind = 'block_vbyte'
+
+[svb.cc_url]
+query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+
+[svb.blockmax_static]
+query-kind = ['bm-wand', 'bm-maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+
+[svb.blockmax_variable]
+query-kind = ['bm-wand', 'bm-maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
