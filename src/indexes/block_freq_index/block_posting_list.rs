@@ -174,6 +174,8 @@ where
         );
         // prefetch freqs base maybe ??
 
+        std::intrinsics::prefetch_read_data::<_, 3>(block_data[read_bytes..].as_ptr());
+
         self.cur_freqs_data = &block_data[read_bytes..];
         self.docs_buf[0] += self.cur_base as u32;
         self.pos_in_block = 0;
@@ -183,12 +185,13 @@ where
     }
 
     fn decode_freqs_block(&mut self) {
-        let _read_bytes = T::decode(
+        let read_bytes = T::decode(
             self.cur_freqs_data,
             self.cur_block_size,
             self.freqs_buf.as_mut_slice(),
         );
         // prefetch next block in some way
+        std::intrinsics::prefetch_read_data::<_, 3>(self.cur_freqs_data[read_bytes..].as_ptr());
 
         self.decoded_freqs = true;
     }
