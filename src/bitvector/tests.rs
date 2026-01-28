@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    gen_sequences::{gen_strictly_increasing_sequence, negate_vector, DGaps},
+    gen_sequences::{DGaps, gen_strictly_increasing_sequence, negate_vector},
     utils::gamma_size,
 };
 

@@ -1,7 +1,9 @@
 use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
-    WriteBitvector, config,
-    utils::{ceil_log2, msb},
+    WriteBitvector,
+    bitvector::BitVectorBitPositionsIter,
+    config,
+    utils::{ceil_log2, msb, select_in_word},
 };
 use epserde::prelude::*;
 use num::integer::div_ceil;
@@ -152,6 +154,7 @@ pub struct EliasFanoIter<'a> {
     slice_samples1: BitSliceWithOffset<'a>,
     slice_lo: BitSliceWithOffset<'a>,
     slice_hi: BitSliceWithOffset<'a>,
+    buf: u64,
     n_bits_lo: usize,
     lo_bitmask: u64,
     pointer_size: usize,
@@ -201,18 +204,46 @@ impl EliasFanoIter<'_> {
             self.i_hi = hi_pos as usize;
         }
 
-        // this is the old, slow way to skip zeros
-        // for _ in 0..to_skip {
-        //     self.i_hi = dbg!(self.slice_hi.next_zero(self.i_hi)?) + 1;
+        // XXXX
+        // if to_skip != 0 {
+        // self.i_hi = unsafe { self.slice_hi.skip_zeros_unchecked(self.i_hi, to_skip - 1) } + 1;
         // }
-
+        // XXXX
         if to_skip != 0 {
-            self.i_hi = unsafe { self.slice_hi.skip_zeros_unchecked(self.i_hi, to_skip - 1) } + 1;
-        }
-        self.position = self.i_hi - hi_lower_bound;
-        // self.i_hi += 1;
+            let index = self.i_hi + self.slice_hi.offset;
+            let k = to_skip - 1;
+            let mut block = index >> 6;
+            let mut skipped = 0;
+            let mut pos_in_word = index % 64;
 
-        // self.hi_ctr = hi_lower_bound;
+            // TO CHANGE TO BUFFERED VERSION LATER
+            // let mut buf = !self.buf & (!0_u64 << (pos_in_word));
+            let mut buf =
+                !*unsafe { self.slice_hi.data.get_unchecked(block) } & (!0_u64 << pos_in_word);
+
+            let mut w;
+
+            loop {
+                w = buf.count_ones() as usize;
+
+                if skipped + w > k {
+                    break;
+                }
+
+                skipped += w;
+                block += 1;
+
+                buf = !*unsafe { self.slice_hi.data.get_unchecked(block) };
+            }
+
+            pos_in_word = select_in_word(buf, (k - skipped) as u64) as usize;
+            self.buf = !buf & (!0_u64 << pos_in_word);
+
+            self.i_hi = (block << 6) + pos_in_word + 1 - self.slice_hi.offset;
+        }
+        //XXXX
+
+        self.position = self.i_hi - hi_lower_bound;
 
         let mut res = self.next_val();
 
@@ -246,10 +277,6 @@ impl EliasFanoIter<'_> {
                 0
             } else {
                 unsafe {
-                    // self.slice_samples1.get_bits_unchecked(
-                    //     (ptr - 1) as usize * self.pointer_size,
-                    //     self.pointer_size,
-                    // ) - 1
                     (self
                         .slice_samples1
                         .get_word56((ptr - 1) as usize * self.pointer_size)
@@ -263,12 +290,48 @@ impl EliasFanoIter<'_> {
             self.i_hi = hi_pos as usize;
         }
 
+        // XXXX
+        // if to_skip != 0 {
+        //     self.i_hi = unsafe { self.slice_hi.skip_ones_unchecked(self.i_hi, to_skip - 1) } + 1;
+        // }
+        // XXXX
+
         if to_skip != 0 {
-            self.i_hi = unsafe { self.slice_hi.skip_ones_unchecked(self.i_hi, to_skip - 1) } + 1;
+            let index = self.i_hi + self.slice_hi.offset;
+            let k = to_skip - 1;
+
+            let mut block = index >> 6;
+            let mut skipped = 0;
+            let mut pos_in_word = index % 64;
+
+            let mut buf =
+                *unsafe { self.slice_hi.data.get_unchecked(block) } & (!0_u64 << pos_in_word);
+            // let mut buf = self.buf;
+            let mut w;
+
+            loop {
+                w = buf.count_ones() as usize;
+
+                if skipped + w > k {
+                    break;
+                }
+
+                skipped += w;
+                block += 1;
+
+                buf = *unsafe { self.slice_hi.data.get_unchecked(block) };
+            }
+
+            assert!(buf != 0);
+            pos_in_word = select_in_word(buf, (k - skipped) as u64) as usize;
+
+            self.buf = buf & (!0_u64 << pos_in_word);
+            self.i_hi = (block << 6) + pos_in_word + 1 - self.slice_hi.offset;
         }
+        // XXXX
+
         self.position = pos;
 
-        // self.hi_ctr = self.i_hi - self.position;
         self.next_val()
     }
 }
@@ -276,23 +339,36 @@ impl EliasFanoIter<'_> {
 impl SequenceEnumerator for EliasFanoIter<'_> {
     fn next_val(&mut self) -> (u64, usize) {
         if core::intrinsics::likely(self.position < self.len) {
-            // prefetch_read_NTA(self.slice_lo.data, (self.position * self.n_bits_lo) >> 6);
-            // prefetch_read_NTA(
-            //     self.slice_lo.data,
-            //     ((self.position * self.n_bits_lo) >> 6) + 1,
-            // );
-
-            // old way, here we now do an unaligned read for no bound check + 1 access
-            // let lo = unsafe {
-            //     self.slice_lo
-            //         .get_bits_unchecked(self.position * self.n_bits_lo, self.n_bits_lo)
-            // };
-
             let idx = self.position * self.n_bits_lo;
             let lo = unsafe { self.slice_lo.get_word56(idx) } & self.lo_bitmask;
 
+            // XXXX
             //currently we get some misses here: maybe buffering can help?
-            self.i_hi = unsafe { self.slice_hi.next_one_unchecked(self.i_hi) };
+            // self.i_hi = unsafe { self.slice_hi.next_one_unchecked(self.i_hi) };
+            // XXXX
+
+            let index = self.i_hi + self.slice_hi.offset;
+            let block = index >> 6;
+            let shift = index & 63;
+            let n_bits = self.slice_hi.n_bits + self.slice_hi.offset;
+
+            let mask = !((1 << shift) - 1);
+            let mut buf = *unsafe { self.slice_hi.data.get_unchecked(block) } & mask;
+
+            // let mut buf = self.buf;
+
+            let mut index = index;
+
+            while buf == 0 && index < n_bits {
+                //take next word
+                index += 64;
+                buf = *unsafe { self.slice_hi.data.get_unchecked(index >> 6) };
+            }
+
+            self.buf = buf & (buf - 1);
+            self.i_hi = (index & !63) + buf.trailing_zeros() as usize - self.slice_hi.offset;
+            // XXXX
+
             let hi = ((self.i_hi - self.position) << self.n_bits_lo) as u64;
 
             self.position += 1;
@@ -333,7 +409,7 @@ impl NextGEQ for EliasFanoIter<'_> {
         //     return (self.cur_value, self.position - 1);
         // }
 
-        let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
+        let hi_lower_bound: usize = (lower_bound >> self.n_bits_lo) as usize;
         let cur_hi = self.i_hi - self.position;
 
         if self.cur_value < lower_bound
@@ -406,12 +482,17 @@ impl<'a> EnumeratorFromBitSlice<'a> for EliasFano {
         end_split += higher_bits_len as usize;
         let slice_hi = bv.slice(start_split, end_split);
 
+        let actual_pos_hi = 0 + slice_hi.offset;
+        let mut buf = slice_hi.data[actual_pos_hi / 64];
+        buf &= u64::MAX << (actual_pos_hi % 64);
+
         let lo_bitmask = (1 << n_lo_bits) - 1;
 
         EliasFanoIter {
             slice_samples,
             slice_samples1,
             slice_lo,
+            buf,
             slice_hi,
             n_bits_lo: n_lo_bits as usize,
             lo_bitmask,
