@@ -109,6 +109,7 @@ impl WriteBitvector for EliasFano {
 
         let mut prec_hi = 0;
         let mut prec = 0;
+        bv_hi.push(false); // sentinel
         for (i, &el) in seq.into_iter().enumerate() {
             assert!(prec <= el, "Sequence must be non decreasing!");
             assert!(el < u);
@@ -143,8 +144,9 @@ impl WriteBitvector for EliasFano {
 
         bv.concat(bv_lo);
 
-        bv_hi.extend_with_zeros(higher_bits_len as usize - bv_hi.len());
+        let extra_bits = higher_bits_len as usize - bv_hi.len();
         bv.concat(bv_hi);
+        bv.extend_with_zeros(extra_bits);
 
         bv
     }
@@ -169,17 +171,20 @@ pub struct EliasFanoIter<'a> {
 impl EliasFanoIter<'_> {
     const LINEAR_SCAN_THRESHOLD: usize = LINEAR_SCAN_THRESHOLD;
 
+    #[inline]
     fn read_low(&self) -> u64 {
         let idx = self.position * self.n_bits_lo;
         let lo = unsafe { self.slice_lo.get_word56(idx) } & self.lo_bitmask;
         lo
     }
 
+    #[inline]
     fn read_next(&mut self) -> u64 {
         let high = self.unary_enumerator.next_one() as u64;
-        ((high - self.position as u64) << self.n_bits_lo as u64) | self.read_low()
+        ((high - self.position as u64 - 1) << self.n_bits_lo as u64) | self.read_low()
     }
 
+    #[inline]
     fn value(&self) -> (u64, usize) {
         (self.value, self.position)
     }
@@ -187,7 +192,7 @@ impl EliasFanoIter<'_> {
     #[cold]
     #[inline(never)]
     fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
-        if lower_bound >= self.u {
+        if core::intrinsics::unlikely(lower_bound >= self.u) {
             return self.move_to_position(self.len);
         }
 
@@ -196,10 +201,10 @@ impl EliasFanoIter<'_> {
 
         let to_skip;
         if lower_bound > self.value && ((hi_lower_bound - cur_hi) >> LOG_SAMPLING0) == 0 {
-            println!("FAST skip in slow_next_geq");
+            // println!("FAST skip in slow_next_geq");
             to_skip = (hi_lower_bound - cur_hi) as usize;
         } else {
-            println!("SLOW: darray");
+            // println!("SLOW: darray");
             let ptr = hi_lower_bound >> LOG_SAMPLING0;
             let hi_pos = if ptr == 0 {
                 0
@@ -212,23 +217,40 @@ impl EliasFanoIter<'_> {
             };
             let hi_rank0 = (ptr as usize) << LOG_SAMPLING0;
 
-            self.unary_enumerator = UnaryEnumerator::with_pos(&self.slice_hi, hi_pos as usize + 1);
+            self.unary_enumerator = UnaryEnumerator::with_pos(&self.slice_hi, hi_pos as usize);
 
             to_skip = hi_lower_bound as usize - hi_rank0;
         }
 
         self.unary_enumerator.skip0(to_skip);
-        self.position = dbg!(self.unary_enumerator.position()) - hi_lower_bound as usize;
+        self.position = self.unary_enumerator.position() - hi_lower_bound as usize;
+
         loop {
-            let val = self.next_val();
-            if val.0 >= lower_bound {
-                return val;
+            if core::intrinsics::unlikely(self.position == self.len) {
+                self.value = self.u;
+                return self.value();
             }
+
+            let high_index = self.unary_enumerator.next_one() as u64;
+            let high_val = high_index - self.position as u64 - 1;
+            let low_val = self.read_low();
+            let val = (high_val << self.n_bits_lo) | low_val;
+
+            // let val = self.read_next();
+
+            if val >= lower_bound {
+                self.value = val;
+                return self.value();
+            }
+
+            self.position += 1;
         }
     }
 
+    #[cold]
+    #[inline(never)]
     fn slow_move(&mut self, pos: usize) -> (u64, usize) {
-        if core::intrinsics::unlikely(pos == self.len) {
+        if core::intrinsics::unlikely(pos >= self.len) {
             self.position = pos;
             self.value = self.u;
             return self.value();
@@ -266,14 +288,14 @@ impl EliasFanoIter<'_> {
 
 impl SequenceEnumerator for EliasFanoIter<'_> {
     fn next_val(&mut self) -> (u64, usize) {
-        // if we didn't start yet, move to 0
-        if self.position == usize::MAX {
+        // NOT STARTED
+        if core::intrinsics::unlikely(self.position == usize::MAX) {
             return self.move_to_position(0);
         }
 
         self.position += 1;
 
-        if self.position < self.len {
+        if core::intrinsics::likely(self.position < self.len) {
             self.value = self.read_next();
         } else {
             self.value = self.u;
@@ -283,25 +305,25 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
     }
 
     fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
-        assert!(pos <= self.len);
+        // debug_assert!(pos <= self.len);
 
         if pos == self.position {
             return self.value();
         }
 
         let skip = pos.wrapping_sub(self.position);
-        if pos > self.position && skip <= Self::LINEAR_SCAN_THRESHOLD {
+        if core::intrinsics::likely(pos > self.position && skip <= Self::LINEAR_SCAN_THRESHOLD) {
             self.position = pos;
             // println!("skip linear scan: {}", skip);
 
-            if self.position == self.len {
+            if core::intrinsics::unlikely(self.position == self.len) {
                 self.value = self.u;
             } else {
                 for _ in 0..skip {
                     self.unary_enumerator.next_one();
                 }
 
-                self.value = (self.unary_enumerator.position() as u64 - self.position as u64)
+                self.value = (self.unary_enumerator.position() as u64 - self.position as u64 - 1)
                     << self.n_bits_lo as u64
                     | self.read_low();
             }
@@ -317,22 +339,29 @@ impl SequenceEnumerator for EliasFanoIter<'_> {
 }
 
 impl NextGEQ for EliasFanoIter<'_> {
+    #[inline(always)]
     fn next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if lower_bound == self.value {
             return self.value();
         }
 
+        // NOT STARTED
+        if core::intrinsics::unlikely(self.position == usize::MAX) {
+            self.move_to_position(0);
+        }
+
         let high_lower_bound = (lower_bound >> self.n_bits_lo) as u64;
         let cur_hi = self.value >> self.n_bits_lo;
 
-        if lower_bound > self.value
-            && (high_lower_bound - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD as u64
-        {
-            println!("FAST LINEAR scan in next_geq");
+        if core::intrinsics::likely(
+            lower_bound > self.value
+                && (high_lower_bound - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD as u64,
+        ) {
+            // println!("FAST LINEAR scan in next_geq");
             let mut val;
             loop {
                 self.position += 1;
-                if self.position < self.len {
+                if core::intrinsics::likely(self.position < self.len) {
                     val = self.read_next();
                 } else {
                     val = self.u;

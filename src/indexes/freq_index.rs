@@ -7,6 +7,8 @@ use epserde::prelude::*;
 use std::{fmt::Debug, marker::PhantomData, path::Path};
 
 use crate::{
+    BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
+    PartitionableSequence, SequenceEnumerator, WriteBitvector,
     bitvector::bitvector_collection::BitVectorCollectionBuilder,
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},
@@ -15,8 +17,6 @@ use crate::{
         uniform_partitioned_seq::UniformPartitionedSeqIter,
     },
     utils::TimingQueries,
-    BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
-    PartitionableSequence, SequenceEnumerator, WriteBitvector,
 };
 
 #[derive(Clone, Debug, Epserde, MemSize, MemDbg)]
@@ -319,7 +319,7 @@ where
 
         let a: BitSliceWithOffset<'_> = self.freqs_sequences.get(i);
         let freq_it = FL::iter_from_slice(a, sz as usize, self.n_docs as u64);
-        let current = doc_it.next_val();
+        let current = doc_it.move_to_position(0);
 
         FreqIndexPostingListIter {
             current,

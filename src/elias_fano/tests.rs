@@ -21,9 +21,15 @@ fn create_ef() {
     let ef = EliasFano::from(v.clone().as_slice());
     println!("{:?}", ef.bv);
 
-    for (a, b) in ef.iter().zip(v) {
+    for (a, b) in ef.iter().zip(v.clone()) {
         println!("{}", b);
         assert_eq!(a, b);
+    }
+
+    let mut it = ef.iter();
+
+    for i in 0..v.len() {
+        println!("{:?}", it.move_to_position(i));
     }
 }
 
@@ -194,7 +200,7 @@ fn test_nextgeq<TY: DocList>() {
     let v_it = v.clone().into_iter();
     let mut it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
 
-    it.move_to_position(0);
+    // it.move_to_position(0);
 
     for q in queries {
         let a = v_it
