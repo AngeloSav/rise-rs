@@ -10,6 +10,7 @@
 //! set either to zero or one.
 
 pub mod bitvector_collection;
+pub mod unary_enum;
 // TODO:
 // - add CacheLine-based bit vectors
 // - create a BitBoxed with fixed size (with_zeros() or with_ones())

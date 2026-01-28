@@ -1,9 +1,9 @@
 use crate::{
-    elias_fano::{opt_partition::OptPartitionedSequence, EliasFano},
+    EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator, WriteBitvector,
+    elias_fano::{EliasFano, opt_partition::OptPartitionedSequence},
     gen_sequences::{gen_positive_sequence, gen_strictly_increasing_sequence},
     indexes::freq_index::{DocList, FreqList},
     positive_sequences::positive_sequence::PositiveSequence,
-    EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator, WriteBitvector,
 };
 
 use super::{
@@ -21,8 +21,9 @@ fn create_ef() {
     let ef = EliasFano::from(v.clone().as_slice());
     println!("{:?}", ef.bv);
 
-    for b in ef.iter() {
+    for (a, b) in ef.iter().zip(v) {
         println!("{}", b);
+        assert_eq!(a, b);
     }
 }
 
@@ -190,8 +191,10 @@ fn test_nextgeq<TY: DocList>() {
 
     let x = TY::write_bitvector(binding.as_slice(), binding.len(), universe);
 
-    let v_it = v.into_iter();
+    let v_it = v.clone().into_iter();
     let mut it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
+
+    it.move_to_position(0);
 
     for q in queries {
         let a = v_it
@@ -204,10 +207,12 @@ fn test_nextgeq<TY: DocList>() {
         assert_eq!(
             b,
             a,
-            "query = {} | universe = {} | q > u = {}",
+            "query = {} | universe = {} | q > u = {} | {} Exists in sequence? {}",
             q,
             universe,
-            q > universe
+            q > universe,
+            b,
+            v.contains(&b)
         );
     }
 }
