@@ -298,36 +298,39 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     unsafe fn skip_bits_slice_unchecked<const BIT: bool>(
         data: &[u64],
         index: usize,
-        n_bits: usize,
+        _n_bits: usize,
         k: usize,
     ) -> usize {
-        let block = index >> 6;
-        let shift = index & 63;
-        let mut k = k;
+        let mut block = index >> 6;
+        let mut skipped = 0;
+        let mut pos_in_word = index % 64;
 
-        let w = if BIT {
+        let mut buf = if BIT {
             *unsafe { data.get_unchecked(block) }
         } else {
             !*unsafe { data.get_unchecked(block) }
-        } >> shift;
+        } & (!0_u64 << pos_in_word);
+        let mut w;
 
-        if w.count_ones() as usize > k {
-            return index + select_in_word(w, k as u64) as usize;
-        }
-        k -= w.count_ones() as usize;
+        loop {
+            w = buf.count_ones() as usize;
 
-        for (i, &w) in data[block + 1..].iter().enumerate() {
-            let w = if BIT { w } else { !w };
-            // println!("k is {} | w is {:0>64b}", k, w);
-            // println!("k is {} | popcount is {}", k, w.count_ones());
-
-            if w.count_ones() as usize > k {
-                return ((block + i + 1) << 6) + select_in_word(w, k as u64) as usize;
+            if skipped + w > k {
+                break;
             }
-            k -= w.count_ones() as usize;
+
+            skipped += w;
+            block += 1;
+
+            buf = if BIT {
+                *unsafe { data.get_unchecked(block) }
+            } else {
+                !*unsafe { data.get_unchecked(block) }
+            };
         }
 
-        n_bits
+        pos_in_word = select_in_word(buf, (k - skipped) as u64) as usize;
+        (block << 6) + pos_in_word
     }
 
     /// helper function to avoid boundchecks + double access to an array

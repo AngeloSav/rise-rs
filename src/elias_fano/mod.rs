@@ -1,8 +1,7 @@
 use crate::{
-    config,
-    utils::{ceil_log2, msb},
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
-    WriteBitvector,
+    WriteBitvector, config,
+    utils::{ceil_log2, msb},
 };
 use epserde::prelude::*;
 use num::integer::div_ceil;
@@ -337,10 +336,9 @@ impl NextGEQ for EliasFanoIter<'_> {
         let hi_lower_bound = (lower_bound >> self.n_bits_lo) as usize;
         let cur_hi = self.i_hi - self.position;
 
-        if core::intrinsics::likely(
-            self.cur_value < lower_bound
-                && (hi_lower_bound as usize - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD,
-        ) {
+        if self.cur_value < lower_bound
+            && (hi_lower_bound as usize - cur_hi) <= Self::LINEAR_SCAN_THRESHOLD
+        {
             let mut res;
 
             loop {

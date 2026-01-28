@@ -170,6 +170,17 @@ where
     (std::mem::size_of::<T>() * 8 - 1) as u32 - v.leading_zeros()
 }
 
+/// Computes the position of the least significant bit in
+pub fn lsb<T>(v: T) -> u32
+where
+    T: PrimInt,
+{
+    if v == T::zero() {
+        return 0;
+    }
+    v.trailing_zeros()
+}
+
 pub fn ceil_log2<T>(v: T) -> u32
 where
     T: PrimInt,
