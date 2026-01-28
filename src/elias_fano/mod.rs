@@ -225,6 +225,9 @@ impl EliasFanoIter<'_> {
         self.unary_enumerator.skip0(to_skip);
         self.position = self.unary_enumerator.position() - hi_lower_bound as usize;
 
+        let mut low_idx = self.position * self.n_bits_lo;
+        let mut high_base = self.position as u64 + 1;
+
         loop {
             if core::intrinsics::unlikely(self.position == self.len) {
                 self.value = self.u;
@@ -232,9 +235,13 @@ impl EliasFanoIter<'_> {
             }
 
             let high_index = self.unary_enumerator.next_one() as u64;
-            let high_val = high_index - self.position as u64 - 1;
-            let low_val = self.read_low();
-            let val = (high_val << self.n_bits_lo) | low_val;
+            let high_val = high_index - high_base;
+
+            let lo = unsafe { self.slice_lo.get_word56(low_idx) } & self.lo_bitmask;
+            high_base += 1;
+            low_idx += self.n_bits_lo;
+
+            let val = (high_val << self.n_bits_lo) | lo;
 
             // let val = self.read_next();
 
@@ -359,10 +366,18 @@ impl NextGEQ for EliasFanoIter<'_> {
         ) {
             // println!("FAST LINEAR scan in next_geq");
             let mut val;
+            let mut high_base = self.position as u64 + 2;
+            let mut low_idx = (self.position + 1) * self.n_bits_lo;
             loop {
                 self.position += 1;
                 if core::intrinsics::likely(self.position < self.len) {
-                    val = self.read_next();
+                    // val = self.read_next();
+                    let hi = self.unary_enumerator.next_one() as u64 - high_base;
+                    let lo = unsafe { self.slice_lo.get_word56(low_idx) } & self.lo_bitmask;
+                    high_base += 1;
+                    low_idx += self.n_bits_lo;
+
+                    val = (hi << self.n_bits_lo as u64) | lo;
                 } else {
                     val = self.u;
                     break;
