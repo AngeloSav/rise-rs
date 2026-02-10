@@ -6,6 +6,7 @@ use std::{
 /// Implements a min heap with a limited capacity of `k` elements.
 pub struct TopKHeap {
     heap: BinaryHeap<Reverse<PostingInfo>>,
+    threshold: f32,
     k: usize,
 }
 
@@ -27,7 +28,7 @@ impl TopKHeap {
     #[inline]
     /// Returns the frequency of the top element in the heap
     pub fn top(&self) -> Option<f32> {
-        self.heap.peek().map(|x| x.0.frequency)
+        Some(self.threshold)
     }
 
     // returns docids of retrieved elements, ordered by score
@@ -58,22 +59,26 @@ impl TopKHeap {
     pub fn new(k: usize) -> Self {
         TopKHeap {
             heap: BinaryHeap::with_capacity(k),
+            threshold: 0.0,
             k,
         }
     }
 
     pub fn clear(&mut self) {
         self.heap.clear();
+        self.threshold = 0.0;
     }
 
     #[inline]
-    pub fn push(&mut self, score: f32) {
+    pub fn push(&mut self, score: f32) -> bool {
         if self.heap.len() < self.k {
             // fits in heap
             self.heap.push(Reverse(PostingInfo {
                 docid: 0,
                 frequency: score,
             }));
+            self.threshold = self.heap.peek().unwrap().0.frequency;
+            return true;
         } else if self.top().unwrap() < score {
             //better score
             self.heap.pop();
@@ -81,7 +86,11 @@ impl TopKHeap {
                 docid: 0,
                 frequency: score,
             }));
+            self.threshold = self.heap.peek().unwrap().0.frequency;
+            return true;
         }
+
+        false
     }
 
     #[inline]

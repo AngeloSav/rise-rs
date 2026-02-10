@@ -3,7 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
-use crate::{config, readers::BinaryCollectionIterator, utils::pb_with_message, DocScorer};
+use crate::{DocScorer, config, readers::BinaryCollectionIterator, utils::pb_with_message};
 
 use epserde::prelude::*;
 
@@ -142,11 +142,11 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
     }
 
     pub fn get_norm_len(&self, i: usize) -> f32 {
-        self.norms_len[i]
+        unsafe { *self.norms_len.get_unchecked(i) }
     }
 
     pub fn get_max_term_weight(&self, i: usize) -> f32 {
-        self.max_term_weight[i]
+        unsafe { *self.max_term_weight.get_unchecked(i) }
     }
 
     pub fn get_block_posting_metadata_iterator(

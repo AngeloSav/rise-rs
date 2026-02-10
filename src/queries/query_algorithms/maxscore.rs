@@ -1,10 +1,10 @@
 use crate::{
+    DocScorer,
     indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::{
-        query_algorithms::query_freqs, topk_heap::TopKHeap, BlockPostingMetadata, QueryOperator,
-        RankedQueryOperator,
+        BlockPostingMetadata, QueryOperator, RankedQueryOperator, query_algorithms::query_freqs,
+        topk_heap::TopKHeap,
     },
-    DocScorer,
 };
 pub struct MaxScore<'a, Scorer: DocScorer> {
     p_data: &'a BlockPostingMetadata<Scorer>,
