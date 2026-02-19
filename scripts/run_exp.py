@@ -73,7 +73,7 @@ def main(path: str, dry=False):
                 experiments.append((gname, subname, subvals))
 
     if not experiments:
-        print("No experiments found (you need subtables like [ef.cc_url])")
+        print("No experiments found (you need subtables like [ef.cc_url])", file=sys.stderr)
         return 0
 
     # 5. Run experiments
@@ -100,29 +100,29 @@ def main(path: str, dry=False):
 
         # must have bin
         if "bin" not in merged:
-            print(f"Skipping {group}.{exp}: no 'bin' found after merging")
-            pprint.pprint(merged)
+            print(f"Skipping {group}.{exp}: no 'bin' found after merging", file=sys.stderr)
+            pprint.pprint(merged, stream=sys.stderr)
             continue
 
         bin_path = merged["bin"]
         args = build_args(merged)
         cmd = [bin_path] + args
 
-        print("\n================================================")
-        print(f"Experiment: {group}.{exp}")
-        print("Merged config:")
-        pprint.pprint(merged)
-        print("Command:")
-        print(" ".join(cmd))
+        print("\n================================================", file=sys.stderr)
+        print(f"Experiment: {group}.{exp}", file=sys.stderr)
+        print("Merged config:", file=sys.stderr)
+        pprint.pprint(merged, stream=sys.stderr)
+        print("Command:", file=sys.stderr)
+        print(" ".join(cmd), file=sys.stderr)
 
         if dry:
-            print("(dry-run)")
+            print("(dry-run)", file=sys.stderr)
             continue
 
         try:
             subprocess.run(cmd, check=True)
         except Exception as e:
-            print(f"Error running {group}.{exp}: {e}")
+            print(f"Error running {group}.{exp}: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -1,13 +1,13 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
-    indexes::{freq_index::InvertedIndex, BlockInterpolativeIdx, BlockVByteIdx},
+    EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
+    indexes::{BlockInterpolativeIdx, BlockVByteIdx, freq_index::InvertedIndex},
     queries::{
         And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd,
         RankedOr, Wand,
     },
-    utils::{init_logger, TimingQueries},
-    EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
+    utils::{TimingQueries, init_logger},
 };
 use std::io::BufRead;
 use std::path::Path;
@@ -84,12 +84,20 @@ fn perform_query<Q: QueryOperator, I>(
     }
 
     println!(
-        "RESULT {} [exp={}, index_ty={}, n_queries={}, avg={:?}, mdata_filename={}, space_usage_MiB={:.2}]",
+        "{{\
+        \"RESULT\":{}, \
+        \"exp\":{:?}, \
+        \"index_ty\":{:?}, \
+        \"n_queries\":{}, \
+        \"avg\":{:?}, \
+        \"mdata_filename\":{:?}, \
+        \"space_usage_MiB\":{:.2} \
+        }}",
         check,
         Q::query_name(),
         index_ty,
         n_queries,
-        Duration::from_nanos(timer.get().2.try_into().unwrap()),
+        Duration::from_nanos(timer.get().2.try_into().unwrap()).as_micros(),
         mdata_filename,
         idx.mem_size(SizeFlags::default()) as f64 / (1024.0 * 1024.0)
     );
