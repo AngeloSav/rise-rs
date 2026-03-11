@@ -294,6 +294,33 @@ where
         );
     }
 
+    /// Called only from `next_val` when advancing to the immediately next partition.
+    /// Avoids the backward `move_to_position` seek that the general `switch_partition` does:
+    /// instead of re-seeking the EF upper-bounds iterator, it advances it by one step,
+    /// and reuses `cur_ub` (already known) as the new `cur_base`.
+    #[inline]
+    fn switch_partition_next(&mut self) {
+        debug_assert!(self.n_partitions > 1);
+        self.cur_partition += 1;
+        self.cur_begin = self.cur_end;
+        self.cur_end = self.len.min(self.cur_begin + PARTITION_SIZE);
+
+        // The previous cur_ub is the upper bound of the partition we just left;
+        // the new base is one past it.
+        self.cur_base = self.cur_ub + 1;
+        // Advance EF iterator by one step instead of seeking backward.
+        self.cur_ub = self.upper_bounds.next_val().0;
+
+        self.cur_sequence = BaseSequence::iter_from_slice(
+            self.sequences.slice(
+                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
+                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
+            ),
+            self.cur_end - self.cur_begin,
+            self.cur_ub - self.cur_base + 1,
+        );
+    }
+
     #[cold]
     fn slow_move(&mut self, pos: usize) -> (u64, usize) {
         debug_assert!(pos <= self.len);
@@ -321,13 +348,13 @@ where
     #[cold]
     fn slow_next_geq(&mut self, lower_bound: u64) -> (u64, usize) {
         if self.n_partitions == 1 {
-            let (val, pos);
+            // move_to_position already returns values in the global domain (cur_base added
+            // internally), so we must NOT add cur_base again here.
             if lower_bound < self.cur_base {
-                (val, pos) = self.move_to_position(0);
+                return self.move_to_position(0);
             } else {
-                (val, pos) = self.move_to_position(self.len);
+                return self.move_to_position(self.len);
             }
-            return (self.cur_base + val, pos);
         }
 
         let (_ub_val, ub_pos) = self.upper_bounds.next_geq(lower_bound);
@@ -363,13 +390,11 @@ where
             return (self.universe, self.len);
         }
 
-        // if self.cur_partition < self.n_partitions - 1 && self.n_partitions != 1 {
         // go to next partition, if any
-        self.switch_partition(self.cur_partition + 1);
+        self.switch_partition_next();
 
         self.cur_value = self.cur_sequence.next_val().0 + self.cur_base;
         (self.cur_value, self.position - 1)
-        // }
     }
 
     fn move_to_position(&mut self, pos: usize) -> (u64, usize) {

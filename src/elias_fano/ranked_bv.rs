@@ -2,8 +2,8 @@ use epserde::Epserde;
 use num::integer::div_ceil;
 
 use crate::{
-    config, utils::ceil_log2, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace,
-    NextGEQ, SequenceEnumerator, WriteBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, EstimateSpace, NextGEQ, SequenceEnumerator,
+    WriteBitvector, config, utils::ceil_log2,
 };
 
 #[derive(Debug, Epserde)]
@@ -33,8 +33,30 @@ impl<'a> From<&'a [u64]> for RankedBv {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
 
-        let bv = Self::write_bitvector(&v, n, u);
+        let bv = Self::write_bitvector(v, n, u);
         RankedBv { bv, n, u }
+    }
+}
+
+/// Writes rank-sample entries for the RankedBv directly into `bv` at `offset_samples`.
+#[inline]
+fn rbv_set_rank_samples(
+    bv: &mut BitVec,
+    begin: u64,
+    end: u64,
+    rank: u64,
+    offset_samples: usize,
+    rank_sample_size: u64,
+) {
+    let mut sample = div_ceil(begin, 1 << LOG_RANK_SAMPLING);
+    while (sample << LOG_RANK_SAMPLING) < end {
+        if sample == 0 {
+            sample += 1;
+            continue;
+        }
+        let offset = offset_samples + (sample - 1) as usize * rank_sample_size as usize;
+        bv.set_bits(offset, rank_sample_size as usize, rank);
+        sample += 1;
     }
 }
 
@@ -45,50 +67,50 @@ impl WriteBitvector for RankedBv {
         let rank_sample_size = ceil_log2(n + 1) as u64;
         let pointer_size = ceil_log2(u);
 
-        let mut bv = BitVec::with_zeros(u as usize);
-        let mut samples =
-            BitVec::with_zeros((u as usize >> LOG_RANK_SAMPLING) * rank_sample_size as usize);
-        let mut samples1 =
-            BitVec::with_zeros((n as usize >> LOG_SAMPLING1) * pointer_size as usize);
+        // Layout: [ bv (u bits) | samples | samples1 ]
+        let offset_samples = u as usize;
+        let n_samples_bits = (u as usize >> LOG_RANK_SAMPLING) * rank_sample_size as usize;
+        let offset_samples1 = offset_samples + n_samples_bits;
+        let n_samples1_bits = (n >> LOG_SAMPLING1) * pointer_size as usize;
 
-        let mut set_rank_samples = |begin: u64, end: u64, rank: u64| {
-            let mut sample = div_ceil(begin, 1 << LOG_RANK_SAMPLING);
-            while (sample << LOG_RANK_SAMPLING) < end {
-                if sample == 0 {
-                    continue;
-                }
-                let offset = (sample - 1) * rank_sample_size;
-                // println!("writing {} {} {}", offset, rank_sample_size, rank);
-                samples.set_bits(offset as usize, rank_sample_size as usize, rank);
+        let mut bv = BitVec::with_zeros(offset_samples1 + n_samples1_bits);
 
-                sample += 1;
-            }
-        };
-
-        let mut prec = 0;
-        for (i, &el) in seq.into_iter().enumerate() {
+        let mut prec = 0u64;
+        for (i, &el) in seq.iter().enumerate() {
             assert!(i == 0 || prec < el, "Sequence must be strictly increasing!");
             assert!(el < u);
+
+            // Set the bit directly in the bv section (offset 0)
             bv.set(el as usize, true);
 
+            // samples1 section starts at offset_samples1
             if i != 0 && i % (1 << LOG_SAMPLING1) == 0 {
                 let ptr1 = i >> LOG_SAMPLING1;
-                let off = (ptr1 - 1) * pointer_size as usize;
-                samples1.set_bits(off, pointer_size as usize, el);
+                let off = offset_samples1 + (ptr1 - 1) * pointer_size as usize;
+                bv.set_bits(off, pointer_size as usize, el);
             }
 
-            set_rank_samples(prec + 1, el + 1, i as u64);
+            rbv_set_rank_samples(
+                &mut bv,
+                prec + 1,
+                el + 1,
+                i as u64,
+                offset_samples,
+                rank_sample_size,
+            );
             prec = el;
         }
 
-        set_rank_samples(prec + 1, u, n as u64);
+        rbv_set_rank_samples(
+            &mut bv,
+            prec + 1,
+            u,
+            n as u64,
+            offset_samples,
+            rank_sample_size,
+        );
 
-        let mut bvc = BitVec::with_capacity(bv.len() + samples.len());
-        bvc.concat(bv);
-        bvc.concat(samples);
-        bvc.concat(samples1);
-
-        bvc
+        bv
     }
 }
 

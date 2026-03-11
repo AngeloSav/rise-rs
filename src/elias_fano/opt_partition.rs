@@ -352,6 +352,35 @@ where
         );
     }
 
+    /// Called only from `next_val` when advancing to the immediately next partition.
+    /// Avoids the backward `move_to_position` seeks that the general `switch_partition` does:
+    /// instead of re-seeking both the `upper_bounds` and `sizes` EF iterators, it advances
+    /// each by one step and reuses already-known values for begin/base.
+    #[inline]
+    fn switch_partition_next(&mut self) {
+        debug_assert!(self.n_partitions > 1);
+        self.cur_partition += 1;
+
+        // The previous cur_end is the begin of the next partition.
+        self.cur_begin = self.cur_end;
+        // Advance the EF sizes iterator by one step instead of seeking backward.
+        self.cur_end = self.sizes.next_val().0 as usize;
+
+        // The previous cur_ub is the upper bound we just left; new base is one past it.
+        self.cur_base = self.cur_ub + 1;
+        // Advance EF upper-bounds iterator by one step instead of seeking backward.
+        self.cur_ub = self.upper_bounds.next_val().0;
+
+        self.cur_sequence = BaseSequence::iter_from_slice(
+            self.sequences.slice(
+                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
+                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
+            ),
+            self.cur_end - self.cur_begin,
+            self.cur_ub - self.cur_base + 1,
+        );
+    }
+
     #[cold]
     fn slow_move(&mut self, pos: usize) -> (u64, usize) {
         if pos >= self.len {
@@ -416,7 +445,7 @@ where
             return (self.universe, self.len);
         }
 
-        self.switch_partition(self.cur_partition + 1);
+        self.switch_partition_next();
 
         self.cur_value = self.cur_sequence.next_val().0 + self.cur_base;
         (self.cur_value, self.position - 1)

@@ -59,6 +59,32 @@ impl<'a> From<&'a [u64]> for EliasFano {
     }
 }
 
+/// Writes 0-pointer entries for the EF higher-bits array directly into `bv` at offset 0.
+/// Extracted from a closure so that `bv` can also be written to by the caller at the same time.
+#[inline]
+fn ef_set_ptr0(bv: &mut BitVec, begin: u64, end: u64, rank_end: u64, pointer_size: u64) {
+    let begin_zeros = begin - rank_end;
+    let end_zeros = end - rank_end;
+
+    let mut ptr0 = div_ceil(begin_zeros, 1 << LOG_SAMPLING0);
+
+    while (ptr0 << LOG_SAMPLING0) < end_zeros {
+        if ptr0 == 0 {
+            ptr0 += 1;
+            continue;
+        }
+
+        let offset = (ptr0 - 1) * pointer_size;
+        bv.set_bits(
+            offset as usize,
+            pointer_size as usize,
+            (ptr0 << LOG_SAMPLING0) + rank_end,
+        );
+
+        ptr0 += 1;
+    }
+}
+
 impl WriteBitvector for EliasFano {
     #[inline]
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
@@ -70,76 +96,57 @@ impl WriteBitvector for EliasFano {
 
         let pointer_size = ceil_log2(higher_bits_len) as u64;
 
-        let mut bv_lo = BitVec::with_capacity(n_lo_bits as usize);
-        let mut bv_hi = BitVec::with_capacity(higher_bits_len as usize);
-        let mut bv_0ptrs = BitVec::with_zeros(
-            ((higher_bits_len as usize - n) >> LOG_SAMPLING0) * pointer_size as usize,
-        );
-        let mut bv_1ptrs = BitVec::with_zeros((n >> LOG_SAMPLING1) * pointer_size as usize);
+        // Layout: [ 0ptrs | 1ptrs | lo | hi ]
+        let n_0ptrs_bits =
+            ((higher_bits_len as usize - n) >> LOG_SAMPLING0) * pointer_size as usize;
+        let n_1ptrs_bits = (n >> LOG_SAMPLING1) * pointer_size as usize;
+        let offset_lo = n_0ptrs_bits + n_1ptrs_bits;
+        let offset_hi = offset_lo + n * n_lo_bits as usize;
 
-        let mut set_ptr0 = |begin: u64, end: u64, rank_end: u64| {
-            let begin_zeros = begin - rank_end;
-            let end_zeros = end - rank_end;
+        let mut bv = BitVec::with_zeros(offset_hi + higher_bits_len as usize);
 
-            let mut ptr0 = div_ceil(begin_zeros, 1 << LOG_SAMPLING0);
+        let mut prec_hi = 0u64;
+        let mut prec = 0u64;
+        let mut lo_pos = offset_lo;
 
-            while (ptr0 << LOG_SAMPLING0) < end_zeros {
-                if ptr0 == 0 {
-                    ptr0 += 1;
-                    continue;
-                }
+        // +1 to skip the initial sentinel zero
+        let mut hi_pos = offset_hi + 1;
 
-                let offset = (ptr0 - 1) * pointer_size;
-                bv_0ptrs.set_bits(
-                    offset as usize,
-                    pointer_size as usize,
-                    (ptr0 << LOG_SAMPLING0) + rank_end,
-                );
-
-                ptr0 += 1;
-            }
-        };
-
-        let mut prec_hi = 0;
-        let mut prec = 0;
-        bv_hi.push(false); // sentinel
-        for (i, &el) in seq.into_iter().enumerate() {
+        for (i, &el) in seq.iter().enumerate() {
             assert!(prec <= el, "Sequence must be non decreasing!");
             assert!(el < u);
+
             let to_push = el & ((1 << n_lo_bits) - 1);
             let hi = (el >> n_lo_bits) + i as u64 + 1;
-            // println!("to push  {:0>10b}", to_push);
-            bv_lo.append_bits(to_push, n_lo_bits as usize);
 
-            bv_hi.extend_with_zeros(((el >> n_lo_bits) - (prec >> n_lo_bits)) as usize);
-            bv_hi.push(true);
+            // Write low bits
+            bv.set_bits(lo_pos, n_lo_bits as usize, to_push);
+            lo_pos += n_lo_bits as usize;
+
+            // Advance past zero runs in hi (already 0); mark the 1-bit
+            hi_pos += ((el >> n_lo_bits) - (prec >> n_lo_bits)) as usize;
+            bv.set(hi_pos, true);
+            hi_pos += 1;
 
             if i != 0 && i % (1 << LOG_SAMPLING1) == 0 {
                 let ptr1 = i >> LOG_SAMPLING1;
-                let off = (ptr1 - 1) * pointer_size as usize;
-                bv_1ptrs.set_bits(off, pointer_size as usize, hi);
+                let off = n_0ptrs_bits + (ptr1 - 1) * pointer_size as usize;
+                bv.set_bits(off, pointer_size as usize, hi);
             }
 
-            set_ptr0(prec_hi + 1, hi, i as u64);
+            ef_set_ptr0(&mut bv, prec_hi + 1, hi, i as u64, pointer_size);
 
             prec = el;
             prec_hi = hi;
         }
 
-        set_ptr0(prec_hi + 1, higher_bits_len, n as u64);
-        bv_hi.push(false);
-
-        let mut bv =
-            BitVec::with_capacity(bv_hi.len() + bv_lo.len() + bv_0ptrs.len() + bv_1ptrs.len());
-        bv.concat(bv_0ptrs);
-
-        bv.concat(bv_1ptrs);
-
-        bv.concat(bv_lo);
-
-        let extra_bits = higher_bits_len as usize - bv_hi.len();
-        bv.concat(bv_hi);
-        bv.extend_with_zeros(extra_bits);
+        ef_set_ptr0(
+            &mut bv,
+            prec_hi + 1,
+            higher_bits_len,
+            n as u64,
+            pointer_size,
+        );
 
         bv
     }
