@@ -1,10 +1,10 @@
 use crate::{
+    DocScorer,
     indexes::freq_index::{InvertedIndex, PostingListIter},
     queries::{
-        query_algorithms::query_freqs, topk_heap::TopKHeap, BlockPostingMetadata, QueryOperator,
-        RankedQueryOperator,
+        BlockPostingMetadata, QueryOperator, RankedQueryOperator, query_algorithms::query_freqs,
+        topk_heap::TopKHeap,
     },
-    DocScorer,
 };
 
 pub struct BMMaxScore<'a, Scorer: DocScorer> {
@@ -45,11 +45,11 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             enums.push((it, wand_iter, q_weight, max_weight));
         }
 
-        let mut ordered_enums = enums.iter_mut().collect::<Vec<_>>();
+        // Sort in-place: avoids allocating a second Vec<&mut _> and the double-deref on every
+        // hot-loop access.
+        enums.sort_by(|x, y| x.3.partial_cmp(&y.3).unwrap());
 
-        ordered_enums.sort_by(|x, y| x.3.partial_cmp(&y.3).unwrap());
-
-        let upper_bounds = ordered_enums
+        let upper_bounds = enums
             .iter()
             .map(|x| x.3)
             .scan(0f32, |s, x| {
@@ -59,26 +59,21 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             .collect::<Vec<_>>();
 
         let mut non_essential_lists = 0;
-        let mut cur_doc = ordered_enums
-            .iter()
-            .map(|x| x.0.current_doc())
-            .min()
-            .unwrap();
-        while non_essential_lists < ordered_enums.len() && cur_doc < n_docs {
+        let mut cur_doc = enums.iter().map(|x| x.0.current_doc()).min().unwrap();
+        while non_essential_lists < enums.len() && cur_doc < n_docs {
             let mut score = 0.0;
             let mut next_doc = n_docs;
+            // Hoist norm_len once per document instead of calling get_norm_len on every
+            // essential-list hit and again on every non-essential-list hit.
+            let norm_len = self.p_data.get_norm_len(cur_doc as usize);
 
-            for i in non_essential_lists..ordered_enums.len() {
-                if ordered_enums[i].0.current_doc() == cur_doc {
-                    score += ordered_enums[i].2
-                        * Scorer::doc_term_weight(
-                            ordered_enums[i].0.freq(),
-                            self.p_data.get_norm_len(cur_doc as usize),
-                        );
-                    ordered_enums[i].0.next_doc();
+            for i in non_essential_lists..enums.len() {
+                if enums[i].0.current_doc() == cur_doc {
+                    score += enums[i].2 * Scorer::doc_term_weight(enums[i].0.freq(), norm_len);
+                    enums[i].0.next_doc();
                 }
-                if ordered_enums[i].0.current_doc() < next_doc {
-                    next_doc = ordered_enums[i].0.current_doc();
+                if enums[i].0.current_doc() < next_doc {
+                    next_doc = enums[i].0.current_doc();
                 }
             }
 
@@ -89,12 +84,11 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             };
 
             for i in (0..non_essential_lists).rev() {
-                if ordered_enums[i].1.docid() < cur_doc {
-                    ordered_enums[i].1.next_geq(cur_doc);
+                if enums[i].1.docid() < cur_doc {
+                    enums[i].1.next_geq(cur_doc);
                 }
 
-                block_upper_bound -=
-                    ordered_enums[i].3 - ordered_enums[i].1.score() * ordered_enums[i].2;
+                block_upper_bound -= enums[i].3 - enums[i].1.score() * enums[i].2;
 
                 if !self.topk_heap.can_enter(score + block_upper_bound) {
                     break;
@@ -103,15 +97,12 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
 
             if self.topk_heap.can_enter(score + block_upper_bound) {
                 for i in (0..non_essential_lists).rev() {
-                    ordered_enums[i].0.next_geq(cur_doc);
-                    if ordered_enums[i].0.current_doc() == cur_doc {
-                        block_upper_bound += ordered_enums[i].2
-                            * Scorer::doc_term_weight(
-                                ordered_enums[i].0.freq(),
-                                self.p_data.get_norm_len(cur_doc as usize),
-                            );
+                    enums[i].0.next_geq(cur_doc);
+                    if enums[i].0.current_doc() == cur_doc {
+                        block_upper_bound +=
+                            enums[i].2 * Scorer::doc_term_weight(enums[i].0.freq(), norm_len);
                     }
-                    block_upper_bound -= ordered_enums[i].1.score() * ordered_enums[i].2; // query weight???
+                    block_upper_bound -= enums[i].1.score() * enums[i].2; // query weight???
 
                     if !self.topk_heap.can_enter(score + block_upper_bound) {
                         break;
@@ -123,7 +114,7 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             if self.topk_heap.can_enter(score) {
                 self.topk_heap.push(score);
 
-                while non_essential_lists < ordered_enums.len()
+                while non_essential_lists < enums.len()
                     && !self.topk_heap.can_enter(upper_bounds[non_essential_lists])
                 {
                     non_essential_lists += 1;
