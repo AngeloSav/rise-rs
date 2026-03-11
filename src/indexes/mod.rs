@@ -7,6 +7,7 @@ use crate::{
     EliasFano,
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},
+        indexed_seq_complement::{IndexCompSequence, StrictCompSequence},
         opt_partition::OptPartitionedSequence,
         strict_ef::StrictEliasFano,
         uniform_partitioned_seq::UniformPartitionedSequence,
@@ -30,6 +31,11 @@ pub type UPISIdx = FreqIndex<
 pub type OptEFIdx = FreqIndex<
     OptPartitionedSequence<IndexSequence>,
     PositiveSequence<OptPartitionedSequence<StrictSequence>>,
+>;
+
+pub type OptCompIdx = FreqIndex<
+    OptPartitionedSequence<IndexCompSequence>,
+    PositiveSequence<OptPartitionedSequence<StrictCompSequence>>,
 >;
 
 pub type BlockVByteIdx =

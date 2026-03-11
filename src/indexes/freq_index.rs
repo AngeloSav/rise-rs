@@ -105,8 +105,8 @@ where
     FreqSequence: FreqList,
 {
     fn push_plist_freqs(
-        docs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>,
-        freqs_bv: &mut BitVectorCollectionBuilder<Vec<u64>>,
+        docs_bvc: &mut BitVectorCollectionBuilder<Vec<u64>>,
+        freqs_bvc: &mut BitVectorCollectionBuilder<Vec<u64>>,
         sz: usize,
         bv_docs: BitVec,
         bv_freqs: BitVec,
@@ -116,8 +116,8 @@ where
         // println!("sz is: {}", sz);
         bv.concat(bv_docs);
 
-        docs_bv.push(bv);
-        freqs_bv.push(bv_freqs);
+        docs_bvc.push(bv);
+        freqs_bvc.push(bv_freqs);
     }
 
     pub fn from_files(input_path: &str) -> Self {
@@ -152,12 +152,31 @@ where
                 assert!(v_docs.len() == sz as usize);
                 assert!(sz > 0);
 
+                let docs_task = std::thread::spawn(move || {
+                    DocumentSequence::write_bitvector(v_docs.as_slice(), sz as usize, n_docs as u64)
+                });
+                let freqs_task = std::thread::spawn(move || {
+                    FreqSequence::write_bitvector(v_freqs.as_slice(), sz as usize, 0)
+                });
+
+                let docs_bv = docs_task
+                    .join()
+                    .expect("thread panicked while encoding docs");
+                let freq_bv = freqs_task
+                    .join()
+                    .expect("thread panicked while encoding freqs");
+
+                //  rayon::join(
+                //     || DocumentSequence::write_bitvector(&v_docs, sz as usize, n_docs),
+                //     || FreqSequence::write_bitvector(&v_freqs, sz as usize, 0),
+                // );
+
                 Self::push_plist_freqs(
                     &mut bvb_docs,
                     &mut bvb_freqs,
                     sz as usize,
-                    DocumentSequence::write_bitvector(&v_docs, sz as usize, n_docs),
-                    FreqSequence::write_bitvector(&v_freqs, sz as usize, 0),
+                    docs_bv,
+                    freq_bv,
                 );
 
                 n_terms += 1;

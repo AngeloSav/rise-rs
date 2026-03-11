@@ -3,10 +3,10 @@ use std::marker::PhantomData;
 use epserde::Epserde;
 
 use crate::{
-    indexes::freq_index::{DocList, FreqList},
-    utils::ceil_log2,
     BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence,
     SequenceEnumerator, WriteBitvector,
+    indexes::freq_index::{DocList, FreqList},
+    utils::ceil_log2,
 };
 
 use super::{EliasFano, EliasFanoIter};

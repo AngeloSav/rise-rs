@@ -1,12 +1,9 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
-    EFIdx, IdxKind, OptEFIdx, QueryKind, UPEFIdx, UPISIdx,
-    indexes::{BlockInterpolativeIdx, BlockVByteIdx, freq_index::InvertedIndex},
-    queries::{
-        And, BMMaxScore, BMWand, BlockPostingMetadata, MaxScore, Or, QueryOperator, RankedAnd,
-        RankedOr, Wand,
-    },
+    IdxKind, QueryKind,
+    indexes::{freq_index::InvertedIndex, *},
+    queries::*,
     utils::{TimingQueries, init_logger},
 };
 use std::io::BufRead;
@@ -193,5 +190,6 @@ fn main() {
         IdxKind::Opt => query_idx!(OptEFIdx),
         IdxKind::BlockVByte => query_idx!(BlockVByteIdx),
         IdxKind::BlockInterpolative => query_idx!(BlockInterpolativeIdx),
+        IdxKind::OptComp => query_idx!(OptCompIdx),
     }
 }

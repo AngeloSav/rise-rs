@@ -153,12 +153,15 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
         &'_ self,
         i: usize,
     ) -> BlockPostingMDataEnumerator<'_, Scorer> {
+        let block_start = self.blocks_start[i];
+        let block_number = self.blocks_start[i + 1] - self.blocks_start[i];
+
         BlockPostingMDataEnumerator {
             current_pos: 0,
-            block_start: self.blocks_start[i],
-            block_number: self.blocks_start[i + 1] - self.blocks_start[i],
-            block_max_term_weight: &self.blocks_max_term_weight,
-            block_docid: &self.blocks_docid,
+            block_number,
+            block_max_term_weight: &self.blocks_max_term_weight
+                [self.blocks_start[i]..self.blocks_start[i + 1]],
+            block_docid: &self.blocks_docid[self.blocks_start[i]..self.blocks_start[i + 1]],
             phantom: PhantomData,
         }
     }
@@ -166,7 +169,6 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
 
 pub struct BlockPostingMDataEnumerator<'a, Scorer: DocScorer> {
     current_pos: usize,
-    block_start: usize,
     block_number: usize,
     block_max_term_weight: &'a [f32],
     block_docid: &'a [u32],
@@ -176,18 +178,17 @@ pub struct BlockPostingMDataEnumerator<'a, Scorer: DocScorer> {
 impl<'a, Scorer: DocScorer> BlockPostingMDataEnumerator<'a, Scorer> {
     pub fn next_geq(&mut self, lower_bound: u64) {
         while self.current_pos + 1 < self.block_number
-            && (self.block_docid[self.current_pos + self.block_start] as usize)
-                < lower_bound as usize
+            && (self.block_docid[self.current_pos] as usize) < lower_bound as usize
         {
             self.current_pos += 1;
         }
     }
 
     pub fn score(&self) -> f32 {
-        self.block_max_term_weight[self.current_pos + self.block_start]
+        self.block_max_term_weight[self.current_pos]
     }
 
     pub fn docid(&self) -> u64 {
-        self.block_docid[self.current_pos + self.block_start] as u64
+        self.block_docid[self.current_pos] as u64
     }
 }

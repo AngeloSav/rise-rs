@@ -59,6 +59,8 @@ pub enum IdxKind {
     UPIs,
     #[value(name = "opt")]
     Opt,
+    #[value(name = "optcomp")]
+    OptComp,
     #[value(name = "block_vbyte")]
     BlockVByte,
     #[value(name = "block_interpolative")]

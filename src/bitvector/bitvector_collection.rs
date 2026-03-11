@@ -9,7 +9,7 @@
 
 // TODO: remake all doctests: NOW we use a BVBuilder!!!!
 
-use crate::{bitvector::*, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector};
+use crate::{EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector, bitvector::*};
 use mem_dbg::{MemDbg, MemSize};
 
 pub type BitVecCollection = BitVectorCollection<Vec<u64>>;

@@ -32,11 +32,7 @@ impl<'a> From<&'a [u64]> for AllOnes {
 
 impl EstimateSpace for AllOnes {
     fn bitsize(u: u64, n: usize) -> usize {
-        if u == n as u64 {
-            0
-        } else {
-            usize::MAX
-        }
+        if u == n as u64 { 0 } else { usize::MAX }
     }
 }
 

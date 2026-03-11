@@ -1,9 +1,9 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
+use pef::IdxKind;
 use pef::indexes::freq_index::InvertedIndex;
-use pef::indexes::{BlockInterpolativeIdx, BlockVByteIdx};
+use pef::indexes::*;
 use pef::utils::init_logger;
-use pef::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -63,5 +63,6 @@ fn main() {
         IdxKind::Opt => build_idx!(OptEFIdx),
         IdxKind::BlockVByte => build_idx!(BlockVByteIdx),
         IdxKind::BlockInterpolative => build_idx!(BlockInterpolativeIdx),
+        IdxKind::OptComp => build_idx!(OptCompIdx),
     }
 }

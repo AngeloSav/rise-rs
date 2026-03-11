@@ -1,6 +1,9 @@
 use crate::{
     EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator, WriteBitvector,
-    elias_fano::{EliasFano, opt_partition::OptPartitionedSequence},
+    elias_fano::{
+        EliasFano, complement_ef::ComplementEliasFano, indexed_seq_complement::IndexedCompSequence,
+        opt_partition::OptPartitionedSequence,
+    },
     gen_sequences::{gen_positive_sequence, gen_strictly_increasing_sequence},
     indexes::freq_index::{DocList, FreqList},
     positive_sequences::positive_sequence::PositiveSequence,
@@ -105,6 +108,21 @@ fn test_ef_small() {
 }
 
 #[test]
+fn test_cef_small() {
+    let v = vec![0, 1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1026, 1027];
+    let a: ComplementEliasFano = ComplementEliasFano::from(v.clone().as_slice());
+
+    for (a, b) in a.iter().zip(v) {
+        assert_eq!(a, b);
+        println!("{:?}", a);
+    }
+
+    let mut it = a.iter();
+    assert_eq!(it.next_val(), (0, 0));
+    assert_eq!(it.next_geq(30), (61, 7));
+}
+
+#[test]
 fn test_strictef_small() {
     let v = vec![0, 1, 2, 3, 4, 5, 6, 61, 127, 200, 290, 1024, 1027];
     let a = StrictEliasFano::from(v.clone().as_slice());
@@ -181,13 +199,13 @@ fn test_all_ones_small_new() {
     }
 }
 
-fn test_nextgeq<TY: DocList>() {
-    let v = gen_strictly_increasing_sequence((1 << 13) + 100, 1 << 32)
+fn test_nextgeq<TY: DocList>(n: usize, u: usize, n_queries: usize) {
+    let v = gen_strictly_increasing_sequence(n, u)
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
 
-    let queries = gen_strictly_increasing_sequence(1 << 10, 1 << 32)
+    let queries = gen_strictly_increasing_sequence(n_queries, u)
         .iter()
         .map(|&x| x as u64)
         .collect::<Vec<_>>();
@@ -201,6 +219,8 @@ fn test_nextgeq<TY: DocList>() {
     let mut it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
 
     // it.move_to_position(0);
+
+    println!("starting test");
 
     for q in queries {
         let a = v_it
@@ -225,27 +245,37 @@ fn test_nextgeq<TY: DocList>() {
 
 #[test]
 fn test_nextgeq_ef_random() {
-    test_nextgeq::<EliasFano>();
+    test_nextgeq::<EliasFano>((1 << 13) + 100, 1 << 32, 1 << 10);
 }
 
 #[test]
 fn test_nextgeq_rbv_random() {
-    test_nextgeq::<RankedBv>();
+    test_nextgeq::<RankedBv>((1 << 13) + 100, 1 << 32, 1 << 10);
 }
 
 #[test]
 fn test_nextgeq_indexed_random() {
-    test_nextgeq::<IndexedSequence>();
+    test_nextgeq::<IndexedSequence>((1 << 13) + 100, 1 << 32, 1 << 10);
+}
+
+#[test]
+fn test_nextgeq_cef_random() {
+    test_nextgeq::<ComplementEliasFano>((1 << 13) + 100, 1 << 15, 1 << 10);
 }
 
 #[test]
 fn test_nextgeq_upis_random() {
-    test_nextgeq::<UniformPartitionedSequence<IndexedSequence>>();
+    test_nextgeq::<UniformPartitionedSequence<IndexedSequence>>((1 << 13) + 100, 1 << 32, 1 << 10);
 }
 
 #[test]
 fn test_nextgeq_opt_random() {
-    test_nextgeq::<OptPartitionedSequence<IndexedSequence>>();
+    test_nextgeq::<OptPartitionedSequence<IndexedSequence>>((1 << 13) + 100, 1 << 32, 1 << 10);
+}
+
+#[test]
+fn test_nextgeq_optcomp_random() {
+    test_nextgeq::<OptPartitionedSequence<IndexedCompSequence>>((1 << 13) + 100, 1 << 32, 1 << 10);
 }
 
 fn test_collect<TY: for<'a> FreqList>() {
