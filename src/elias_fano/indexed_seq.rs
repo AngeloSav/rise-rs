@@ -3,16 +3,16 @@ use std::{marker::PhantomData, slice::Iter};
 use epserde::Epserde;
 
 use crate::{
-    indexes::freq_index::FreqList, AccessBin, BitSliceWithOffset, BitVec, CostWindow,
-    EnumeratorFromBitSlice, EstimateSpace, NextGEQ, PartitionableSequence, SequenceEnumerator,
-    WriteBitvector,
+    AccessBin, BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, EstimateSpace,
+    NextGEQ, PartitionableSequence, SequenceEnumerator, WriteBitvector,
+    indexes::freq_index::FreqList,
 };
 
 use super::{
+    EliasFano,
     all_ones_seq::{AllOnes, AllOnesIter},
     ranked_bv::{RankedBv, RankedBvIter},
     strict_ef::StrictEliasFano,
-    EliasFano,
 };
 
 pub trait EFVariant: for<'a> FreqList + EstimateSpace {}
@@ -20,14 +20,14 @@ impl EFVariant for EliasFano {}
 impl EFVariant for StrictEliasFano {}
 
 #[derive(Debug, Epserde)]
-enum IndexType<EF: EFVariant> {
+enum SequenceType<EF: EFVariant> {
     EliasFanoT(EF),
     RankedBvT(RankedBv),
     AllOnesT(AllOnes),
 }
 
 #[derive(Debug)]
-enum IndexTypeNew {
+enum IndexType {
     EliasFanoT,
     RankedBvT,
     AllOnesT,
@@ -46,16 +46,16 @@ pub type StrictSequence = IndexedSequence<StrictEliasFano>;
 // now you can chose which ef to use but not define others
 #[derive(Debug, Epserde)]
 pub struct IndexedSequence<EF: EFVariant = EliasFano> {
-    sequence: IndexType<EF>,
+    sequence: SequenceType<EF>,
 }
 
 impl IndexedSequence<EliasFano> {
     pub fn iter(&self) -> IndexedSequenceIter<'_, EliasFano> {
         IndexedSequenceIter {
             it: match &self.sequence {
-                IndexType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
-                IndexType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
-                IndexType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
+                SequenceType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
+                SequenceType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
+                SequenceType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
             },
         }
     }
@@ -65,9 +65,9 @@ impl IndexedSequence<StrictEliasFano> {
     pub fn iter(&self) -> IndexedSequenceIter<'_, StrictEliasFano> {
         IndexedSequenceIter {
             it: match &self.sequence {
-                IndexType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
-                IndexType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
-                IndexType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
+                SequenceType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
+                SequenceType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
+                SequenceType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
             },
         }
     }
@@ -87,11 +87,11 @@ impl<'a, EF: EFVariant> From<&'a [u64]> for IndexedSequence<EF> {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
         let sequence = if AllOnes::bitsize(u, n) == 0 {
-            IndexType::AllOnesT(AllOnes::from(v))
+            SequenceType::AllOnesT(AllOnes::from(v))
         } else if RankedBv::bitsize(u, n) <= EF::bitsize(u, n) {
-            IndexType::RankedBvT(RankedBv::from(v))
+            SequenceType::RankedBvT(RankedBv::from(v))
         } else {
-            IndexType::EliasFanoT(EF::from(v))
+            SequenceType::EliasFanoT(EF::from(v))
         };
 
         Self { sequence }
@@ -102,25 +102,22 @@ impl<EF: EFVariant> WriteBitvector for IndexedSequence<EF> {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         let mut bv = BitVec::new();
         let (t, bv_data) = if AllOnes::bitsize(u, n) == 0 {
-            (IndexTypeNew::AllOnesT, AllOnes::write_bitvector(seq, n, u))
+            (IndexType::AllOnesT, AllOnes::write_bitvector(seq, n, u))
         } else if RankedBv::bitsize(u, n) < EF::bitsize(u, n) {
-            (
-                IndexTypeNew::RankedBvT,
-                RankedBv::write_bitvector(seq, n, u),
-            )
+            (IndexType::RankedBvT, RankedBv::write_bitvector(seq, n, u))
         } else {
-            (IndexTypeNew::EliasFanoT, EF::write_bitvector(seq, n, u))
+            (IndexType::EliasFanoT, EF::write_bitvector(seq, n, u))
         };
 
         //all ones is implicit
         match t {
-            IndexTypeNew::EliasFanoT => {
+            IndexType::EliasFanoT => {
                 bv.push(false);
             }
-            IndexTypeNew::RankedBvT => {
+            IndexType::RankedBvT => {
                 bv.push(true);
             }
-            IndexTypeNew::AllOnesT => (), //implicit ,
+            IndexType::AllOnesT => (), //implicit ,
         }
 
         //all ones is implicit
@@ -134,24 +131,24 @@ impl<'a, EF: EFVariant> EnumeratorFromBitSlice<'a> for IndexedSequence<EF> {
 
     fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let t = if AllOnes::bitsize(u, n) == 0 {
-            IndexTypeNew::AllOnesT
+            IndexType::AllOnesT
         } else {
             match bv.get(0).unwrap() {
-                true => IndexTypeNew::RankedBvT,
-                false => IndexTypeNew::EliasFanoT,
+                true => IndexType::RankedBvT,
+                false => IndexType::EliasFanoT,
             }
         };
 
         let it = match t {
-            IndexTypeNew::EliasFanoT => {
+            IndexType::EliasFanoT => {
                 let slice = bv.split_at(1).1;
                 IterType::EliasFanoItT(EF::iter_from_slice(slice, n, u))
             }
-            IndexTypeNew::RankedBvT => {
+            IndexType::RankedBvT => {
                 let slice = bv.split_at(1).1;
                 IterType::RankedBvItT(RankedBv::iter_from_slice(slice, n, u))
             }
-            IndexTypeNew::AllOnesT => IterType::AllOnesItT(AllOnes::iter_from_slice(bv, n, u)),
+            IndexType::AllOnesT => IterType::AllOnesItT(AllOnes::iter_from_slice(bv, n, u)),
         };
         IndexedSequenceIter { it }
     }

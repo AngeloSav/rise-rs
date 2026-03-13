@@ -104,21 +104,21 @@ where
     DocumentSequence: DocList,
     FreqSequence: FreqList,
 {
-    fn push_plist_freqs(
-        docs_bvc: &mut BitVectorCollectionBuilder<Vec<u64>>,
-        freqs_bvc: &mut BitVectorCollectionBuilder<Vec<u64>>,
-        sz: usize,
-        bv_docs: BitVec,
-        bv_freqs: BitVec,
-    ) {
-        let mut bv = BitVec::new();
-        bv.append_gamma_nonzero(sz as u64);
-        // println!("sz is: {}", sz);
-        bv.concat(bv_docs);
+    // fn push_plist_freqs(
+    //     docs_bvc: &mut BitVectorCollectionBuilder<Vec<u64>>,
+    //     freqs_bvc: &mut BitVectorCollectionBuilder<Vec<u64>>,
+    //     sz: usize,
+    //     bv_docs: BitVec,
+    //     bv_freqs: BitVec,
+    // ) {
+    //     let mut bv = BitVec::new();
+    //     bv.append_gamma_nonzero(sz as u64);
+    //     // println!("sz is: {}", sz);
+    //     bv.concat(bv_docs);
 
-        docs_bvc.push(bv);
-        freqs_bvc.push(bv_freqs);
-    }
+    //     docs_bvc.push(bv);
+    //     freqs_bvc.push(bv_freqs);
+    // }
 
     pub fn from_files(input_path: &str) -> Self {
         let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
@@ -152,32 +152,42 @@ where
                 assert!(v_docs.len() == sz as usize);
                 assert!(sz > 0);
 
-                let docs_task = std::thread::spawn(move || {
-                    DocumentSequence::write_bitvector(v_docs.as_slice(), sz as usize, n_docs as u64)
-                });
-                let freqs_task = std::thread::spawn(move || {
-                    FreqSequence::write_bitvector(v_freqs.as_slice(), sz as usize, 0)
-                });
-
-                let docs_bv = docs_task
-                    .join()
-                    .expect("thread panicked while encoding docs");
-                let freq_bv = freqs_task
-                    .join()
-                    .expect("thread panicked while encoding freqs");
-
-                //  rayon::join(
-                //     || DocumentSequence::write_bitvector(&v_docs, sz as usize, n_docs),
-                //     || FreqSequence::write_bitvector(&v_freqs, sz as usize, 0),
+                // println!("Processing list {} with size {}", n_terms, sz);
+                // let docs_bv = DocumentSequence::write_bitvector(
+                //     v_docs.as_slice(),
+                //     sz as usize,
+                //     n_docs as u64,
                 // );
+                // println!("docs_bv len is: {}", docs_bv.len());
+                // let freq_bv = FreqSequence::write_bitvector(v_freqs.as_slice(), sz as usize, 0);
+                // println!("freq_bv len is: {}", freq_bv.len());
 
-                Self::push_plist_freqs(
-                    &mut bvb_docs,
-                    &mut bvb_freqs,
-                    sz as usize,
-                    docs_bv,
-                    freq_bv,
+                rayon::join(
+                    || {
+                        let mut bv = BitVec::new();
+                        bv.append_gamma_nonzero(sz as u64);
+                        // println!("sz is: {}", sz);
+                        bv.concat(DocumentSequence::write_bitvector(
+                            &v_docs,
+                            sz as usize,
+                            n_docs,
+                        ));
+
+                        bvb_docs.push(bv);
+                    },
+                    || {
+                        let freq_bv = FreqSequence::write_bitvector(&v_freqs, sz as usize, 0);
+                        bvb_freqs.push(freq_bv);
+                    },
                 );
+
+                // Self::push_plist_freqs(
+                //     &mut bvb_docs,
+                //     &mut bvb_freqs,
+                //     sz as usize,
+                //     docs_bv,
+                //     freq_bv,
+                // );
 
                 n_terms += 1;
                 n_postings += sz;

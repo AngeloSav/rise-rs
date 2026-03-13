@@ -65,8 +65,10 @@ where
         assert!(n > 0);
         let mut bv = BitVec::new();
 
+        // log::info!("partitioning sequence of length {} and universe {}", n, u);
         let (_, partitions) = optimal_partition::<BaseSequence::CW>(&seq, EPS1, EPS2);
         let n_partitions = partitions.len();
+        // log::info!("done");
 
         bv.append_gamma(n_partitions as u64);
 

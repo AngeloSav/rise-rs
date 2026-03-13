@@ -39,8 +39,13 @@ impl WriteBitvector for ComplementEliasFano {
         assert!(u >= n as u64);
 
         let mut missing = Vec::with_capacity(u as usize - n);
+        let mut i = 0;
+
+        // seq is sorted, so we can linear scan
         for cur in 0..u {
-            if !seq.contains(&cur) {
+            if i < n && seq[i] == cur {
+                i += 1;
+            } else {
                 missing.push(cur);
             }
         }
@@ -81,14 +86,6 @@ pub struct ComplementEliasFanoIter<'a> {
 
 impl SequenceEnumerator for ComplementEliasFanoIter<'_> {
     fn next_val(&mut self) -> (u64, usize) {
-        // self.cur_value += 1;
-
-        // while self.cur_value - 1 == self.next_missing {
-        //     self.next_missing = self.it.next_val().0;
-        //     self.cur_value += 1;
-        // }
-        // self.cur_pos += 1;
-
         loop {
             if core::intrinsics::unlikely(self.cur_value > self.u) {
                 return (self.u, self.cur_pos);
@@ -110,7 +107,7 @@ impl SequenceEnumerator for ComplementEliasFanoIter<'_> {
     fn move_to_position(&mut self, pos: usize) -> (u64, usize) {
         let candidate = self.it.next_geq(pos as u64);
 
-        // TODO: optimize
+        // TODO: maybe we can optimize
         self.next_missing = candidate.0;
         self.cur_value = pos as u64;
         self.cur_pos = pos - candidate.1;

@@ -133,6 +133,7 @@ where
     }
 }
 
+#[inline(always)]
 fn get_endpoint<'a>(bv: &BitSliceWithOffset<'a>, idx: usize, endpoint_bits: usize) -> usize {
     if idx == 0 {
         0
@@ -140,6 +141,7 @@ fn get_endpoint<'a>(bv: &BitSliceWithOffset<'a>, idx: usize, endpoint_bits: usiz
         unsafe { bv.get_word56((idx - 1) * endpoint_bits) as usize & ((1 << endpoint_bits) - 1) }
     }
 }
+
 impl<'a, BaseSequence> EnumeratorFromBitSlice<'a> for UniformPartitionedSequence<BaseSequence>
 where
     BaseSequence: FreqList,

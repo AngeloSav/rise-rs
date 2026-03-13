@@ -104,3 +104,21 @@ meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
 [svb.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
 meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
+
+# OPTCOMP -----------------------------------------
+
+[optcomp]
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.optcomp.pef.out'
+index-kind = 'optcomp'
+
+[optcomp.cc_url]
+query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+
+[optcomp.blockmax_static]
+query-kind = ['bm-wand', 'bm-maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+
+[optcomp.blockmax_variable]
+query-kind = ['bm-wand', 'bm-maxscore']
+meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'

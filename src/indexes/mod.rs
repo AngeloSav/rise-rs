@@ -32,7 +32,6 @@ pub type OptEFIdx = FreqIndex<
     OptPartitionedSequence<IndexSequence>,
     PositiveSequence<OptPartitionedSequence<StrictSequence>>,
 >;
-
 pub type OptCompIdx = FreqIndex<
     OptPartitionedSequence<IndexCompSequence>,
     PositiveSequence<OptPartitionedSequence<StrictCompSequence>>,

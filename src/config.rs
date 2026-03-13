@@ -13,6 +13,7 @@ pub const RBV_LOG_RANK_SAMPLING: usize = 9; // length of buckets
 pub const RBV_LOG_SAMPLING1: usize = 8;
 pub const RBV_LINEAR_SCAN_THRESHOLD: usize = 8;
 
+// Parameters for Elias-Fano and Complement Elias-Fano
 pub const EF_LOG_SAMPLING0: usize = 9;
 pub const EF_LOG_SAMPLING1: usize = 8;
 pub const EF_LINEAR_SCAN_THRESHOLD: usize = 8;

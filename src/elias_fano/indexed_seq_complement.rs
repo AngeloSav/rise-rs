@@ -21,7 +21,7 @@ impl EFVariant for EliasFano {}
 impl EFVariant for StrictEliasFano {}
 
 #[derive(Debug, Epserde)]
-enum IndexType<EF: EFVariant> {
+enum SequenceType<EF: EFVariant> {
     EliasFanoT(EF),
     RankedBvT(RankedBv),
     AllOnesT(AllOnes),
@@ -29,7 +29,7 @@ enum IndexType<EF: EFVariant> {
 }
 
 #[derive(Debug)]
-enum IndexTypeNew {
+enum IndexType {
     EliasFanoT,
     RankedBvT,
     AllOnesT,
@@ -47,20 +47,19 @@ enum IterType<'a, EF: EFVariant> {
 pub type IndexCompSequence = IndexedCompSequence<EliasFano>;
 pub type StrictCompSequence = IndexedCompSequence<StrictEliasFano>;
 
-// now you can chose which ef to use but not define others
 #[derive(Debug, Epserde)]
 pub struct IndexedCompSequence<EF: EFVariant = EliasFano> {
-    sequence: IndexType<EF>,
+    sequence: SequenceType<EF>,
 }
 
 impl IndexedCompSequence<EliasFano> {
     pub fn iter(&self) -> IndexedCompSequenceIter<'_, EliasFano> {
         IndexedCompSequenceIter {
             it: match &self.sequence {
-                IndexType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
-                IndexType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
-                IndexType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
-                IndexType::ComplementEliasFanoT(ce) => IterType::CompEliasFanoItT(ce.iter()),
+                SequenceType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
+                SequenceType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
+                SequenceType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
+                SequenceType::ComplementEliasFanoT(ce) => IterType::CompEliasFanoItT(ce.iter()),
             },
         }
     }
@@ -70,19 +69,19 @@ impl IndexedCompSequence<StrictEliasFano> {
     pub fn iter(&self) -> IndexedCompSequenceIter<'_, StrictEliasFano> {
         IndexedCompSequenceIter {
             it: match &self.sequence {
-                IndexType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
-                IndexType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
-                IndexType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
-                IndexType::ComplementEliasFanoT(ce) => IterType::CompEliasFanoItT(ce.iter()),
+                SequenceType::EliasFanoT(ef) => IterType::EliasFanoItT(ef.iter()),
+                SequenceType::RankedBvT(rbv) => IterType::RankedBvItT(rbv.iter()),
+                SequenceType::AllOnesT(aos) => IterType::AllOnesItT(aos.iter()),
+                SequenceType::ComplementEliasFanoT(ce) => IterType::CompEliasFanoItT(ce.iter()),
             },
         }
     }
 }
 
 impl<EF: EFVariant> IndexedCompSequence<EF> {
-    fn best_type(u: u64, n: usize) -> (usize, IndexTypeNew) {
+    fn best_type(u: u64, n: usize) -> (usize, IndexType) {
         let mut best_size = AllOnes::bitsize(u, n);
-        let mut best_type = IndexTypeNew::AllOnesT;
+        let mut best_type = IndexType::AllOnesT;
 
         if best_size == 0 {
             return (best_size, best_type);
@@ -91,17 +90,17 @@ impl<EF: EFVariant> IndexedCompSequence<EF> {
         let fix_bits = 1;
         if RankedBv::bitsize(u, n) + fix_bits < best_size {
             best_size = RankedBv::bitsize(u, n) + fix_bits;
-            best_type = IndexTypeNew::RankedBvT;
+            best_type = IndexType::RankedBvT;
         }
 
         if ComplementEliasFano::bitsize(u, n) + fix_bits < best_size {
             best_size = ComplementEliasFano::bitsize(u, n) + fix_bits;
-            best_type = IndexTypeNew::ComplementEliasFanoT;
+            best_type = IndexType::ComplementEliasFanoT;
         }
 
         if EF::bitsize(u, n) + fix_bits < best_size {
             best_size = EF::bitsize(u, n) + fix_bits;
-            best_type = IndexTypeNew::EliasFanoT;
+            best_type = IndexType::EliasFanoT;
         }
 
         (best_size, best_type)
@@ -121,86 +120,47 @@ impl<'a, EF: EFVariant> From<&'a [u64]> for IndexedCompSequence<EF> {
         let u = *v.last().unwrap() + 1;
 
         match Self::best_type(u, n).1 {
-            IndexTypeNew::AllOnesT => Self {
-                sequence: IndexType::AllOnesT(AllOnes::from(v)),
+            IndexType::AllOnesT => Self {
+                sequence: SequenceType::AllOnesT(AllOnes::from(v)),
             },
-            IndexTypeNew::RankedBvT => Self {
-                sequence: IndexType::RankedBvT(RankedBv::from(v)),
+            IndexType::RankedBvT => Self {
+                sequence: SequenceType::RankedBvT(RankedBv::from(v)),
             },
-            IndexTypeNew::ComplementEliasFanoT => Self {
-                sequence: IndexType::ComplementEliasFanoT(ComplementEliasFano::from(v)),
+            IndexType::ComplementEliasFanoT => Self {
+                sequence: SequenceType::ComplementEliasFanoT(ComplementEliasFano::from(v)),
             },
-            IndexTypeNew::EliasFanoT => Self {
-                sequence: IndexType::EliasFanoT(EF::from(v)),
+            IndexType::EliasFanoT => Self {
+                sequence: SequenceType::EliasFanoT(EF::from(v)),
             },
         }
-        // let sequence = if AllOnes::bitsize(u, n) == 0 {
-        //     IndexType::AllOnesT(AllOnes::from(v))
-        // } else if RankedBv::bitsize(u, n) <= EF::bitsize(u, n) {
-        //     if ComplementEliasFano::bitsize(u, n) < RankedBv::bitsize(u, n) {
-        //         IndexType::ComplementEliasFanoT(ComplementEliasFano::from(v))
-        //     } else {
-        //         IndexType::RankedBvT(RankedBv::from(v))
-        //     }
-        // } else {
-        //     IndexType::EliasFanoT(EF::from(v))
-        // };
     }
 }
 
 impl<EF: EFVariant> WriteBitvector for IndexedCompSequence<EF> {
     fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
         let mut bv = BitVec::new();
-        // let (t, bv_data) = if AllOnes::bitsize(u, n) == 0 {
-        //     (IndexTypeNew::AllOnesT, AllOnes::write_bitvector(seq, n, u))
-        // } else if RankedBv::bitsize(u, n) < EF::bitsize(u, n) {
-        //     (
-        //         IndexTypeNew::RankedBvT,
-        //         RankedBv::write_bitvector(seq, n, u),
-        //     )
-        // } else if ComplementEliasFano::bitsize(u, n) < RankedBv::bitsize(u, n) {
-        //     (
-        //         IndexTypeNew::ComplementEliasFanoT,
-        //         ComplementEliasFano::write_bitvector(seq, n, u),
-        //     )
-        // } else {
-        //     (IndexTypeNew::EliasFanoT, EF::write_bitvector(seq, n, u))
-        // };
 
-        // //all ones is implicit
-        // match t {
-        //     IndexTypeNew::EliasFanoT => {
-        //         bv.push(false);
-        //         bv.push(false);
-        //     }
-        //     IndexTypeNew::RankedBvT => {
-        //         bv.push(false);
-        //         bv.push(true);
-        //     }
-        //     IndexTypeNew::ComplementEliasFanoT => {
-        //         bv.push(true);
-        //         bv.push(false);
-        //     }
-        //     IndexTypeNew::AllOnesT => (), //implicit ,
-        // }
-
-        // //all ones is implicit
-        // bv.concat(bv_data);
-        // bv
         match Self::best_type(u, n).1 {
-            IndexTypeNew::AllOnesT => {
+            IndexType::AllOnesT => {
+                // println!("writing all ones sequence, size {}, universe {}", n, u);
                 //implicit
             }
-            IndexTypeNew::RankedBvT => {
+            IndexType::RankedBvT => {
+                // println!("writing ranked bv sequence, size {}, universe {}", n, u);
                 bv.push(true);
                 bv.concat(RankedBv::write_bitvector(seq, n, u))
             }
 
-            IndexTypeNew::EliasFanoT => {
+            IndexType::EliasFanoT => {
+                // println!("writing elias fano sequence, size {}, universe {}", n, u);
                 bv.push(false);
                 bv.concat(EF::write_bitvector(seq, n, u))
             }
-            IndexTypeNew::ComplementEliasFanoT => {
+            IndexType::ComplementEliasFanoT => {
+                // println!(
+                //     "writing complement elias fano sequence, size {}, universe {}",
+                //     n, u
+                // );
                 bv.push(false);
                 bv.concat(ComplementEliasFano::write_bitvector(seq, n, u))
             }
@@ -215,34 +175,34 @@ impl<'a, EF: EFVariant> EnumeratorFromBitSlice<'a> for IndexedCompSequence<EF> {
 
     fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, u: u64) -> Self::IterType {
         let t = if AllOnes::bitsize(u, n) == 0 {
-            IndexTypeNew::AllOnesT
+            IndexType::AllOnesT
         } else {
             match bv.get(0).unwrap() {
-                true => IndexTypeNew::RankedBvT,
+                true => IndexType::RankedBvT,
                 false => {
                     if EF::bitsize(u, n) < ComplementEliasFano::bitsize(u, n) {
-                        IndexTypeNew::EliasFanoT
+                        IndexType::EliasFanoT
                     } else {
-                        IndexTypeNew::ComplementEliasFanoT
+                        IndexType::ComplementEliasFanoT
                     }
                 }
             }
         };
 
         let it = match t {
-            IndexTypeNew::EliasFanoT => {
+            IndexType::EliasFanoT => {
                 let slice = bv.split_at(1).1;
                 IterType::EliasFanoItT(EF::iter_from_slice(slice, n, u))
             }
-            IndexTypeNew::RankedBvT => {
+            IndexType::RankedBvT => {
                 let slice = bv.split_at(1).1;
                 IterType::RankedBvItT(RankedBv::iter_from_slice(slice, n, u))
             }
-            IndexTypeNew::ComplementEliasFanoT => {
+            IndexType::ComplementEliasFanoT => {
                 let slice = bv.split_at(1).1;
                 IterType::CompEliasFanoItT(ComplementEliasFano::iter_from_slice(slice, n, u))
             }
-            IndexTypeNew::AllOnesT => IterType::AllOnesItT(AllOnes::iter_from_slice(bv, n, u)),
+            IndexType::AllOnesT => IterType::AllOnesItT(AllOnes::iter_from_slice(bv, n, u)),
         };
         IndexedCompSequenceIter { it }
     }
