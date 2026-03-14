@@ -7,6 +7,17 @@ use crate::{
     indexes::freq_index::FreqList,
 };
 
+/// Encodes a frequency list by storing prefix sums, then decoding on the fly.
+///
+/// The underlying encoding is delegated to `BaseSequence` (any type that
+/// implements [`WriteBitvector`] and [`EnumeratorFromBitSlice`] and satisfies
+/// the [`FreqList`] bound).  Iteration via [`SequenceEnumerator`] returns the
+/// original frequency values, not the cumulative sums.
+///
+/// [`WriteBitvector`]: crate::WriteBitvector
+/// [`EnumeratorFromBitSlice`]: crate::EnumeratorFromBitSlice
+/// [`SequenceEnumerator`]: crate::SequenceEnumerator
+/// [`FreqList`]: crate::indexes::freq_index::FreqList
 #[derive(Debug, Default, Epserde)]
 pub struct PositiveSequence<BaseSequence> {
     bv: BitVec,

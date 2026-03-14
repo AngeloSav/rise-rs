@@ -1,4 +1,4 @@
-use divan::{black_box, Bencher};
+use divan::{Bencher, black_box};
 use pef::{elias_fano::EliasFano, gen_sequences::gen_strictly_increasing_sequence};
 
 fn main() {

@@ -18,10 +18,8 @@ pub mod unary_enum;
 
 use std::u64;
 
-use crate::{
-    AccessBin,
-    utils::{msb, select_in_word},
-};
+use crate::utils::{msb, select_in_word};
+
 use epserde::Epserde;
 use mem_dbg::{MemDbg, MemSize};
 
@@ -57,6 +55,21 @@ const fn fill_gamma_table<const SIZE: usize>() -> [(u16, u8); SIZE] {
     }
 
     table
+}
+
+/// A trait for read access over the binary alphabet `{0, 1}`.
+///
+/// Implementors represent a sequence of bits and expose safe and unsafe
+/// element access by index.
+pub trait AccessBin {
+    /// Returns the bit at position `i`, or [`None`] if `i` is out of bounds.
+    fn get(&self, i: usize) -> Option<bool>;
+
+    /// Returns the bit at position `i`.
+    ///
+    /// # Safety
+    /// Calling this method with an out-of-bounds index is undefined behavior.
+    unsafe fn get_unchecked(&self, i: usize) -> bool;
 }
 
 /// Implementation of an immutable bit vector.

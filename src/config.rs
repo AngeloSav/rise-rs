@@ -1,3 +1,10 @@
+//! Global tuning constants for index construction and query processing.
+//!
+//! These values control the trade-off between space and query speed.  In
+//! general, larger sampling rates reduce space but increase the cost of random
+//! access; smaller values do the opposite.  Change them and rebuild the index
+//! to experiment.
+
 // Configuration constants for constructing the index and metadata.
 pub const LENGTH_THRESHOLD: usize = 0;
 pub const MDATA_LENGTH_THRESHOLD: usize = LENGTH_THRESHOLD;

@@ -3,13 +3,58 @@ use std::marker::PhantomData;
 use epserde::Epserde;
 
 use crate::{
-    BitSliceWithOffset, BitVec, CostWindow, EnumeratorFromBitSlice, NextGEQ, PartitionableSequence,
-    SequenceEnumerator, WriteBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator,
+    WriteBitvector,
     indexes::freq_index::{DocList, FreqList},
     utils::ceil_log2,
 };
 
 use super::{EliasFano, EliasFanoIter};
+
+// ── Partitioning traits ───────────────────────────────────────────────────────
+
+/// A sliding window used by [`optimal_partition`] to evaluate the cost of
+/// encoding a contiguous sub-sequence.
+///
+/// A `CostWindow` is parameterised by an upper bound on acceptable cost; the
+/// dynamic-programming algorithm grows and shrinks the window while probing
+/// candidate partition boundaries.
+pub trait CostWindow<'a> {
+    /// Create a new window starting at index 0 with the given cost upper bound.
+    fn new(sequence: &'a [u64], cost_upper_bound: usize) -> Self;
+    /// Universe of the current window (max value + 1).
+    fn universe(&self) -> u64;
+    /// Number of elements in the current window.
+    fn size(&self) -> usize;
+
+    /// Encoding cost (in bits) for the current window.
+    fn window_cost(&self) -> usize;
+    /// Cost of encoding the entire `sequence` as a single block.
+    fn single_block_cost(sequence: &[u64]) -> usize;
+    /// Lower bound on the encoding cost of any single element (used to seed
+    /// the DP cost ladder).
+    fn minimum_cost(sequence: &[u64]) -> usize;
+
+    /// Advance the start of the window by one element.
+    fn advance_start(&mut self);
+    /// Advance the end of the window by one element.
+    fn advance_end(&mut self);
+    /// Inclusive start index of the current window.
+    fn start(&self) -> usize;
+    /// Exclusive end index of the current window.
+    fn end(&self) -> usize;
+    /// The cost upper bound this window was constructed with.
+    fn cost_upper_bound(&self) -> usize;
+}
+
+/// Marker trait: the implementing sequence type can be split into independent
+/// partitions, each encoded separately.
+///
+/// The associated type [`CostWindow`] is used by [`optimal_partition`] to
+/// evaluate encoding costs without performing actual encoding.
+pub trait PartitionableSequence<'a> {
+    type CW: CostWindow<'a>;
+}
 
 #[derive(Debug, Epserde)]
 pub struct OptPartitionedSequence<BaseSequence> {

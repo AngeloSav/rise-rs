@@ -21,3 +21,5 @@ Cargo.lock
 .justfile
 perf.data*
 *.mdata
+
+CLAUDE.md

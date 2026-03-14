@@ -10,6 +10,35 @@ use crate::{
 use epserde::prelude::*;
 use num::integer::div_ceil;
 
+/// A compressed representation of a non-decreasing integer sequence.
+///
+/// Elias-Fano splits each element into a high part (stored in a unary-encoded
+/// bit array) and a low part (stored in a dense bit array).  The resulting
+/// space usage is approximately `2 + log2(u/n)` bits per element, which is
+/// near-optimal for sequences drawn from a universe of size `u`.
+///
+/// # Construction
+///
+/// The most convenient entry point is `From<&[u64]>`, which computes `n` and
+/// `u` automatically:
+///
+/// ```
+/// use pef::EliasFano;
+/// use pef::SequenceEnumerator;
+///
+/// let ef = EliasFano::from([1u64, 3, 5, 7, 10].as_slice());
+/// assert_eq!(ef.len(), 5);
+/// let vals: Vec<u64> = ef.iter().collect();
+/// assert_eq!(vals, vec![1, 3, 5, 7, 10]);
+/// ```
+///
+/// For lower-level control use [`WriteBitvector::write_bitvector`] directly,
+/// which lets you supply `n` and `u` explicitly.
+///
+/// # Iteration
+///
+/// Call [`EliasFano::iter`] to get an [`EliasFanoIter`], which implements both
+/// [`SequenceEnumerator`] and [`NextGEQ`].
 #[derive(Debug, Default, Epserde)]
 pub struct EliasFano {
     pub(crate) bv: BitVec,
@@ -27,10 +56,16 @@ impl EliasFano {
         self.n
     }
 
+    /// Return an iterator over the encoded sequence.
+    ///
+    /// The iterator supports both sequential (`next_val`) and random-access
+    /// (`move_to_position`, `next_geq`) traversal without copying any data.
     pub fn iter(&self) -> EliasFanoIter<'_> {
         Self::iter_from_slice(self.bv.as_bitslice(), self.n, self.u)
     }
 
+    /// Estimate the number of bits required to encode `n` elements with
+    /// universe size `u` using the current sampling parameters.
     pub fn n_bits(u: u64, n: usize) -> usize {
         let n_lo_bits = if u > n as u64 {
             (msb(u / n as u64)) as u64

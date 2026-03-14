@@ -1,6 +1,6 @@
 use num::Float;
 
-use crate::{config, queries::score_part, DocScorer};
+use crate::{DocScorer, config, queries::score_part};
 
 pub fn partition_static<Scorer: DocScorer>(
     seq: impl Iterator<Item = (u64, u64)>, // pairs of (docid, freq)

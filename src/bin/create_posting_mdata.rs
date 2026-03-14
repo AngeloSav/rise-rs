@@ -1,6 +1,6 @@
 use clap::Parser;
 use pef::{
-    queries::{bm25::BM25, BlockPostingMetadata},
+    queries::{BlockPostingMetadata, bm25::BM25},
     utils::init_logger,
 };
 
