@@ -157,7 +157,7 @@ fn test_ranked_bv_small() {
 #[test]
 fn test_ranked_bv_small_new() {
     let v = vec![1, 2, 3, 4, 5, 6, 61, 62, 127, 200, 290];
-    let a = RankedBv::write_bitvector(v.clone().as_slice(), v.len(), *v.last().unwrap() + 1);
+    let a = RankedBv::write_bitvector(v.clone().into_iter(), v.len(), *v.last().unwrap() + 1);
 
     for (a, b) in
         RankedBv::iter_from_slice(a.as_bitslice(), v.len(), *v.last().unwrap() + 1).zip(v.clone())
@@ -190,7 +190,7 @@ fn test_all_ones_small() {
 fn test_all_ones_small_new() {
     let v = vec![0, 1, 2, 3, 4, 5, 6];
     // let v = (0..=170).collect::<Vec<_>>();
-    let a = AllOnes::write_bitvector(&v, v.len(), *v.last().unwrap() + 1);
+    let a = AllOnes::write_bitvector(v.iter().copied(), v.len(), *v.last().unwrap() + 1);
 
     for (a, b) in AllOnes::iter_from_slice(a.as_bitslice(), v.len(), *v.last().unwrap() + 1).zip(v)
     {
@@ -213,7 +213,7 @@ fn test_nextgeq<TY: DocList>(n: usize, u: usize, n_queries: usize) {
     let binding = v.clone();
     let universe = *binding.last().unwrap() + 1;
 
-    let x = TY::write_bitvector(binding.as_slice(), binding.len(), universe);
+    let x = TY::write_bitvector(binding.iter().copied(), binding.len(), universe);
 
     let v_it = v.clone().into_iter();
     let mut it = TY::iter_from_slice(x.as_bitslice(), binding.len(), binding.last().unwrap() + 1);
@@ -286,7 +286,7 @@ fn test_collect<TY: for<'a> FreqList>() {
 
     let binding = v.clone();
     let x = TY::write_bitvector(
-        binding.as_slice(),
+        binding.iter().copied(),
         binding.len(),
         *binding.last().unwrap() + 1,
     );
@@ -326,7 +326,7 @@ fn pg2() {
     v[500] = 0;
 
     type TY = PositiveSequence<OptPartitionedSequence<StrictSequence>>;
-    let s = TY::write_bitvector(v.as_slice(), v.len(), 0);
+    let s = TY::write_bitvector(v.iter().copied(), v.len(), 0);
     let mut it = TY::iter_from_slice(s.as_bitslice(), n, 0);
 
     let i = 0;

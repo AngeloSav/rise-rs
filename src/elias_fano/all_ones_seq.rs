@@ -46,10 +46,17 @@ impl<'a> EnumeratorFromBitSlice<'a> for AllOnes {
 }
 
 impl WriteBitvector for AllOnes {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
-        assert!(n == seq.len());
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
+        let mut len = 0;
+        let mut last = None;
+        for el in seq {
+            len += 1;
+            last = Some(el);
+        }
+
+        assert!(n == len);
         assert!(u == n as u64);
-        assert!(*seq.last().unwrap() + 1 == u);
+        assert!(last.unwrap() + 1 == u);
         BitVec::new()
     }
 }

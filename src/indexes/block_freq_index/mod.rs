@@ -66,7 +66,7 @@ where
             n_docs: self.n_docs,
             n_terms,
             endpoints: EliasFano::write_bitvector(
-                &self.endpoints.as_slice()[..self.endpoints.len() - 1],
+                self.endpoints[..self.endpoints.len() - 1].iter().copied(),
                 n_terms,
                 list_len as u64,
             ),

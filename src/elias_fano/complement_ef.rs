@@ -28,31 +28,48 @@ impl<'a> From<&'a [u64]> for ComplementEliasFano {
         let u = *v.iter().max().expect("sequence is empty!") + 1;
         let n = v.len();
 
-        let bv = Self::write_bitvector(v.as_ref(), n, u);
+        let bv = Self::write_bitvector(v.iter().copied(), n, u);
 
         Self { u, n, bv }
     }
 }
 
 impl WriteBitvector for ComplementEliasFano {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         assert!(u >= n as u64);
 
-        let mut missing = Vec::with_capacity(u as usize - n);
-        let mut i = 0;
+        let mut seq = seq.into_iter().peekable();
+        let mut cur = 0;
+        let mut seen = 0;
 
-        // seq is sorted, so we can linear scan
-        for cur in 0..u {
-            if i < n && seq[i] == cur {
-                i += 1;
-            } else {
-                missing.push(cur);
+        let missing = std::iter::from_fn(move || {
+            loop {
+                if cur == u {
+                    assert!(seen == n, "Sequence length mismatch!");
+                    assert!(
+                        seq.next().is_none(),
+                        "Sequence contains elements outside the universe!"
+                    );
+                    return None;
+                }
+
+                let candidate = cur;
+                cur += 1;
+
+                if let Some(next) = seq.peek().copied() {
+                    assert!(next >= candidate, "Sequence must be sorted!");
+                    if next == candidate {
+                        seq.next();
+                        seen += 1;
+                        continue;
+                    }
+                }
+
+                return Some(candidate);
             }
-        }
+        });
 
-        assert!(missing.len() == (u as usize - n));
-
-        EliasFano::write_bitvector(missing.as_ref(), missing.len(), u)
+        EliasFano::write_bitvector(missing, u as usize - n, u)
     }
 }
 

@@ -53,7 +53,7 @@ impl<'a> From<&'a [u64]> for EliasFano {
     fn from(v: &'a [u64]) -> Self {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
-        let bv = Self::write_bitvector(v, n, u);
+        let bv = Self::write_bitvector(v.iter().copied(), n, u);
 
         Self { bv, n, u }
     }
@@ -87,10 +87,7 @@ fn ef_set_ptr0(bv: &mut BitVec, begin: u64, end: u64, rank_end: u64, pointer_siz
 
 impl WriteBitvector for EliasFano {
     #[inline]
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
-        assert!(!seq.is_empty(), "Sequence is empty");
-        assert!(seq.len() == n, "n is incorrect");
-
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         let n_lo_bits = if u > n as u64 { msb(u / n as u64) } else { 0 };
         let higher_bits_len = n as u64 + (u >> (n_lo_bits as usize)) + 2;
 
@@ -111,10 +108,12 @@ impl WriteBitvector for EliasFano {
 
         // +1 to skip the initial sentinel zero
         let mut hi_pos = offset_hi + 1;
+        let mut len = 0;
 
-        for (i, &el) in seq.iter().enumerate() {
+        for (i, el) in seq.into_iter().enumerate() {
             assert!(prec <= el, "Sequence must be non decreasing!");
             assert!(el < u);
+            len += 1;
 
             let to_push = el & ((1 << n_lo_bits) - 1);
             let hi = (el >> n_lo_bits) + i as u64 + 1;
@@ -139,6 +138,9 @@ impl WriteBitvector for EliasFano {
             prec = el;
             prec_hi = hi;
         }
+
+        assert!(len != 0, "Sequence is empty");
+        assert!(len == n, "n is incorrect");
 
         ef_set_ptr0(
             &mut bv,

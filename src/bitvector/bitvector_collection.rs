@@ -114,7 +114,7 @@ impl BitVectorCollectionBuilder<Vec<u64>> {
             .collect::<Vec<_>>();
         BitVecCollection {
             bv: self.bv,
-            endpoints: EliasFano::write_bitvector(&v, n, u),
+            endpoints: EliasFano::write_bitvector(v, n, u),
             n_vecs: self.n_vecs,
         }
     }

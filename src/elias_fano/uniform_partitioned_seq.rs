@@ -41,7 +41,7 @@ where
     fn from(v: &'a [u64]) -> Self {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
-        let bv = Self::write_bitvector(v, n, u);
+        let bv = Self::write_bitvector(v.iter().copied(), n, u);
 
         Self {
             bv,
@@ -56,8 +56,10 @@ impl<BaseSequence> WriteBitvector for UniformPartitionedSequence<BaseSequence>
 where
     BaseSequence: FreqList + WriteBitvector,
 {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         debug_assert!(n > 0);
+        let seq: Vec<u64> = seq.into_iter().collect();
+        assert!(seq.len() == n, "Sequence length mismatch!");
         let mut bv = BitVec::new();
         let n_partitions = usize::div_ceil(n, PARTITION_SIZE);
 
@@ -79,7 +81,7 @@ where
             }
 
             bv.concat(BaseSequence::write_bitvector(
-                &cur_partition,
+                cur_partition.iter().copied(),
                 cur_partition.len(),
                 *cur_partition.last().unwrap() + 1,
             ));
@@ -89,13 +91,12 @@ where
             let mut bv_sequences: BitVec = BitVec::new();
 
             let mut endpoints = Vec::new();
-            let mut it = seq.into_iter();
-
             let mut cur_base = seq[0];
+            let mut it = seq.into_iter();
             upper_bounds.push(cur_base);
 
             for _ in 0..n_partitions {
-                cur_partition = (&mut it).take(PARTITION_SIZE).copied().collect();
+                cur_partition = (&mut it).take(PARTITION_SIZE).collect();
 
                 // let cur_base = cur_partition[0];
                 // upper_bounds.push(cur_base);
@@ -106,7 +107,7 @@ where
                 }
 
                 bv_sequences.concat(BaseSequence::write_bitvector(
-                    &cur_partition,
+                    cur_partition.iter().copied(),
                     cur_partition.len(),
                     *cur_partition.last().unwrap() + 1,
                 ));
@@ -116,7 +117,8 @@ where
                 endpoints.push(bv_sequences.len());
             }
 
-            let bv_upper_bounds = EliasFano::write_bitvector(&upper_bounds, n_partitions + 1, u);
+            let bv_upper_bounds =
+                EliasFano::write_bitvector(upper_bounds.iter().copied(), n_partitions + 1, u);
             let endpoint_bits = ceil_log2(bv_sequences.len() + 1);
             bv.append_gamma(endpoint_bits as u64);
 
@@ -286,11 +288,12 @@ where
         self.cur_base = self.upper_bounds.move_to_position(part).0 + if part == 0 { 0 } else { 1 };
         self.cur_ub = self.upper_bounds.next().unwrap_or(self.universe);
 
+        let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
+        let end_endpoint =
+            get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
+
         self.cur_sequence = BaseSequence::iter_from_slice(
-            self.sequences.slice(
-                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
-                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
-            ),
+            self.sequences.slice(start_endpoint, end_endpoint),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
         );
@@ -313,11 +316,12 @@ where
         // Advance EF iterator by one step instead of seeking backward.
         self.cur_ub = self.upper_bounds.next_val().0;
 
+        let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
+        let end_endpoint =
+            get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
+
         self.cur_sequence = BaseSequence::iter_from_slice(
-            self.sequences.slice(
-                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
-                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
-            ),
+            self.sequences.slice(start_endpoint, end_endpoint),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
         );

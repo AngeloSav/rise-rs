@@ -33,7 +33,7 @@ impl<'a> From<&'a [u64]> for RankedBv {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
 
-        let bv = Self::write_bitvector(v, n, u);
+        let bv = Self::write_bitvector(v.iter().copied(), n, u);
         RankedBv { bv, n, u }
     }
 }
@@ -61,9 +61,7 @@ fn rbv_set_rank_samples(
 }
 
 impl WriteBitvector for RankedBv {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
-        assert!(n == seq.len(), "Sequence length mismatch!");
-
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         let rank_sample_size = ceil_log2(n + 1) as u64;
         let pointer_size = ceil_log2(u);
 
@@ -76,7 +74,7 @@ impl WriteBitvector for RankedBv {
         let mut bv = BitVec::with_zeros(offset_samples1 + n_samples1_bits);
 
         let mut prec = 0u64;
-        for (i, &el) in seq.iter().enumerate() {
+        for (i, el) in seq.into_iter().enumerate() {
             assert!(i == 0 || prec < el, "Sequence must be strictly increasing!");
             assert!(el < u);
 

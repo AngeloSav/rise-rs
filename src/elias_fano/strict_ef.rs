@@ -40,20 +40,16 @@ impl<'a> From<&'a [u64]> for StrictEliasFano {
 }
 
 impl WriteBitvector for StrictEliasFano {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         assert!(u >= n as u64);
         let new_u = u - n as u64 + 1;
 
-        let v: Vec<_> = seq
-            .iter()
-            .enumerate()
-            .map(|(i, &x)| {
-                x.checked_sub(i as u64)
-                    .expect("Sequence should be strictly increasing!")
-            })
-            .collect();
+        let v = seq.into_iter().enumerate().map(|(i, x)| {
+            x.checked_sub(i as u64)
+                .expect("Sequence should be strictly increasing!")
+        });
 
-        EliasFano::write_bitvector(v.as_ref(), v.len(), new_u)
+        EliasFano::write_bitvector(v, n, new_u)
     }
 }
 

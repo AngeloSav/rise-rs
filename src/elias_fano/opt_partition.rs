@@ -42,7 +42,7 @@ where
     fn from(v: &[u64]) -> Self {
         let n = v.len();
         let u = *v.last().unwrap() + 1;
-        let bv = Self::write_bitvector(v, n, u);
+        let bv = Self::write_bitvector(v.iter().copied(), n, u);
 
         Self {
             bv,
@@ -61,8 +61,10 @@ where
     // If only 1 partition:  | 1 | serialized  BaseSequence |
     // Else:                 | n partitions | bitlen of endpoints | list of endpoints | len of (upper bounds sequence) | elias_fano encoded upper bounds | serialized BaseSequences |
 
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         assert!(n > 0);
+        let seq: Vec<u64> = seq.into_iter().collect();
+        assert!(seq.len() == n, "Sequence length mismatch!");
         let mut bv = BitVec::new();
 
         // log::info!("partitioning sequence of length {} and universe {}", n, u);
@@ -88,7 +90,7 @@ where
             }
 
             bv.concat(BaseSequence::write_bitvector(
-                &cur_partition,
+                cur_partition.iter().copied(),
                 cur_partition.len(),
                 *cur_partition.last().unwrap() + 1,
             ));
@@ -98,9 +100,8 @@ where
             let mut bv_sequences: BitVec = BitVec::new();
 
             let mut endpoints = Vec::new();
-            let mut it = seq.into_iter();
-
             let mut cur_base = seq[0];
+            let mut it = seq.into_iter();
             upper_bounds.push(cur_base);
 
             for part_size in partitions.iter().scan(0u64, |s, &x| {
@@ -108,7 +109,7 @@ where
                 *s = x;
                 Some(t as usize)
             }) {
-                cur_partition = (&mut it).take(part_size).copied().collect();
+                cur_partition = (&mut it).take(part_size).collect();
 
                 // let cur_base = cur_partition[0];
                 // upper_bounds.push(cur_base);
@@ -119,7 +120,7 @@ where
                 }
 
                 bv_sequences.concat(BaseSequence::write_bitvector(
-                    &cur_partition,
+                    cur_partition.iter().copied(),
                     cur_partition.len(),
                     *cur_partition.last().unwrap() + 1,
                 ));
@@ -130,14 +131,14 @@ where
             }
 
             let bv_upper_bounds =
-                EliasFano::write_bitvector(&upper_bounds, n_partitions + 1, u + 1);
+                EliasFano::write_bitvector(upper_bounds.iter().copied(), n_partitions + 1, u + 1);
             let endpoint_bits = ceil_log2(bv_sequences.len() + 1);
             bv.append_gamma(endpoint_bits as u64);
 
             bv.concat(bv_upper_bounds);
 
             let bv_sizes = EliasFano::write_bitvector(
-                &partitions[0..&partitions.len() - 1], // we dont need the last element
+                partitions[0..&partitions.len() - 1].iter().copied(), // we dont need the last element
                 n_partitions - 1,
                 n as u64,
             );
@@ -344,11 +345,12 @@ where
         //     self.cur_ub - self.cur_base + 1,
         // );
 
+        let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
+        let end_endpoint =
+            get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
+
         self.cur_sequence = BaseSequence::iter_from_slice(
-            self.sequences.slice(
-                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
-                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
-            ),
+            self.sequences.slice(start_endpoint, end_endpoint),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
         );
@@ -373,11 +375,12 @@ where
         // Advance EF upper-bounds iterator by one step instead of seeking backward.
         self.cur_ub = self.upper_bounds.next_val().0;
 
+        let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
+        let end_endpoint =
+            get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
+
         self.cur_sequence = BaseSequence::iter_from_slice(
-            self.sequences.slice(
-                get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits),
-                get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits),
-            ),
+            self.sequences.slice(start_endpoint, end_endpoint),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
         );

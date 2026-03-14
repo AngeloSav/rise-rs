@@ -1,7 +1,7 @@
 use crate::{
+    BitVector, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector,
     elias_fano::{indexed_seq::StrictSequence, opt_partition::OptPartitionedSequence},
     gen_sequences::{gen_positive_sequence, gen_strictly_increasing_sequence},
-    BitVector, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector,
 };
 
 use super::positive_sequence::PositiveSequence;
@@ -12,7 +12,7 @@ fn increasing_sequence() {
 
     type TY = PositiveSequence<EliasFano>;
 
-    let s = TY::write_bitvector(&v, v.len(), 0);
+    let s = TY::write_bitvector(v.into_iter(), v.len(), 0);
     let it = TY::iter_from_slice(s.as_bitslice(), v.len(), 0);
 
     println!("{:?}", it.collect::<Vec<_>>());
@@ -27,7 +27,7 @@ fn increasing_sequence_opt() {
 
     type TY = PositiveSequence<OptPartitionedSequence<StrictSequence>>;
 
-    let s: crate::BitVector<Vec<u64>> = TY::write_bitvector(v.as_slice(), v.len(), 0);
+    let s: crate::BitVector<Vec<u64>> = TY::write_bitvector(v.iter().copied(), v.len(), 0);
     let mut it = TY::iter_from_slice(s.as_bitslice(), v.len(), 0);
 
     println!("{:?} == {:?}", it.move_to_position(10), v[10]);
@@ -46,7 +46,7 @@ fn test_random_opt() {
 
     type TY = PositiveSequence<OptPartitionedSequence<StrictSequence>>;
 
-    let s: BitVector<Vec<u64>> = TY::write_bitvector(v.as_slice(), v.len(), 0);
+    let s: BitVector<Vec<u64>> = TY::write_bitvector(v.iter().copied(), v.len(), 0);
     let it = TY::iter_from_slice(s.as_bitslice(), v.len(), 0);
 
     assert_eq!(v, it.collect::<Vec<u64>>());

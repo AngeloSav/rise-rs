@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use epserde::prelude::*;
 
 use crate::{
-    indexes::freq_index::FreqList, BitSliceWithOffset, BitVec, EnumeratorFromBitSlice,
-    SequenceEnumerator, WriteBitvector,
+    BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector,
+    indexes::freq_index::FreqList,
 };
 
 #[derive(Debug, Default, Epserde)]
@@ -21,10 +21,10 @@ impl<'a, BaseSequence> WriteBitvector for PositiveSequence<BaseSequence>
 where
     BaseSequence: FreqList,
 {
-    fn write_bitvector(seq: &[u64], n: usize, _u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, _u: u64) -> BitVec {
         // we can discard u as we build a new seqeunce
         let psum = seq
-            .iter()
+            .into_iter()
             .scan(0, |s, el| {
                 *s += el;
                 Some(*s)
@@ -39,7 +39,7 @@ where
         let mut bv = BitVec::new();
         bv.append_gamma_nonzero(u);
 
-        bv.concat(BaseSequence::write_bitvector(psum.as_slice(), n, u));
+        bv.concat(BaseSequence::write_bitvector(psum.into_iter(), n, u));
 
         bv
     }

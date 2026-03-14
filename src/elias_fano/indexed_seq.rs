@@ -99,7 +99,7 @@ impl<'a, EF: EFVariant> From<&'a [u64]> for IndexedSequence<EF> {
 }
 
 impl<EF: EFVariant> WriteBitvector for IndexedSequence<EF> {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         let mut bv = BitVec::new();
         let (t, bv_data) = if AllOnes::bitsize(u, n) == 0 {
             (IndexType::AllOnesT, AllOnes::write_bitvector(seq, n, u))

@@ -108,7 +108,7 @@ pub trait EnumeratorFromBitSlice<'a> {
 pub trait WriteBitvector {
     /// `n` is the number of elements in the sequence.
     /// `u` is the universe size, which is used to determine the number of bits in the bitvector. It is strictly greater than the maximum value in the sequence.
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec;
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec;
 }
 
 /// This trait contains the associated type for a cost window, if the given sequence has a partitioning method

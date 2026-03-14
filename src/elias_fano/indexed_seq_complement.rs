@@ -137,7 +137,7 @@ impl<'a, EF: EFVariant> From<&'a [u64]> for IndexedCompSequence<EF> {
 }
 
 impl<EF: EFVariant> WriteBitvector for IndexedCompSequence<EF> {
-    fn write_bitvector(seq: &[u64], n: usize, u: u64) -> BitVec {
+    fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         let mut bv = BitVec::new();
 
         match Self::best_type(u, n).1 {
