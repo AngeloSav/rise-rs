@@ -6,7 +6,7 @@ use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator,
     WriteBitvector,
     indexes::freq_index::{DocList, FreqList},
-    utils::ceil_log2,
+    utils::{ceil_log2, prefetch_bitslice_word},
 };
 
 use super::{EliasFano, EliasFanoIter};
@@ -292,6 +292,9 @@ where
         let end_endpoint =
             get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
 
+        prefetch_bitslice_word(&self.sequences, start_endpoint);
+        prefetch_bitslice_word(&self.sequences, end_endpoint);
+
         self.cur_sequence = BaseSequence::iter_from_slice(
             self.sequences.slice(start_endpoint, end_endpoint),
             self.cur_end - self.cur_begin,
@@ -319,6 +322,9 @@ where
         let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
         let end_endpoint =
             get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
+
+        prefetch_bitslice_word(&self.sequences, start_endpoint);
+        prefetch_bitslice_word(&self.sequences, end_endpoint);
 
         self.cur_sequence = BaseSequence::iter_from_slice(
             self.sequences.slice(start_endpoint, end_endpoint),

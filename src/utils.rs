@@ -2,6 +2,7 @@ use env_logger::Env;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Instant;
 
+use crate::BitSliceWithOffset;
 use num::PrimInt;
 
 pub struct TimingQueries {
@@ -208,6 +209,14 @@ pub fn prefetch_read_slice<T>(data: &[T]) {
     // Cache line size on x86 is 64 bytes.
     // The function is written with a pointer because iterating the array seems to prevent loop unrolling, for some reason.
     core::intrinsics::prefetch_read_data::<_, 3>(ptr);
+}
+
+#[inline(always)]
+pub fn prefetch_bitslice_word(bits: &BitSliceWithOffset<'_>, bit_idx: usize) {
+    let word_idx = (bits.offset + bit_idx) / 64;
+    unsafe {
+        core::intrinsics::prefetch_read_data::<_, 3>(bits.data.as_ptr().add(word_idx) as *const i8)
+    };
 }
 
 pub fn init_logger() {
