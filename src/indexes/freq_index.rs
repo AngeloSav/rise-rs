@@ -2,7 +2,11 @@ use mem_dbg::{MemDbg, MemSize};
 
 use std::fs::{self, File};
 
-use crate::{config, readers::ds2i_reader::BinaryCollectionIterator, utils::pb_with_message};
+use crate::{
+    config,
+    readers::ds2i_reader::BinaryCollectionIterator,
+    utils::{pb_with_message, prefetch_bitslice_word},
+};
 use epserde::prelude::*;
 use std::{fmt::Debug, marker::PhantomData, path::Path};
 
@@ -309,10 +313,12 @@ where
 
     fn get_plist_iter(&self, i: usize) -> FreqIndexPostingListIter<'_, DL, FL> {
         let a: BitSliceWithOffset<'_> = self.docs_sequences.get(i);
+        prefetch_bitslice_word(&a, 0);
         let (sz, pos) = unsafe { a.get_gamma_nonzero_unchecked(0) };
-        let mut doc_it = DL::iter_from_slice(a.split_at(pos).1, sz as usize, self.n_docs as u64);
+        let mut doc_it = DL::iter_from_slice(a.slice_from(pos), sz as usize, self.n_docs as u64);
 
         let a: BitSliceWithOffset<'_> = self.freqs_sequences.get(i);
+        prefetch_bitslice_word(&a, 0);
         let freq_it = FL::iter_from_slice(a, sz as usize, self.n_docs as u64);
         let current = doc_it.move_to_position(0);
 

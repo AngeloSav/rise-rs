@@ -74,7 +74,7 @@ where
     fn iter_from_slice(bv: BitSliceWithOffset<'a>, n: usize, _u: u64) -> Self::IterType {
         let (u, next_pos) = unsafe { bv.get_gamma_nonzero_unchecked(0) };
         // println!("u: {}, n: {}", u, n);
-        let bv = bv.split_at(next_pos).1;
+        let bv = bv.slice_from(next_pos);
         let it = BaseSequence::iter_from_slice(bv, n, u);
         PositiveSequenceIter {
             it,

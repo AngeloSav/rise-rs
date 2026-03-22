@@ -124,8 +124,8 @@ where
 
             bv.concat(bv_upper_bounds);
 
-            for e in endpoints {
-                bv.append_bits(e as u64, endpoint_bits as usize);
+            for e in &endpoints[..endpoints.len() - 1] {
+                bv.append_bits(*e as u64, endpoint_bits as usize);
             }
 
             bv.concat(bv_sequences);
@@ -169,7 +169,7 @@ where
                 };
                 next_pos = np;
             }
-            let cur_sequence = BaseSequence::iter_from_slice(bv.split_at(next_pos).1, n, ub + 1);
+            let cur_sequence = BaseSequence::iter_from_slice(bv.slice_from(next_pos), n, ub + 1);
 
             return UniformPartitionedSeqIter {
                 position: 0,
@@ -195,24 +195,12 @@ where
             next_pos = np;
 
             let mut upper_bounds =
-                EliasFano::iter_from_slice(bv.split_at(next_pos).1, n_partitions + 1, u);
+                EliasFano::iter_from_slice(bv.slice_from(next_pos), n_partitions + 1, u);
             next_pos += EliasFano::n_bits(u, n_partitions + 1);
 
-            // let mut endpoints = vec![0];
-            // for idx in (next_pos..)
-            //     .step_by(endpoint_bits as usize)
-            //     .take(n_partitions)
-            // {
-            //     endpoints.push(
-            //         unsafe { bv.get_word56(idx as usize) as usize } & ((1 << endpoint_bits) - 1),
-            //     );
-            // }
+            let endpoints = bv.slice(next_pos, next_pos + endpoint_bits * (n_partitions - 1));
 
-            let endpoints = bv.slice(next_pos, next_pos + endpoint_bits as usize * n_partitions);
-
-            let sequences = bv
-                .split_at(next_pos + endpoint_bits as usize * n_partitions)
-                .1;
+            let sequences = bv.slice_from(next_pos + endpoint_bits * (n_partitions - 1));
 
             let cur_base = upper_bounds.next().unwrap();
             let cur_ub = upper_bounds.next().unwrap();
@@ -220,9 +208,9 @@ where
             let cur_end = 1 * PARTITION_SIZE;
 
             let start_endpoint = get_endpoint(&endpoints, 0, endpoint_bits);
-            let end_endpoint = get_endpoint(&endpoints, 1, endpoint_bits);
+            // let end_endpoint = get_endpoint(&endpoints, 1, endpoint_bits);
             let cur_sequence = BaseSequence::iter_from_slice(
-                sequences.slice(start_endpoint, end_endpoint),
+                sequences.slice_from(start_endpoint),
                 cur_end,
                 cur_ub - cur_base + 1,
             );
@@ -289,14 +277,11 @@ where
         self.cur_ub = self.upper_bounds.next().unwrap_or(self.universe);
 
         let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
-        let end_endpoint =
-            get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
 
         prefetch_bitslice_word(&self.sequences, start_endpoint);
-        prefetch_bitslice_word(&self.sequences, end_endpoint);
 
         self.cur_sequence = BaseSequence::iter_from_slice(
-            self.sequences.slice(start_endpoint, end_endpoint),
+            self.sequences.slice_from(start_endpoint),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
         );
@@ -320,14 +305,11 @@ where
         self.cur_ub = self.upper_bounds.next_val().0;
 
         let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
-        let end_endpoint =
-            get_endpoint(&self.endpoints, self.cur_partition + 1, self.endpoint_bits);
 
         prefetch_bitslice_word(&self.sequences, start_endpoint);
-        prefetch_bitslice_word(&self.sequences, end_endpoint);
 
         self.cur_sequence = BaseSequence::iter_from_slice(
-            self.sequences.slice(start_endpoint, end_endpoint),
+            self.sequences.slice_from(start_endpoint),
             self.cur_end - self.cur_begin,
             self.cur_ub - self.cur_base + 1,
         );

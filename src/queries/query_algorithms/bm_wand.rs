@@ -18,6 +18,7 @@ impl<'a, Scorer: DocScorer> BMWand<'a, Scorer> {
         Self { p_data, topk_heap }
     }
 }
+
 impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
     fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where

@@ -1527,6 +1527,7 @@ impl<'a> BitSliceWithOffset<'a> {
         }
     }
 
+    #[inline]
     pub fn split_at(&self, mid: usize) -> (BitSliceWithOffset<'a>, BitSliceWithOffset<'a>) {
         debug_assert!(
             mid <= self.n_bits,
@@ -1551,6 +1552,12 @@ impl<'a> BitSliceWithOffset<'a> {
         (left, right)
     }
 
+    #[inline]
+    pub fn slice_from(&self, start: usize) -> BitSliceWithOffset<'a> {
+        self.slice(start, self.n_bits)
+    }
+
+    #[inline]
     pub fn slice(&self, start: usize, end: usize) -> BitSliceWithOffset<'a> {
         debug_assert!(start <= end, "end ({}) < start({})!", end, start);
         debug_assert!(start <= self.n_bits, "start point is out of bounds!");

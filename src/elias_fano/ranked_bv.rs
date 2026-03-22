@@ -126,7 +126,7 @@ impl<'a> EnumeratorFromBitSlice<'a> for RankedBv {
         // dbg!(start_samples, end_samples, u, n, bv.len());
         let data_slice = bv.slice(0, start_samples);
         let sample_slice = bv.slice(start_samples, end_samples);
-        let samples1_slice = bv.split_at(end_samples).1;
+        let samples1_slice = bv.slice_from(end_samples);
 
         RankedBvIter {
             data: data_slice,

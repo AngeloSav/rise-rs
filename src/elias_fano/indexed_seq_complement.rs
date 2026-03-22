@@ -191,15 +191,15 @@ impl<'a, EF: EFVariant> EnumeratorFromBitSlice<'a> for IndexedCompSequence<EF> {
 
         let it = match t {
             IndexType::EliasFanoT => {
-                let slice = bv.split_at(1).1;
+                let slice = bv.slice_from(1);
                 IterType::EliasFanoItT(EF::iter_from_slice(slice, n, u))
             }
             IndexType::RankedBvT => {
-                let slice = bv.split_at(1).1;
+                let slice = bv.slice_from(1);
                 IterType::RankedBvItT(RankedBv::iter_from_slice(slice, n, u))
             }
             IndexType::ComplementEliasFanoT => {
-                let slice = bv.split_at(1).1;
+                let slice = bv.slice_from(1);
                 IterType::CompEliasFanoItT(ComplementEliasFano::iter_from_slice(slice, n, u))
             }
             IndexType::AllOnesT => IterType::AllOnesItT(AllOnes::iter_from_slice(bv, n, u)),
