@@ -45,7 +45,6 @@ fn main() {
     match args.idx_kind {
         IdxKind::EFSingle => build_idx!(EFIdx),
         IdxKind::UPEf => build_idx!(UPEFIdx),
-        IdxKind::UPIs => build_idx!(UPISIdx),
         IdxKind::Opt => build_idx!(OptEFIdx),
         IdxKind::BlockVByte => build_idx!(BlockVByteIdx),
         IdxKind::BlockInterpolative => build_idx!(BlockInterpolativeIdx),

@@ -18,6 +18,14 @@ struct Args {
     /// Flag to use variable-size blocks (default: false, i.e., use fixed-size blocks)
     #[arg(short, long, default_value_t = false)]
     variable_block: bool,
+
+    /// Block size to use for fixed-size blocks
+    #[arg(short, long)]
+    block_size: Option<usize>,
+
+    /// Lambda value for variable-size blocks
+    #[arg(short, long)]
+    lambda: Option<f32>,
 }
 
 fn main() {
@@ -28,6 +36,8 @@ fn main() {
     BlockPostingMetadata::<BM25>::create_file(
         &args.input_path.as_str(),
         args.variable_block,
+        args.block_size,
+        args.lambda,
         &args.out_path.as_str(),
     );
 }

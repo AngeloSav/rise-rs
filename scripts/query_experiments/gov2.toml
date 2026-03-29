@@ -37,8 +37,8 @@ n-queries = 1000
 # # UNIFORM PARTITIONING EXPERIMENTS -------------------
 
 # [up]
-# index-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.upis.pef.out'
-# index-kind = 'upis'
+# index-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.upef.pef.out'
+# index-kind = 'upef'
 
 # [up.gov2]
 # query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']

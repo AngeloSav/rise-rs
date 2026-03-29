@@ -156,8 +156,6 @@ where
             }) {
                 cur_partition = (&mut it).take(part_size).collect();
 
-                // let cur_base = cur_partition[0];
-                // upper_bounds.push(cur_base);
                 let new_ub = *cur_partition.last().unwrap();
 
                 for el in cur_partition.iter_mut() {
@@ -268,14 +266,6 @@ where
                 EliasFano::iter_from_slice(bv.slice_from(next_pos), n_partitions - 1, n as u64);
             next_pos += EliasFano::n_bits(n as u64, n_partitions - 1);
 
-            // let mut endpoints = vec![0];
-            // for idx in (next_pos..)
-            //     .step_by(endpoint_bits as usize)
-            //     .take(n_partitions)
-            // {
-            //     endpoints.push(bv.get_bits(idx, endpoint_bits as usize).unwrap() as usize);
-            // }
-
             let endpoints = bv.slice(next_pos, next_pos + endpoint_bits * (n_partitions - 1));
 
             let sequences = bv.slice_from(next_pos + endpoint_bits * (n_partitions - 1));
@@ -362,30 +352,6 @@ where
         //get bounds of this
         self.cur_base = self.upper_bounds.move_to_position(part).0 + if part == 0 { 0 } else { 1 };
         self.cur_ub = self.upper_bounds.next().unwrap_or(self.universe);
-
-        // without using a vec for endpoints
-        // let mask = (1 << self.endpoint_bits) - 1;
-
-        // let start_p = if self.cur_partition == 0 {
-        //     0
-        // } else {
-        //     unsafe {
-        //         self.endpoints_slice
-        //             .get_word56((self.cur_partition - 1) * self.endpoint_bits)
-        //             & mask
-        //     }
-        // };
-        // let end_p = unsafe {
-        //     self.endpoints_slice
-        //         .get_word56((self.cur_partition) * self.endpoint_bits)
-        //         & mask
-        // };
-
-        // self.cur_sequence = BaseSequence::iter_from_slice_with_data(
-        //     self.sequences.slice(start_p as usize, end_p as usize),
-        //     self.cur_end - self.cur_begin,
-        //     self.cur_ub - self.cur_base + 1,
-        // );
 
         let start_endpoint = get_endpoint(&self.endpoints, self.cur_partition, self.endpoint_bits);
 
@@ -523,26 +489,7 @@ where
         if core::intrinsics::likely(lower_bound >= self.cur_base && lower_bound <= self.cur_ub) {
             // println!("here");
             let (val, pos) = self.cur_sequence.next_geq(lower_bound - self.cur_base);
-            // .unwrap_or_else(|| {
-            //     panic!(
-            //         "partition {}/{}
-            // sequence len {}
-            // lower bound: {}
-            // cur_base: {}
-            // cur_ub: {}
-            // cur_sequence: {:?}
-            // serching lb in seq: {}
-            // ",
-            //         self.cur_partition,
-            //         self.n_partitions,
-            //         self.len,
-            //         lower_bound,
-            //         self.cur_base,
-            //         self.cur_ub,
-            //         self.cur_sequence,
-            //         lower_bound - self.cur_base
-            //     );
-            // });
+
             self.position = self.cur_begin + pos as usize + 1;
             (val + self.cur_base, self.position - 1)
         } else {

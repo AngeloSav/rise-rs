@@ -464,18 +464,32 @@ impl<T: SVBEncodable + Default> StreamVByte<T> {
         let mut encoded_data = Vec::with_capacity(data.len() * std::mem::size_of::<T>());
 
         let mut buffer = vec![0u8; std::mem::size_of::<T>() * T::N_CONTROL];
+        let mut prev_encoded_len = 0;
+        let mut last_encoded_len = 0;
         for chunk in data.chunks(T::N_CONTROL) {
             let mut control_byte: u8 = 0;
             let encoded_length = T::encode_control_byte(chunk, &mut control_byte, &mut buffer);
             encoded_data.extend_from_slice(&buffer[..encoded_length]);
             control_bytes.push(control_byte);
+            prev_encoded_len = last_encoded_len;
+            last_encoded_len = encoded_length;
         }
 
+        let n_complete = data.len() / T::N_CONTROL;
+        let padding = if n_complete == 0 {
+            0 // no complete groups -> no padding needed
+        } else {
+            let (last_complete_len, partial_len) = if data.len() % T::N_CONTROL == 0 {
+                (last_encoded_len, 0)
+            } else {
+                (prev_encoded_len, last_encoded_len)
+            };
+            16usize.saturating_sub(last_complete_len + partial_len)
+        };
+
         encoded.extend(control_bytes);
-        // println!("encoded.len(): {}", encoded.len());
         encoded.extend(encoded_data);
-        // println!("encoded.len(): {}", encoded.len());
-        encoded.extend_from_slice(&[0u8; 15]);
+        encoded.extend(std::iter::repeat(0u8).take(padding));
 
         encoded
     }
@@ -495,10 +509,10 @@ impl<T: SVBEncodable + Default> StreamVByte<T> {
 
         let mut read_bytes = 0;
 
-        let encoded_data_index =
+        let complete_bytes =
             utils::decode_slice_aligned(output, &control_bits_slice[..control_end], &data_slice);
 
-        read_bytes += encoded_data_index;
+        read_bytes += complete_bytes;
 
         let last_control_byte = if n % T::N_CONTROL == 0 {
             0
@@ -506,16 +520,28 @@ impl<T: SVBEncodable + Default> StreamVByte<T> {
             control_bits_slice[control_end]
         };
 
-        let encoded_data_index = T::decode_control_byte(
+        let partial_bytes = T::decode_control_byte(
             n % T::N_CONTROL,
             last_control_byte,
-            &data_slice[encoded_data_index..],
+            &data_slice[complete_bytes..],
             &mut output[control_end * T::N_CONTROL..],
         );
 
-        read_bytes += encoded_data_index;
+        read_bytes += partial_bytes;
 
-        read_bytes + data_start + 15
+        let padding = if control_end == 0 {
+            0
+        } else {
+            let last_complete_len = Self::control_byte_length(control_bits_slice[control_end - 1]);
+            let partial_len = if n % T::N_CONTROL == 0 {
+                0
+            } else {
+                partial_bytes
+            };
+            16usize.saturating_sub(last_complete_len + partial_len)
+        };
+
+        read_bytes + data_start + padding
     }
 
     /// Returns the total byte length for values encoded in a control byte.

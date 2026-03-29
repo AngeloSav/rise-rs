@@ -35,8 +35,8 @@ meta-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
 # UNIFORM PARTITIONING EXPERIMENTS -------------------
 
 [up]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.upis.pef.out'
-index-kind = 'upis'
+index-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.upef.pef.out'
+index-kind = 'upef'
 
 [up.cc_url]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']

@@ -12,7 +12,9 @@ input-path = '/data1/InvertedIndexes/inverted_indexes/gov2/gov2.sorted-text.bin'
 
 [mdata.static]
 out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.static.mdata'
+block-size = 128
 
 [mdata.variable]
 out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.var.mdata'
 variable-block = ""
+lambda = 12.0

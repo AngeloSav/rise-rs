@@ -84,11 +84,11 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
             };
 
             for i in (0..non_essential_lists).rev() {
-                if enums[i].1.docid() < cur_doc {
-                    enums[i].1.next_geq(cur_doc);
+                if enums[i].1.block_docid() < cur_doc {
+                    enums[i].1.block_next_geq(cur_doc);
                 }
 
-                block_upper_bound -= enums[i].3 - enums[i].1.score() * enums[i].2;
+                block_upper_bound -= enums[i].3 - enums[i].1.block_max_score() * enums[i].2;
 
                 if !self.topk_heap.can_enter(score + block_upper_bound) {
                     break;
@@ -102,7 +102,7 @@ impl<Scorer: DocScorer> QueryOperator for BMMaxScore<'_, Scorer> {
                         block_upper_bound +=
                             enums[i].2 * Scorer::doc_term_weight(enums[i].0.freq(), norm_len);
                     }
-                    block_upper_bound -= enums[i].1.score() * enums[i].2; // query weight???
+                    block_upper_bound -= enums[i].1.block_max_score() * enums[i].2; // query weight???
 
                     if !self.topk_heap.can_enter(score + block_upper_bound) {
                         break;

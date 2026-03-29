@@ -15,14 +15,14 @@ input-path = '/data1/InvertedIndexes/inverted_indexes/gov2/gov2.rgb.bin'
 # idx-kind = 'ef'
 # out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.ef.pef.out'
 
-# [upis.build]
-# idx-kind = 'upis'
-# out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.upis.pef.out'
+[upef.build]
+idx-kind = 'upef'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.upef.pef.out'
 
 # [opt.build]
 # idx-kind = 'opt'
 # out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.opt.pef.out'
 
-[optcomp.build]
-idx-kind = 'optcomp'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.rgb.optcomp.pef.out'
+# [optcomp.build]
+# idx-kind = 'optcomp'
+# out-path = '/data1/InvertedIndexes/built_indexes/pef/gov2.rgb.optcomp.pef.out'

@@ -208,7 +208,7 @@ where
             let cur_end = 1 * PARTITION_SIZE;
 
             let start_endpoint = get_endpoint(&endpoints, 0, endpoint_bits);
-            // let end_endpoint = get_endpoint(&endpoints, 1, endpoint_bits);
+
             let cur_sequence = BaseSequence::iter_from_slice(
                 sequences.slice_from(start_endpoint),
                 cur_end,

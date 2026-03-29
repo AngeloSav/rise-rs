@@ -84,11 +84,11 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
             let mut block_upper_bound = 0.0;
 
             for i in 0..=pivot {
-                if ordered_enums[i].1.docid() < pivot_id {
-                    ordered_enums[i].1.next_geq(pivot_id);
+                if ordered_enums[i].1.block_docid() < pivot_id {
+                    ordered_enums[i].1.block_next_geq(pivot_id);
                 }
 
-                block_upper_bound += ordered_enums[i].1.score() * ordered_enums[i].2;
+                block_upper_bound += ordered_enums[i].1.block_max_score() * ordered_enums[i].2;
             }
 
             if self.topk_heap.can_enter(block_upper_bound) {
@@ -106,7 +106,8 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                             scored_enum.2 * Scorer::doc_term_weight(scored_enum.0.freq(), norm_len);
 
                         score += partial_score;
-                        block_upper_bound -= scored_enum.1.score() * scored_enum.2 - partial_score;
+                        block_upper_bound -=
+                            scored_enum.1.block_max_score() * scored_enum.2 - partial_score;
 
                         if !self.topk_heap.can_enter(block_upper_bound) {
                             break;
@@ -160,8 +161,8 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                 }
 
                 for i in 0..=pivot {
-                    if ordered_enums[i].1.docid() < next_jump {
-                        next_jump = std::cmp::min(next_jump, ordered_enums[i].1.docid());
+                    if ordered_enums[i].1.block_docid() < next_jump {
+                        next_jump = std::cmp::min(next_jump, ordered_enums[i].1.block_docid());
                     }
                 }
 

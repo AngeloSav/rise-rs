@@ -13,7 +13,9 @@ input-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
 
 [mdata.static]
 out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+block-size = 128
 
 [mdata.variable]
 out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
 variable-block = ""
+lambda = 12.0

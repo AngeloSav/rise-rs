@@ -36,9 +36,6 @@ pub enum IdxKind {
     /// Uniformly partitioned Elias-Fano.
     #[value(name = "upef")]
     UPEf,
-    /// Uniformly partitioned indexed sequence.
-    #[value(name = "upis")]
-    UPIs,
     /// Optimally partitioned indexed sequence.
     #[value(name = "opt")]
     Opt,
@@ -71,10 +68,6 @@ pub mod freq_index;
 pub type EFIdx = FreqIndex<EliasFano, PositiveSequence<StrictEliasFano>>;
 
 pub type UPEFIdx = FreqIndex<
-    UniformPartitionedSequence<EliasFano>,
-    PositiveSequence<UniformPartitionedSequence<StrictEliasFano>>,
->;
-pub type UPISIdx = FreqIndex<
     UniformPartitionedSequence<IndexSequence>,
     PositiveSequence<UniformPartitionedSequence<StrictSequence>>,
 >;
@@ -82,6 +75,7 @@ pub type OptEFIdx = FreqIndex<
     OptPartitionedSequence<IndexSequence>,
     PositiveSequence<OptPartitionedSequence<StrictSequence>>,
 >;
+
 pub type OptCompIdx = FreqIndex<
     OptPartitionedSequence<IndexCompSequence>,
     PositiveSequence<OptPartitionedSequence<StrictCompSequence>>,

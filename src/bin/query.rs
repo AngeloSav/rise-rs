@@ -49,7 +49,7 @@ struct Args {
 #[inline(always)]
 fn perform_query<Q: QueryOperator, I>(
     idx: &I,
-    parsed_queries: &Vec<Vec<usize>>,
+    parsed_queries: &[Vec<usize>],
     mut query_strategy: Q,
     n_runs: usize,
     index_ty: &str,
@@ -106,7 +106,7 @@ fn main() {
     init_logger();
 
     let queries_file =
-        BufReader::new(fs::File::open(args.query_path).expect("can't open query file"));
+        BufReader::new(fs::File::open(&args.query_path).expect("can't open query file"));
 
     let queries = if let Some(x) = args.n_queries {
         queries_file
@@ -186,7 +186,6 @@ fn main() {
     match args.index_kind {
         IdxKind::EFSingle => query_idx!(EFIdx),
         IdxKind::UPEf => query_idx!(UPEFIdx),
-        IdxKind::UPIs => query_idx!(UPISIdx),
         IdxKind::Opt => query_idx!(OptEFIdx),
         IdxKind::BlockVByte => query_idx!(BlockVByteIdx),
         IdxKind::BlockInterpolative => query_idx!(BlockInterpolativeIdx),

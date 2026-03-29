@@ -14,6 +14,7 @@ use super::block_partitioning::{partition_static, partition_variable};
 #[allow(dead_code)]
 #[derive(Epserde, Debug)]
 pub struct BlockPostingMetadata<Scorer: DocScorer> {
+    processed_postings: usize,
     norms_len: Box<[f32]>,
     max_term_weight: Box<[f32]>,
     blocks_start: Box<[usize]>,
@@ -31,16 +32,22 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
         unsafe { Self::deserialize_eps(&reader).expect("could not deserialize p_data") }
     }
 
-    pub fn create_file(path: &str, variable_block: bool, out_file: &str) {
+    pub fn create_file(
+        path: &str,
+        variable_block: bool,
+        block_size: Option<usize>,
+        lambda: Option<f32>,
+        out_file: &str,
+    ) {
         let mut blocks_start: Vec<usize> = Vec::new();
         blocks_start.push(0);
         let mut blocks_docid = Vec::new();
         let mut blocks_max_term_weight: Vec<f32> = Vec::new();
 
         if variable_block {
-            log::info!("using variable-size blocks");
+            log::info!("using variable-size blocks | lambda: {:?}", lambda);
         } else {
-            log::info!("using fixed-size blocks");
+            log::info!("using fixed-size blocks | block size: {:?}", block_size);
         }
 
         let sizes_iter = BinaryCollectionIterator::new(&format!("{}.sizes", path))
@@ -76,7 +83,7 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
 
         let mut it = docs_iter.zip(freqs_iter);
 
-        // let mut processed = 0;
+        let mut processed_postings = 0;
 
         while let Some((doc_list, freq_list)) = it.next() {
             assert!(doc_list.len() == freq_list.len());
@@ -88,9 +95,13 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
 
                 // add sequence ---------------
                 let (v_sizes, v_block_docid, v_block_max_term_weights) = if !variable_block {
-                    partition_static::<Scorer>(v, &norms_len)
+                    partition_static::<Scorer>(
+                        v,
+                        &norms_len,
+                        block_size.expect("unspecified block size"),
+                    )
                 } else {
-                    partition_variable::<Scorer>(v, &norms_len)
+                    partition_variable::<Scorer>(v, &norms_len, lambda.expect("unspecified lambda"))
                 };
 
                 blocks_start.push(blocks_start.last().unwrap() + v_block_docid.len());
@@ -109,7 +120,7 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             // if processed % 10_000_000 == 0 {
             //     println!("processed {} lists", processed);
             // }
-            // processed += 1;
+            processed_postings += sz as usize;
         }
 
         log::info!("norms_len len: {}", norms_len.len());
@@ -122,7 +133,12 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             blocks_max_term_weight.len()
         );
 
+        let avg_block_size = processed_postings as f64 / blocks_docid.len() as f64;
+
+        log::info!("average block size: {}", avg_block_size);
+
         let p_data = Self {
+            processed_postings,
             norms_len: norms_len.into_boxed_slice(),
             max_term_weight: max_term_weight.into_boxed_slice(),
             blocks_start: blocks_start.into_boxed_slice(),
@@ -176,7 +192,7 @@ pub struct BlockPostingMDataEnumerator<'a, Scorer: DocScorer> {
 }
 
 impl<'a, Scorer: DocScorer> BlockPostingMDataEnumerator<'a, Scorer> {
-    pub fn next_geq(&mut self, lower_bound: u64) {
+    pub fn block_next_geq(&mut self, lower_bound: u64) {
         while self.current_pos + 1 < self.block_number
             && (self.block_docid[self.current_pos] as usize) < lower_bound as usize
         {
@@ -184,11 +200,11 @@ impl<'a, Scorer: DocScorer> BlockPostingMDataEnumerator<'a, Scorer> {
         }
     }
 
-    pub fn score(&self) -> f32 {
+    pub fn block_max_score(&self) -> f32 {
         self.block_max_term_weight[self.current_pos]
     }
 
-    pub fn docid(&self) -> u64 {
+    pub fn block_docid(&self) -> u64 {
         self.block_docid[self.current_pos] as u64
     }
 }

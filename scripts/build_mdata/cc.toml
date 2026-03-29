@@ -14,7 +14,9 @@ input-path = '/data1/InvertedIndexes/rgb/ccnews/ccnews.rgb.bin'
 
 [mdata.static]
 out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.static.mdata'
+block_size = 128
 
 [mdata.variable]
 out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.var.mdata'
 variable-block = ""
+lambda = 12.0

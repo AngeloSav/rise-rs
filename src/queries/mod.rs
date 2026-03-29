@@ -37,6 +37,10 @@ pub trait QueryOperator {
     fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
         I: InvertedIndex;
+
+    fn retrieved_docs(&self) -> Vec<usize> {
+        todo!()
+    }
 }
 
 pub trait RankedQueryOperator {

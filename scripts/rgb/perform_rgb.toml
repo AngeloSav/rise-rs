@@ -9,13 +9,13 @@ bin = '../target/release/read_write_rgb'
 
 # Starting from here each section is an experiment -------------------
 
-# [gov2.rgb]
-# input-path = '/data1/InvertedIndexes/inverted_indexes/gov2/gov2.sorted-text.bin'
-# out-path = '/data1/InvertedIndexes/rgb/gov2/gov2.rgb.bin'
+[gov2.rgb]
+input-path = '/data1/InvertedIndexes/inverted_indexes/gov2/gov2.sorted-text.bin'
+out-path = '/data1/InvertedIndexes/rgb/gov2/gov2.rgb.bin'
 
-# [cw09.rgb]
-# input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
-# out-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
+[cw09.rgb]
+input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
+out-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
 
 [ccnews.rgb]
 input-path = '/data1/InvertedIndexes/inverted_indexes/ccnews/cc_url'

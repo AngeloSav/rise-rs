@@ -23,7 +23,7 @@ pub use elias_fano::{
 
 // pub mod increasing_seq;
 pub mod indexes;
-pub use indexes::{EFIdx, IdxKind, OptEFIdx, UPEFIdx, UPISIdx};
+pub use indexes::{EFIdx, IdxKind, OptEFIdx, UPEFIdx};
 pub mod positive_sequences;
 
 pub mod queries;
