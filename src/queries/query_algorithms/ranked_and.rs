@@ -83,6 +83,7 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<'_, Scorer> {
                 }
 
                 self.topk_heap.push(score);
+                self.topk_heap.push_with_id(candidate, score);
 
                 enums[0].0.next_doc();
                 // next_ctr += 1;

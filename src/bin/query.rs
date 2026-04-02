@@ -149,10 +149,12 @@ fn main() {
             for &qk in &args.query_kind {
                 match qk {
                     QueryKind::BooleanAnd => {
-                        perform_query(&idx, &parsed, And, n_runs, index_ty, mdata_filename)
+                        let and = And::new(idx.n_docs() as usize);
+                        perform_query(&idx, &parsed, and, n_runs, index_ty, mdata_filename)
                     }
                     QueryKind::BooleanOr => {
-                        perform_query(&idx, &parsed, Or, n_runs, index_ty, mdata_filename)
+                        let or = Or::new(idx.n_docs() as usize);
+                        perform_query(&idx, &parsed, or, n_runs, index_ty, mdata_filename)
                     }
                     QueryKind::RankedAnd => {
                         let r_and = RankedAnd::new(&p_data, args.k);

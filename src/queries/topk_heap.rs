@@ -94,13 +94,15 @@ impl TopKHeap {
     }
 
     #[inline]
-    pub fn push_with_id(&mut self, id: u64, score: f32) {
+    pub fn push_with_id(&mut self, id: u64, score: f32) -> bool {
         if self.heap.len() < self.k {
             // fits in heap
             self.heap.push(Reverse(PostingInfo {
                 docid: id,
                 frequency: score,
             }));
+            self.threshold = self.heap.peek().unwrap().0.frequency;
+            return true;
         } else if self.top().unwrap() < score {
             //better score
             self.heap.pop();
@@ -108,7 +110,10 @@ impl TopKHeap {
                 docid: id,
                 frequency: score,
             }));
+            self.threshold = self.heap.peek().unwrap().0.frequency;
+            return true;
         }
+        false
     }
 }
 

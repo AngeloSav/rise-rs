@@ -15,6 +15,10 @@ pub const MDATA_EPS2: f32 = 0.4;
 pub const MDATA_FIXED_COST: f32 = 12.0;
 pub const MDATA_BLOCK_SIZE: usize = 128;
 
+// Parameters for the OptEFIdx index.
+pub const OPT_EPS_1: f64 = 0.0;
+pub const OPT_EPS_2: f64 = 0.3;
+
 // Parameters for RankedBv iterator
 pub const RBV_LOG_RANK_SAMPLING: usize = 9; // length of buckets
 pub const RBV_LOG_SAMPLING1: usize = 8;

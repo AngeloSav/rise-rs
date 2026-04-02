@@ -4,7 +4,7 @@ use epserde::Epserde;
 
 use crate::{
     BitSliceWithOffset, BitVec, EnumeratorFromBitSlice, NextGEQ, SequenceEnumerator,
-    WriteBitvector,
+    WriteBitvector, config,
     indexes::freq_index::{DocList, FreqList},
     utils::{ceil_log2, prefetch_bitslice_word},
 };
@@ -77,8 +77,8 @@ where
     }
 }
 
-const EPS1: f64 = 0.0;
-const EPS2: f64 = 0.3;
+const EPS1: f64 = config::OPT_EPS_1;
+const EPS2: f64 = config::OPT_EPS_2;
 
 impl<BaseSequence> From<&[u64]> for OptPartitionedSequence<BaseSequence>
 where

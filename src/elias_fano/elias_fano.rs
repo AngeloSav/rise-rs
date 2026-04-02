@@ -14,7 +14,7 @@ use num::integer::div_ceil;
 ///
 /// Elias-Fano splits each element into a high part (stored in a unary-encoded
 /// bit array) and a low part (stored in a dense bit array).  The resulting
-/// space usage is approximately `2 + log2(u/n)` bits per element, which is
+/// space usage is approximately `2 + log_2(u/n)` bits per element, which is
 /// near-optimal for sequences drawn from a universe of size `u`.
 ///
 /// # Construction

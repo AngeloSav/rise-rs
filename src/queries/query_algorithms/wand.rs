@@ -107,8 +107,8 @@ impl<Scorer: DocScorer> QueryOperator for Wand<'_, Scorer> {
 
                 // insert in topk heap if possible
                 // println!("pivot_id {}, score {}", pivot_id, score);
-                // self.topk_heap.push_with_id(pivot_id, score);
-                self.topk_heap.push(score);
+                self.topk_heap.push_with_id(pivot_id, score);
+                // self.topk_heap.push(score);
 
                 ordered_enums.sort_by_key(|x| x.0.current_doc());
             } else {

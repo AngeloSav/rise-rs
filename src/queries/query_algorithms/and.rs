@@ -3,13 +3,24 @@ use crate::{
     queries::QueryOperator,
 };
 
-pub struct And;
+pub struct And {
+    res: Vec<u64>,
+}
+
+impl And {
+    pub fn new(n_docs: usize) -> Self {
+        Self {
+            res: Vec::with_capacity(n_docs),
+        }
+    }
+}
 
 impl QueryOperator for And {
     fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
         I: InvertedIndex,
     {
+        self.res.clear();
         if terms.is_empty() {
             return 0;
         }
@@ -29,7 +40,7 @@ impl QueryOperator for And {
         let mut candidate = enums[0].current_doc();
 
         let mut i = 1;
-        let mut size = 0;
+        // let mut size = 0;
 
         while candidate < max {
             for it in enums.iter_mut().skip(i) {
@@ -45,13 +56,15 @@ impl QueryOperator for And {
 
             if i == enums.len() {
                 // unsafe { *v.get_unchecked_mut(size) = candidate };
-                size += 1;
+                // size += 1;
+                self.res.push(candidate);
                 enums[0].next_doc();
                 candidate = enums[0].current_doc();
                 i = 1;
             }
         }
-        size
+        // size
+        self.res.len()
     }
 
     fn query_name() -> &'static str {

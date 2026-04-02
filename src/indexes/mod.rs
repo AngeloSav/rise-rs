@@ -83,5 +83,6 @@ pub type OptCompIdx = FreqIndex<
 
 pub type BlockVByteIdx =
     BlockFreqIndex<block_freq_index::block_codices::streamvbyte_codec::StreamVByteCodec>;
+
 pub type BlockInterpolativeIdx =
     BlockFreqIndex<block_freq_index::block_codices::interpolative_coding::InterpolativeCodec>;

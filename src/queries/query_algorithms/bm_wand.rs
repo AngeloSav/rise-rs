@@ -121,7 +121,8 @@ impl<Scorer: DocScorer> QueryOperator for BMWand<'_, Scorer> {
                         scored_enum.0.next_doc();
                     }
 
-                    self.topk_heap.push(score);
+                    self.topk_heap.push_with_id(pivot_id, score);
+                    // self.topk_heap.push(score);
 
                     ordered_enums.sort_by_key(|x| x.0.current_doc());
                 } else {

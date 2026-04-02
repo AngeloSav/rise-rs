@@ -3,7 +3,17 @@ use crate::{
     queries::QueryOperator,
 };
 
-pub struct Or;
+pub struct Or {
+    res: Vec<u64>,
+}
+
+impl Or {
+    pub fn new(n_docs: usize) -> Self {
+        Self {
+            res: Vec::with_capacity(n_docs),
+        }
+    }
+}
 
 impl QueryOperator for Or {
     fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
@@ -12,6 +22,7 @@ impl QueryOperator for Or {
     {
         // let mut next_ctr = 0;
 
+        self.res.clear();
         if terms.is_empty() {
             return 0;
         }
@@ -23,13 +34,14 @@ impl QueryOperator for Or {
         }
 
         let mut cur_doc = enums.iter().map(|x| x.current_doc()).min().unwrap();
-        let mut size = 0;
+        // let mut size = 0;
 
         while cur_doc < idx.n_docs() as u64 {
             // println!("new round ---------------------");
             // println!("pushing {:?}", cur_doc);
             // unsafe { *v.get_unchecked_mut(size) = cur_doc };
-            size += 1;
+            // size += 1;
+            self.res.push(cur_doc);
 
             let mut next_doc = idx.n_docs() as u64;
 
@@ -55,7 +67,8 @@ impl QueryOperator for Or {
             // println!("nextdoc is {:?}", cur_doc);
         }
         // println!("next_ctr = {}, size = {}", next_ctr, size);
-        size
+        // size
+        self.res.len()
     }
 
     fn query_name() -> &'static str {
