@@ -9,11 +9,11 @@ use mem_dbg::{MemDbg, MemSize};
 use crate::{
     BitVec, EliasFano, EnumeratorFromBitSlice, SequenceEnumerator, WriteBitvector, config,
     indexes::{
+        InvertedIndex, InvertedIndexBuilder, PostingListIter,
         block_freq_index::{
             block_codices::BlockCodec,
             block_posting_list::{BlockPostingList, BlockPostingListIter},
         },
-        freq_index::{InvertedIndex, PostingListIter},
     },
     readers::BinaryCollectionIterator,
     utils::{TimingQueries, pb_with_message},
@@ -38,10 +38,12 @@ pub struct BlockFreqIndexBuilder<BC> {
     _phantom: std::marker::PhantomData<BC>,
 }
 
-impl<BC> BlockFreqIndexBuilder<BC>
+impl<BC> InvertedIndexBuilder for BlockFreqIndexBuilder<BC>
 where
     BC: BlockCodec,
 {
+    type IndexType = BlockFreqIndex<BC>;
+
     fn new(n_docs: usize) -> Self {
         BlockFreqIndexBuilder {
             n_docs,
@@ -76,7 +78,7 @@ where
 
 impl<BC> BlockFreqIndex<BC>
 where
-    BC: BlockCodec + TypeHash,
+    BC: BlockCodec,
 {
     pub fn from_files(input_path: &str) -> Self {
         let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
@@ -236,7 +238,7 @@ where
 
 impl<BC> InvertedIndex for BlockFreqIndex<BC>
 where
-    BC: BlockCodec + TypeHash,
+    BC: BlockCodec,
 {
     type IterType<'a>
         = BlockPostingListIter<'a, BC>

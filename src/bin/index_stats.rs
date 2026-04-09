@@ -1,6 +1,7 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
 use pef::IdxKind;
+use pef::indexes::InvertedIndex;
 use pef::indexes::*;
 use pef::utils::init_logger;
 
@@ -27,8 +28,8 @@ fn main() {
             let idx = <$t>::load_index(&index_path);
             println!(
                 "Index contains {} docs, {} terms, size: {} bytes ({} GiB)",
-                idx.n_docs,
-                idx.n_terms,
+                idx.n_docs(),
+                idx.n_terms(),
                 idx.mem_size(SizeFlags::default()),
                 idx.mem_size(SizeFlags::default()) as f64 / (1024.0 * 1024.0 * 1024.0)
             );

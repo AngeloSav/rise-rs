@@ -1,4 +1,4 @@
-use crate::indexes::{block_freq_index::block_codices::BlockCodec, freq_index::PostingListIter};
+use crate::indexes::{PostingListIter, block_freq_index::block_codices::BlockCodec};
 
 pub struct BlockPostingList<T>
 where

@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::indexes::freq_index::InvertedIndex;
+use crate::indexes::InvertedIndex;
 use clap::ValueEnum;
 
 mod block_partitioning;

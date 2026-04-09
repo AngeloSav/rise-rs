@@ -2,7 +2,7 @@ use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
     IdxKind, QueryKind,
-    indexes::{freq_index::InvertedIndex, *},
+    indexes::*,
     queries::*,
     utils::{TimingQueries, init_logger},
 };
@@ -133,7 +133,11 @@ fn main() {
     macro_rules! query_idx {
         ($t:path) => {{
             let idx = <$t>::load_index(&args.index_path);
-            log::info!("Index contains {} docs, {} terms", idx.n_docs, idx.n_terms);
+            log::info!(
+                "Index contains {} docs, {} terms",
+                idx.n_docs(),
+                idx.n_terms()
+            );
 
             let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
                 &args.meta_path.clone().expect("meta path not given"),

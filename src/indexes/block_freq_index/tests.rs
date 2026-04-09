@@ -1,6 +1,7 @@
 use crate::{
     gen_sequences::{gen_positive_sequence, gen_strictly_increasing_sequence},
     indexes::{
+        PostingListIter,
         block_freq_index::{
             block_codices::{
                 BlockCodec, interpolative_coding::InterpolativeCodec,
@@ -8,7 +9,6 @@ use crate::{
             },
             block_posting_list::BlockPostingList,
         },
-        freq_index::PostingListIter,
     },
 };
 

@@ -1,7 +1,7 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
 use pef::IdxKind;
-use pef::indexes::freq_index::InvertedIndex;
+use pef::indexes::InvertedIndex;
 use pef::indexes::*;
 use pef::utils::init_logger;
 

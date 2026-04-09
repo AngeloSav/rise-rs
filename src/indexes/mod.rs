@@ -22,6 +22,10 @@ use block_freq_index::BlockFreqIndex;
 use clap::ValueEnum;
 use freq_index::FreqIndex;
 
+mod freq_index_builder;
+pub use freq_index_builder::FreqIndexBuilder;
+use mem_dbg::{MemDbg, MemSize};
+
 mod block_freq_index;
 
 /// Selects the document-list compression scheme when building or loading an index.
@@ -63,6 +67,33 @@ use crate::{
 };
 
 pub mod freq_index;
+
+pub trait InvertedIndexBuilder {
+    type IndexType: InvertedIndex;
+
+    fn new(n_docs: usize) -> Self;
+    fn push_plist_freqs(&mut self, docs: &[u64], freqs: &[u64]);
+    fn build(self) -> Self::IndexType;
+}
+
+pub trait PostingListIter {
+    fn current_doc(&self) -> u64;
+    fn current_pos(&self) -> usize;
+    fn next_geq(&mut self, lower_bound: u64);
+    fn next_doc(&mut self);
+    fn freq(&mut self) -> u64;
+    fn len(&self) -> usize;
+}
+
+pub trait InvertedIndex: MemSize + MemDbg {
+    type IterType<'a>: PostingListIter
+    where
+        Self: 'a;
+
+    fn n_docs(&self) -> usize;
+    fn n_terms(&self) -> usize;
+    fn get_plist_iter(&self, i: usize) -> Self::IterType<'_>;
+}
 
 // define index types
 pub type EFIdx = FreqIndex<EliasFano, PositiveSequence<StrictEliasFano>>;

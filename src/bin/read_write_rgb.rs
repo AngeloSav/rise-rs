@@ -65,6 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut it_docs =
         pef::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
 
+    let it_freqs =
+        pef::readers::BinaryCollectionIterator::new(format!("{}.freqs", &args.input_path).as_str());
+
     // new data to write back
     let n_docs = it_docs.next().unwrap().next().unwrap() as usize;
 
@@ -73,30 +76,48 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct the forward index
     println!("Constructing forward index for {} documents", n_docs);
 
+    let mut it_sizes =
+        pef::readers::BinaryCollectionIterator::new(format!("{}.sizes", &args.input_path).as_str())
+            .next()
+            .unwrap();
+
     let mut docs = Vec::with_capacity(n_docs);
+    let mut avg_doc_len: f64 = 0.0;
 
     for doc_id in 0..n_docs {
+        let doc_size = it_sizes.next().unwrap() as usize;
+        avg_doc_len += doc_size as f64;
         docs.push(Doc {
             terms: Vec::with_capacity(256),
+            freqs: Vec::with_capacity(256),
+            doc_len: doc_size as u32,
             org_id: doc_id as u32,
             gain: 0.0,
             leaf_id: -1,
         });
     }
 
+    let avg_doc_len = avg_doc_len / (n_docs as f64);
+
+    assert!(it_sizes.next().is_none());
+    drop(it_sizes);
+
     println!("Computing RGB partitioning with min_len={}", args.min_len);
     let mut uniq_terms: usize = 0;
     let mut term_id: usize = 0;
     let mut n_terms: usize = 0;
 
-    for doc_ids in it_docs {
+    let it = it_docs.zip(it_freqs);
+
+    for (doc_ids, freqs) in it {
         n_terms += 1;
         if doc_ids.len() < args.min_len {
             continue;
         }
 
-        for doc_id in doc_ids {
+        for (doc_id, freq) in doc_ids.zip(freqs) {
             docs[doc_id as usize].terms.push(term_id as u32);
+            docs[doc_id as usize].freqs.push(freq as u32);
         }
 
         uniq_terms += 1;
@@ -110,6 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for doc in docs.iter_mut() {
         doc.terms.shrink_to_fit();
+        doc.freqs.shrink_to_fit();
     }
 
     docs.sort_by_key(|a| std::cmp::Reverse(a.terms.len()));
@@ -135,6 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         1,
         args.sort_leaf,
         1,
+        avg_doc_len,
     );
 
     let mut permutation = vec![0u32; docs.len()];

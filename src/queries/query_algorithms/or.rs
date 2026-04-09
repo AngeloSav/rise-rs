@@ -1,7 +1,4 @@
-use crate::{
-    indexes::freq_index::{InvertedIndex, PostingListIter},
-    queries::QueryOperator,
-};
+use crate::{indexes::*, queries::QueryOperator};
 
 pub struct Or {
     res: Vec<u64>,

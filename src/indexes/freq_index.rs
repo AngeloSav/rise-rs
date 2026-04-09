@@ -4,6 +4,7 @@ use std::fs::{self, File};
 
 use crate::{
     config,
+    indexes::*,
     readers::ds2i_reader::BinaryCollectionIterator,
     utils::{pb_with_message, prefetch_bitslice_word},
 };
@@ -11,9 +12,8 @@ use epserde::prelude::*;
 use std::{fmt::Debug, marker::PhantomData, path::Path};
 
 use crate::{
-    BitSliceWithOffset, BitVec, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
+    BitSliceWithOffset, BitVecCollection, EliasFano, EnumeratorFromBitSlice, NextGEQ,
     PartitionableSequence, SequenceEnumerator, WriteBitvector,
-    bitvector::bitvector_collection::BitVectorCollectionBuilder,
     elias_fano::{
         indexed_seq::{IndexSequence, StrictSequence},
         opt_partition::OptPartitionedSeqIter,
@@ -25,11 +25,11 @@ use crate::{
 
 #[derive(Clone, Debug, Epserde, MemSize, MemDbg)]
 pub struct FreqIndex<DocumentSequence, FreqSequence> {
-    pub n_docs: usize,
-    pub n_terms: usize,
-    docs_sequences: BitVecCollection,
-    freqs_sequences: BitVecCollection,
-    pub _phantom: PhantomData<(DocumentSequence, FreqSequence)>,
+    pub(crate) n_docs: usize,
+    pub(crate) n_terms: usize,
+    pub(crate) docs_sequences: BitVecCollection,
+    pub(crate) freqs_sequences: BitVecCollection,
+    pub(crate) _phantom: PhantomData<(DocumentSequence, FreqSequence)>,
 }
 
 #[derive(Debug)]
@@ -41,15 +41,6 @@ where
     current: (u64, usize),
     doc_it: <DocumentSequence as EnumeratorFromBitSlice<'a>>::IterType,
     freq_it: <FreqSequence as EnumeratorFromBitSlice<'a>>::IterType,
-}
-
-pub trait PostingListIter {
-    fn current_doc(&self) -> u64;
-    fn current_pos(&self) -> usize;
-    fn next_geq(&mut self, lower_bound: u64);
-    fn next_doc(&mut self);
-    fn freq(&mut self) -> u64;
-    fn len(&self) -> usize;
 }
 
 // once we build them, they are immutable
@@ -108,6 +99,10 @@ where
     DocumentSequence: DocList,
     FreqSequence: FreqList,
 {
+    pub fn get_builder(n_docs: usize) -> FreqIndexBuilder<DocumentSequence, FreqSequence> {
+        FreqIndexBuilder::new(n_docs)
+    }
+
     pub fn from_files(input_path: &str) -> Self {
         let mmap_len = fs::metadata(&format!("{}.docs", input_path)).unwrap().len() / 4;
 
@@ -122,10 +117,9 @@ where
 
         let mut it = docs_iter.zip(freqs_iter);
 
+        let mut builder = Self::get_builder(n_docs as usize);
+
         let mut n_postings = 0;
-        let mut n_terms = 0;
-        let mut bvb_docs = BitVectorCollectionBuilder::default();
-        let mut bvb_freqs = BitVectorCollectionBuilder::default();
 
         while let Some((doc_list, freq_list)) = it.next() {
             assert_eq!(doc_list.len(), freq_list.len());
@@ -140,26 +134,8 @@ where
                 assert!(v_docs.len() == sz as usize);
                 assert!(sz > 0);
 
-                rayon::join(
-                    || {
-                        let mut bv = BitVec::new();
-                        bv.append_gamma_nonzero(sz as u64);
-                        // println!("sz is: {}", sz);
-                        bv.concat(DocumentSequence::write_bitvector(
-                            v_docs,
-                            sz as usize,
-                            n_docs,
-                        ));
+                builder.push_plist_freqs(&v_docs, &v_freqs);
 
-                        bvb_docs.push(bv);
-                    },
-                    || {
-                        let freq_bv = FreqSequence::write_bitvector(v_freqs, sz as usize, 0);
-                        bvb_freqs.push(freq_bv);
-                    },
-                );
-
-                n_terms += 1;
                 n_postings += sz;
                 pb.inc(sz);
             }
@@ -168,22 +144,8 @@ where
         pb.finish();
         log::info!("processed {} postings", n_postings);
 
-        FreqIndex {
-            n_docs: n_docs.try_into().unwrap(),
-            n_terms,
-            docs_sequences: bvb_docs.build(),
-            freqs_sequences: bvb_freqs.build(),
-            _phantom: PhantomData,
-        }
+        builder.build()
     }
-
-    // pub fn load_index(index_path: &str) -> Self {
-    //     let serialized = fs::read(index_path).unwrap();
-
-    //     let ds = bincode::deserialize::<Self>(&serialized).unwrap();
-
-    //     ds
-    // }
 
     pub fn load_index(path: &str) -> Self {
         let reader = std::fs::read(path).expect("could not read index file");
@@ -281,16 +243,6 @@ where
         }
         ds
     }
-}
-
-pub trait InvertedIndex: MemSize + MemDbg {
-    type IterType<'a>: PostingListIter
-    where
-        Self: 'a;
-
-    fn n_docs(&self) -> usize;
-    fn n_terms(&self) -> usize;
-    fn get_plist_iter(&self, i: usize) -> Self::IterType<'_>;
 }
 
 impl<DL, FL> InvertedIndex for FreqIndex<DL, FL>

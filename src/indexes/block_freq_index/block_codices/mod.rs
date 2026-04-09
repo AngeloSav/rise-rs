@@ -1,10 +1,12 @@
+use epserde::traits::TypeHash;
+
 pub mod interpolative_coding;
 pub mod streamvbyte_codec;
 // pub mod vbyte_codec;
 
 mod streamvbyte;
 
-pub trait BlockCodec {
+pub trait BlockCodec: TypeHash {
     /// Encodes a block of monotonically increasing (a_i > a_{i+1}) u64 integers into a byte vector.
     fn encode_monotone(data: impl IntoIterator<Item = u32>) -> Vec<u8>;
 

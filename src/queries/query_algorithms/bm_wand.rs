@@ -1,6 +1,6 @@
 use crate::{
     DocScorer,
-    indexes::freq_index::{InvertedIndex, PostingListIter},
+    indexes::*,
     queries::{
         BlockPostingMetadata, QueryOperator, RankedQueryOperator, query_algorithms::query_freqs,
         topk_heap::TopKHeap,
