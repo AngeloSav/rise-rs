@@ -8,11 +8,6 @@ FIIR compresses posting lists (document IDs and term frequencies) using entropy-
 
 The library targets large-scale collections (Gov2, ClueWeb09, CC-News) and is designed for research and benchmarking of inverted index compression and query processing.
 
-## Requirements
-
-- **Nightly Rust** (`rustup toolchain install nightly`) — several nightly-only features are used (e.g. prefetching hints).
-- A CPU with native SIMD support is recommended for best performance (the release profile uses `-C target-cpu=native`), but not required.
-
 ## Building
 
 ```bash
