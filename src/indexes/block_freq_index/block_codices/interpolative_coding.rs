@@ -1,11 +1,64 @@
 use crate::{indexes::block_freq_index::block_codices::BlockCodec, utils::msb};
 use dsi_bitstream::{
     codes::{VByteLeRead, VByteLeWrite},
-    impls::{BufBitReader, BufBitWriter, MemWordReader, MemWordWriterVec},
-    traits::{BitRead, BitSeek, BitWrite, LE},
+    impls::{BufBitReader, BufBitWriter, MemWordWriterVec},
+    traits::{BitRead, BitSeek, BitWrite, LE, WordRead, WordSeek},
 };
+use std::convert::Infallible;
 use epserde::Epserde;
 use mem_dbg::{MemDbg, MemSize};
+
+/// Reads u32 words from a byte slice without requiring 4-byte alignment.
+/// Returns zero past the end (matching MemWordReader<W,B,INF=true> behaviour)
+/// so the BufBitReader never panics on partial final words.
+struct ByteSliceU32Reader<'a> {
+    data: &'a [u8],
+    word_index: usize,
+}
+
+impl<'a> ByteSliceU32Reader<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, word_index: 0 }
+    }
+}
+
+impl WordRead for ByteSliceU32Reader<'_> {
+    type Error = Infallible;
+    type Word = u32;
+
+    #[inline]
+    fn read_word(&mut self) -> Result<u32, Infallible> {
+        let byte_pos = self.word_index * 4;
+        self.word_index += 1;
+        let remaining = self.data.len().saturating_sub(byte_pos);
+        if remaining == 0 {
+            return Ok(0);
+        }
+        if remaining >= 4 {
+            // SAFETY: pointer stays within the slice; read_unaligned handles any alignment
+            Ok(unsafe { (self.data.as_ptr().add(byte_pos) as *const u32).read_unaligned() })
+        } else {
+            let mut buf = [0u8; 4];
+            buf[..remaining].copy_from_slice(&self.data[byte_pos..]);
+            Ok(u32::from_le_bytes(buf))
+        }
+    }
+}
+
+impl WordSeek for ByteSliceU32Reader<'_> {
+    type Error = Infallible;
+
+    #[inline]
+    fn word_pos(&mut self) -> Result<u64, Infallible> {
+        Ok(self.word_index as u64)
+    }
+
+    #[inline]
+    fn set_word_pos(&mut self, word_index: u64) -> Result<(), Infallible> {
+        self.word_index = word_index as usize;
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, MemSize, MemDbg, Epserde)]
 pub struct InterpolativeCodec;
@@ -36,7 +89,7 @@ impl InterpolativeCodec {
         }
     }
 
-    fn read_int(reader: &mut BufBitReader<LE, MemWordReader<u32, &[u32]>>, u: u64) -> u64 {
+    fn read_int(reader: &mut BufBitReader<LE, ByteSliceU32Reader<'_>>, u: u64) -> u64 {
         let b = msb(u);
         let m = (1u64 << (b + 1)) - u;
 
@@ -85,7 +138,7 @@ impl InterpolativeCodec {
     }
 
     fn decode_monotone_helper(
-        reader: &mut BufBitReader<LE, MemWordReader<u32, &[u32]>>,
+        reader: &mut BufBitReader<LE, ByteSliceU32Reader<'_>>,
         output: &mut [u32],
         low: u32,
         high: u32,
@@ -118,8 +171,6 @@ impl BlockCodec for InterpolativeCodec {
     fn encode_monotone(data: impl IntoIterator<Item = u32>) -> Vec<u8> {
         let data = data.into_iter().map(|x| x as u32).collect::<Vec<_>>();
 
-        // println!("ENCODING DATA: {:?}", &data);
-
         let last = *data.last().unwrap();
         let mut output = Vec::new();
         let mut writer = BufBitWriter::<LE, _>::new(MemWordWriterVec::<u32, _>::new(&mut output));
@@ -129,9 +180,13 @@ impl BlockCodec for InterpolativeCodec {
 
         Self::encode_monotone_helper(&data, &mut writer, 0, last, 0, (data.len() - 1) as u32);
 
+        let bits_in_last_word = writer.flush().expect("error flushing interpolative writer");
         drop(writer);
 
-        cast_vecu32_to_vecu8(output)
+        let total_bits = output.len() * 32 - (32usize.wrapping_sub(bits_in_last_word)) % 32;
+        let mut bytes = cast_vecu32_to_vecu8(output);
+        bytes.truncate(total_bits.div_ceil(8));
+        bytes
     }
 
     fn encode(data: impl IntoIterator<Item = u32>) -> Vec<u8> {
@@ -146,15 +201,13 @@ impl BlockCodec for InterpolativeCodec {
     }
 
     fn decode_monotone(data: &[u8], n: usize, out: &mut [u32]) -> usize {
-        let casted_slice = unsafe { cast_sliceu8_to_sliceu32(data) };
-        let mut reader = BufBitReader::<LE, _>::new(MemWordReader::new(casted_slice));
+        let mut reader = BufBitReader::<LE, _>::new(ByteSliceU32Reader::new(data));
 
         let last = reader.read_vbyte_le().expect("error in vbyte decoding") as u32;
 
         Self::decode_monotone_helper(&mut reader, out, 0, last, 0, (n - 1) as u32);
 
-        let read_bytes = (reader.bit_pos().unwrap() as usize).div_ceil(32);
-        read_bytes * 4
+        (reader.bit_pos().unwrap() as usize).div_ceil(8)
     }
 
     fn decode(data: &[u8], n: usize, out: &mut [u32]) -> usize {
@@ -189,12 +242,3 @@ pub fn cast_vecu32_to_vecu8(v: Vec<u32>) -> Vec<u8> {
     unsafe { Vec::from_raw_parts(ptr, len, capacity) }
 }
 
-// pub fn cast_sliceu32_to_sliceu8(v: &[u32]) -> &[u8] {
-//     let len = v.len() * 4;
-//     unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u8, len) }
-// }
-
-pub unsafe fn cast_sliceu8_to_sliceu32(v: &[u8]) -> &[u32] {
-    let len = v.len() / 4;
-    unsafe { std::slice::from_raw_parts(v.as_ptr() as *const u32, len) }
-}

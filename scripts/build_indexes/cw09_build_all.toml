@@ -11,9 +11,9 @@ input-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
 
 # Starting from here each section is an experiment -------------------
 
-# [bic.build]
-# idx-kind = 'block_interpolative'
-# out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.bic.pef.out'
+[bic.build]
+idx-kind = 'block_interpolative'
+out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.bic.pef.out'
 
 # [vbyte.build]
 # idx-kind = 'block_vbyte'
@@ -23,9 +23,9 @@ input-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
 # idx-kind = 'ef'
 # out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.ef.pef.out'
 
-[upef.build]
-idx-kind = 'upef'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.upef.pef.out'
+# [upef.build]
+# idx-kind = 'upef'
+# out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.upef.pef.out'
 
 # [opt.build]
 # idx-kind = 'opt'
