@@ -1,0 +1,160 @@
+use clap::Parser;
+use pef::{IdxKind, QueryKind, indexes::*, queries::*, utils::init_logger};
+use std::{
+    fs,
+    io::{BufRead, BufReader},
+};
+
+#[derive(Parser, Debug)]
+#[command(
+    version,
+    about = "Run ranked queries and output results in TREC eval format"
+)]
+struct Args {
+    /// Type of index
+    #[arg(short = 't', long)]
+    index_kind: IdxKind,
+
+    /// Path of the index file
+    #[arg(short, long)]
+    index_path: String,
+
+    /// Ranked query algorithm to use
+    #[arg(long)]
+    query_kind: QueryKind,
+
+    /// Path of the metadata file for scoring
+    #[arg(short, long)]
+    meta_path: String,
+
+    /// Path of the query file (each line: "qid term1 term2 ...")
+    #[arg(long)]
+    query_path: String,
+
+    /// Retrieve the top k documents
+    #[arg(short, long, default_value_t = 10)]
+    k: usize,
+
+    /// Process the first n queries; if omitted, process all
+    #[arg(short, long)]
+    n_queries: Option<usize>,
+
+    /// Tag identifying this run in the TREC output
+    #[arg(long, default_value = "pef")]
+    run_tag: String,
+}
+
+fn run_and_print<Q>(mut op: Q, idx: &impl InvertedIndex, qid: &str, terms: &[usize], run_tag: &str)
+where
+    Q: QueryOperator + RankedQueryOperator,
+{
+    op.query(idx, terms);
+
+    // into_sorted_vec() is ascending (min-heap order); reverse for descending score
+    let mut results = op.topk().into_sorted_vec();
+    results.reverse();
+
+    for (rank, doc) in results.iter().enumerate() {
+        println!(
+            "{} Q0 {} {} {:.6} {}",
+            qid,
+            doc.docid,
+            rank + 1,
+            doc.frequency,
+            run_tag
+        );
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+    init_logger();
+
+    let file = BufReader::new(fs::File::open(&args.query_path).expect("cannot open query file"));
+    let mut lines = file.lines().map(|l| l.expect("read error"));
+
+    let queries: Vec<(String, Vec<usize>)> = (&mut lines)
+        .take(args.n_queries.unwrap_or(usize::MAX))
+        .filter_map(|line| {
+            let mut tokens = line.split_whitespace();
+            let qid = tokens.next()?.to_owned();
+            let terms: Vec<usize> = tokens
+                .map(|t| t.parse::<usize>().expect("term ID must be an integer"))
+                .collect();
+            if terms.is_empty() {
+                None
+            } else {
+                Some((qid, terms))
+            }
+        })
+        .collect();
+
+    log::info!("loaded {} queries", queries.len());
+
+    macro_rules! eval_idx {
+        ($t:path) => {{
+            let idx = <$t>::load_index(&args.index_path);
+            log::info!("index: {} docs, {} terms", idx.n_docs(), idx.n_terms());
+
+            let p_data = BlockPostingMetadata::<BM25>::load_file(&args.meta_path);
+
+            for (qid, terms) in &queries {
+                match args.query_kind {
+                    QueryKind::RankedAnd => run_and_print(
+                        RankedAnd::new(&p_data, args.k),
+                        &idx,
+                        qid,
+                        terms,
+                        &args.run_tag,
+                    ),
+                    QueryKind::RankedOr => run_and_print(
+                        RankedOr::new(&p_data, args.k),
+                        &idx,
+                        qid,
+                        terms,
+                        &args.run_tag,
+                    ),
+                    QueryKind::Wand => {
+                        run_and_print(Wand::new(&p_data, args.k), &idx, qid, terms, &args.run_tag)
+                    }
+                    QueryKind::Maxscore => run_and_print(
+                        MaxScore::new(&p_data, args.k),
+                        &idx,
+                        qid,
+                        terms,
+                        &args.run_tag,
+                    ),
+                    QueryKind::BMWand => run_and_print(
+                        BMWand::new(&p_data, args.k),
+                        &idx,
+                        qid,
+                        terms,
+                        &args.run_tag,
+                    ),
+                    QueryKind::BMMaxscore => run_and_print(
+                        BMMaxScore::new(&p_data, args.k),
+                        &idx,
+                        qid,
+                        terms,
+                        &args.run_tag,
+                    ),
+                    QueryKind::BooleanAnd | QueryKind::BooleanOr => {
+                        eprintln!(
+                            "error: boolean queries are not supported; choose a ranked query kind"
+                        );
+                        std::process::exit(1);
+                    }
+                }
+            }
+        }};
+    }
+
+    match args.index_kind {
+        IdxKind::EFSingle => eval_idx!(EFIdx),
+        IdxKind::UPEf => eval_idx!(UPEFIdx),
+        IdxKind::Opt => eval_idx!(OptEFIdx),
+        IdxKind::OptComp => eval_idx!(OptCompIdx),
+        IdxKind::BlockVByte => eval_idx!(BlockVByteIdx),
+        IdxKind::BlockInterpolative => eval_idx!(BlockInterpolativeIdx),
+    }
+}

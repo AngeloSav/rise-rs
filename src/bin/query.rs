@@ -124,6 +124,7 @@ fn main() {
             l.unwrap()
                 .split_whitespace()
                 .map(|x| x.parse::<usize>().expect("can't parse number"))
+                // .skip(1) // skip qid
                 .collect::<Vec<_>>()
         })
         .collect();
@@ -139,7 +140,7 @@ fn main() {
                 idx.n_terms()
             );
 
-            let p_data = BlockPostingMetadata::<pef::queries::bm25::BM25>::load_file(
+            let p_data = BlockPostingMetadata::<BM25>::load_file(
                 &args.meta_path.clone().expect("meta path not given"),
             );
 

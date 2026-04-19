@@ -70,7 +70,7 @@ where
             endpoints: EliasFano::write_bitvector(
                 self.endpoints[..self.endpoints.len() - 1].iter().copied(),
                 n_terms,
-                list_len as u64,
+                list_len as u64 + 1,
             ),
         }
     }
@@ -104,12 +104,12 @@ where
             // println!("list n {}, size is {}", idx.n_terms, sz);
             let sz = doc_list.len() as u64;
 
-            if sz > config::LENGTH_THRESHOLD as u64 {
+            if sz >= config::LENGTH_THRESHOLD as u64 {
                 let v_docs: Vec<u64> = doc_list.collect();
                 let v_freqs: Vec<u64> = freq_list.collect();
 
                 assert!(v_docs.len() == sz as usize);
-                assert!(sz > 0);
+                // assert!(sz > 0);
 
                 index_builder.push_plist_freqs(&v_docs, &v_freqs);
 
@@ -229,10 +229,9 @@ where
             self.data.len() as u64,
         );
 
-        BlockPostingList::<BC>::iter_from_slice(
-            &self.data[ef.move_to_position(i).0 as usize..ef.move_to_position(i + 1).0 as usize],
-            self.n_docs as u64,
-        )
+        let start = ef.move_to_position(i).0 as usize;
+        let end = ef.next_val().0 as usize;
+        BlockPostingList::<BC>::iter_from_slice(&self.data[start..end], self.n_docs as u64)
     }
 }
 

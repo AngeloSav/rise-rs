@@ -87,10 +87,10 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
 
         while let Some((doc_list, freq_list)) = it.next() {
             assert!(doc_list.len() == freq_list.len());
-            assert!(doc_list.len() > 0);
+            // assert!(doc_list.len() > 0);
 
             let sz = doc_list.len() as u64;
-            if sz > config::MDATA_LENGTH_THRESHOLD as u64 {
+            if sz >= config::MDATA_LENGTH_THRESHOLD as u64 {
                 let v = doc_list.zip(freq_list);
 
                 // add sequence ---------------

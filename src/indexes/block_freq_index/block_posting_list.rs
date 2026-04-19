@@ -1,5 +1,7 @@
 use crate::indexes::{PostingListIter, block_freq_index::block_codices::BlockCodec};
 
+const BLOCK_SIZE: usize = 128;
+
 pub struct BlockPostingList<T>
 where
     T: BlockCodec,
@@ -17,7 +19,7 @@ impl<T> BlockPostingList<T>
 where
     T: BlockCodec,
 {
-    const BLOCK_SIZE: usize = 128;
+    const BLOCK_SIZE: usize = BLOCK_SIZE;
 
     // List layout:
     // n | [max docid of each block] | [block endpoints] | [(docids in block, freqs in block) ...]
@@ -89,8 +91,8 @@ where
             block_maxs: &data[begin_block_maxs..begin_block_endpoints],
             block_endpoints: &data[begin_block_endpoints..begin_blocks],
             blocks_data: &data[begin_blocks..],
-            docs_buf: vec![0; Self::BLOCK_SIZE],
-            freqs_buf: vec![0; Self::BLOCK_SIZE],
+            docs_buf: [0u32; BLOCK_SIZE],
+            freqs_buf: [0u32; BLOCK_SIZE],
             n_blocks,
             universe,
             _codec: std::marker::PhantomData,
@@ -119,8 +121,8 @@ where
     block_maxs: &'a [u8],
     block_endpoints: &'a [u8],
     blocks_data: &'a [u8],
-    docs_buf: Vec<u32>,
-    freqs_buf: Vec<u32>,
+    docs_buf: [u32; BLOCK_SIZE],
+    freqs_buf: [u32; BLOCK_SIZE],
     cur_freqs_data: &'a [u8],
 
     // bookkeping for blocks
@@ -170,7 +172,7 @@ where
         let read_bytes = T::decode(
             block_data,
             self.cur_block_size,
-            self.docs_buf.as_mut_slice(),
+            &mut self.docs_buf,
         );
         // prefetch freqs base maybe ??
 
@@ -188,7 +190,7 @@ where
         let read_bytes = T::decode(
             self.cur_freqs_data,
             self.cur_block_size,
-            self.freqs_buf.as_mut_slice(),
+            &mut self.freqs_buf,
         );
         // prefetch next block in some way
         std::intrinsics::prefetch_read_data::<_, 3>(self.cur_freqs_data[read_bytes..].as_ptr());

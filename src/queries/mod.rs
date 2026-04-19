@@ -4,8 +4,13 @@ use clap::ValueEnum;
 
 mod block_partitioning;
 pub mod block_posting_metadata;
-pub mod bm25;
-pub use bm25::DocScorer;
+
+pub mod scorers;
+pub use scorers::DocScorer;
+
+pub use scorers::BM25;
+pub use scorers::DotScorer;
+
 pub mod topk_heap;
 
 /// Selects the query algorithm when running experiments.
