@@ -9,6 +9,7 @@ query-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-t
 
 n-runs = 2
 n-queries = 1000
+k = 10
 
 # EF -----------------------------------------
 

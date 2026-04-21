@@ -44,6 +44,10 @@ struct Args {
     /// Perform test n times
     #[arg(short = 'r', long, default_value_t = 10)]
     n_runs: usize,
+
+    /// Whether the query file contains qid or not, if true the first number of each line will be skipped when parsing the query
+    #[arg(long, default_value_t = false)]
+    has_qid: bool,
 }
 
 #[inline(always)]
@@ -124,7 +128,7 @@ fn main() {
             l.unwrap()
                 .split_whitespace()
                 .map(|x| x.parse::<usize>().expect("can't parse number"))
-                // .skip(1) // skip qid
+                .skip(if args.has_qid { 1 } else { 0 }) // skip qid
                 .collect::<Vec<_>>()
         })
         .collect();

@@ -1,8 +1,5 @@
 use clap::Parser;
-use pef::{
-    queries::{BM25, BlockPostingMetadata},
-    utils::init_logger,
-};
+use pef::{queries::*, utils::init_logger};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
