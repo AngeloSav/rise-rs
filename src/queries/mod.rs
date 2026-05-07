@@ -44,6 +44,34 @@ pub use block_posting_metadata::BlockPostingMetadata;
 pub mod query_algorithms;
 pub use query_algorithms::*;
 
+/// Reads the epserde type hash from the first 21 bytes of `path` and maps it
+/// to the corresponding [`ScorerKind`].
+pub fn peek_scorer_kind(path: &str) -> ScorerKind {
+    use std::hash::Hasher;
+    use std::io::Read;
+    use epserde::traits::TypeHash;
+    use xxhash_rust::xxh3::Xxh3;
+
+    fn scorer_type_hash<S: DocScorer + TypeHash>() -> u64 {
+        let mut h = Xxh3::new();
+        BlockPostingMetadata::<S>::type_hash(&mut h);
+        h.finish()
+    }
+
+    let mut file = std::fs::File::open(path).expect("cannot open metadata file");
+    let mut header = [0u8; 21];
+    file.read_exact(&mut header).expect("cannot read metadata header");
+    let type_hash = u64::from_ne_bytes(header[13..21].try_into().unwrap());
+
+    if type_hash == scorer_type_hash::<BM25>() {
+        ScorerKind::Bm25
+    } else if type_hash == scorer_type_hash::<DotScorer>() {
+        ScorerKind::Dot
+    } else {
+        panic!("unrecognised scorer type hash {type_hash:#x} in {path}")
+    }
+}
+
 pub trait QueryOperator {
     fn query_name() -> &'static str;
 

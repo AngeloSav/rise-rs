@@ -1,5 +1,5 @@
 use clap::Parser;
-use pef::{IdxKind, QueryKind, ScorerKind, peek_idx_kind, indexes::*, queries::*, utils::init_logger};
+use pef::{IdxKind, QueryKind, ScorerKind, peek_idx_kind, peek_scorer_kind, indexes::*, queries::*, utils::init_logger};
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -43,9 +43,9 @@ struct Args {
     #[arg(long, default_value = "pef")]
     run_tag: String,
 
-    /// Scoring model to use (must match the model used to build the metadata file)
-    #[arg(long, default_value = "bm25")]
-    scorer: ScorerKind,
+    /// Scoring model to use (inferred from the metadata file if omitted)
+    #[arg(long)]
+    scorer: Option<ScorerKind>,
 }
 
 fn run_and_print<Q>(mut op: Q, idx: &impl InvertedIndex, qid: &str, terms: &[usize], run_tag: &str)
@@ -154,8 +154,8 @@ fn main() {
     }
 
     macro_rules! with_scorer {
-        ($idx_ty:path) => {
-            match args.scorer {
+        ($idx_ty:path, $scorer:expr) => {
+            match $scorer {
                 ScorerKind::Bm25 => eval_idx!($idx_ty, BM25),
                 ScorerKind::Dot => eval_idx!($idx_ty, DotScorer),
             }
@@ -163,13 +163,14 @@ fn main() {
     }
 
     let index_kind = args.index_kind.unwrap_or_else(|| peek_idx_kind(&args.index_path));
+    let scorer = args.scorer.unwrap_or_else(|| peek_scorer_kind(&args.meta_path));
 
     match index_kind {
-        IdxKind::EFSingle => with_scorer!(EFIdx),
-        IdxKind::UPEf => with_scorer!(UPEFIdx),
-        IdxKind::Opt => with_scorer!(OptEFIdx),
-        IdxKind::OptComp => with_scorer!(OptCompIdx),
-        IdxKind::BlockVByte => with_scorer!(BlockVByteIdx),
-        IdxKind::BlockInterpolative => with_scorer!(BlockInterpolativeIdx),
+        IdxKind::EFSingle => with_scorer!(EFIdx, scorer),
+        IdxKind::UPEf => with_scorer!(UPEFIdx, scorer),
+        IdxKind::Opt => with_scorer!(OptEFIdx, scorer),
+        IdxKind::OptComp => with_scorer!(OptCompIdx, scorer),
+        IdxKind::BlockVByte => with_scorer!(BlockVByteIdx, scorer),
+        IdxKind::BlockInterpolative => with_scorer!(BlockInterpolativeIdx, scorer),
     }
 }

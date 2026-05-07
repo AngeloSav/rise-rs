@@ -1,7 +1,7 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
-    IdxKind, QueryKind, ScorerKind, peek_idx_kind,
+    IdxKind, QueryKind, ScorerKind, peek_idx_kind, peek_scorer_kind,
     indexes::*,
     queries::*,
     utils::{TimingQueries, init_logger},
@@ -49,9 +49,9 @@ struct Args {
     #[arg(long, default_value_t = false)]
     has_qid: bool,
 
-    /// Scoring model to use (must match the model used to build the metadata file)
-    #[arg(long, default_value = "bm25")]
-    scorer: ScorerKind,
+    /// Scoring model to use (inferred from the metadata file if omitted)
+    #[arg(long)]
+    scorer: Option<ScorerKind>,
 }
 
 #[inline(always)]
@@ -199,8 +199,8 @@ fn main() {
     }
 
     macro_rules! with_scorer {
-        ($idx_ty:path) => {
-            match args.scorer {
+        ($idx_ty:path, $scorer:expr) => {
+            match $scorer {
                 ScorerKind::Bm25 => query_idx!($idx_ty, BM25),
                 ScorerKind::Dot => query_idx!($idx_ty, DotScorer),
             }
@@ -208,13 +208,16 @@ fn main() {
     }
 
     let index_kind = args.index_kind.unwrap_or_else(|| peek_idx_kind(&args.index_path));
+    let scorer = args.scorer.unwrap_or_else(|| {
+        peek_scorer_kind(args.meta_path.as_deref().expect("meta path not given"))
+    });
 
     match index_kind {
-        IdxKind::EFSingle => with_scorer!(EFIdx),
-        IdxKind::UPEf => with_scorer!(UPEFIdx),
-        IdxKind::Opt => with_scorer!(OptEFIdx),
-        IdxKind::BlockVByte => with_scorer!(BlockVByteIdx),
-        IdxKind::BlockInterpolative => with_scorer!(BlockInterpolativeIdx),
-        IdxKind::OptComp => with_scorer!(OptCompIdx),
+        IdxKind::EFSingle => with_scorer!(EFIdx, scorer),
+        IdxKind::UPEf => with_scorer!(UPEFIdx, scorer),
+        IdxKind::Opt => with_scorer!(OptEFIdx, scorer),
+        IdxKind::BlockVByte => with_scorer!(BlockVByteIdx, scorer),
+        IdxKind::BlockInterpolative => with_scorer!(BlockInterpolativeIdx, scorer),
+        IdxKind::OptComp => with_scorer!(OptCompIdx, scorer),
     }
 }
