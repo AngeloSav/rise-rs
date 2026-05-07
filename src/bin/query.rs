@@ -1,7 +1,7 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
-    IdxKind, QueryKind, ScorerKind,
+    IdxKind, QueryKind, ScorerKind, peek_idx_kind,
     indexes::*,
     queries::*,
     utils::{TimingQueries, init_logger},
@@ -13,9 +13,9 @@ use std::{fs, io::BufReader, time::Duration};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Type of index we want to build
+    /// Type of index (inferred from the file header if omitted)
     #[arg(short = 't', long)]
-    index_kind: IdxKind,
+    index_kind: Option<IdxKind>,
 
     /// Path of the index file
     #[arg(short, long)]
@@ -207,7 +207,9 @@ fn main() {
         };
     }
 
-    match args.index_kind {
+    let index_kind = args.index_kind.unwrap_or_else(|| peek_idx_kind(&args.index_path));
+
+    match index_kind {
         IdxKind::EFSingle => with_scorer!(EFIdx),
         IdxKind::UPEf => with_scorer!(UPEFIdx),
         IdxKind::Opt => with_scorer!(OptEFIdx),

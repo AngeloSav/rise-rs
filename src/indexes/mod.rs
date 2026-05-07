@@ -20,6 +20,7 @@
 
 use block_freq_index::BlockFreqIndex;
 use clap::ValueEnum;
+use epserde::traits::{AlignHash, TypeHash};
 use freq_index::FreqIndex;
 
 mod freq_index_builder;
@@ -117,3 +118,41 @@ pub type BlockVByteIdx =
 
 pub type BlockInterpolativeIdx =
     BlockFreqIndex<block_freq_index::block_codices::interpolative_coding::InterpolativeCodec>;
+
+fn type_hash_of<T: TypeHash + AlignHash>() -> u64 {
+    use std::hash::Hasher;
+    use xxhash_rust::xxh3::Xxh3;
+    let mut h = Xxh3::new();
+    T::type_hash(&mut h);
+    h.finish()
+}
+
+/// Reads the epserde type hash from the first 21 bytes of `path` and maps it
+/// to the corresponding [`IdxKind`].
+///
+/// The epserde header layout is:
+///   MAGIC (8B) | VERSION_MAJOR (2B) | VERSION_MINOR (2B) | USIZE_SIZE (1B) | TYPE_HASH (8B)
+/// so the type hash lives at byte offset 13.
+pub fn peek_idx_kind(path: &str) -> IdxKind {
+    let mut file = std::fs::File::open(path).expect("cannot open index file");
+    let mut header = [0u8; 21];
+    use std::io::Read;
+    file.read_exact(&mut header).expect("cannot read index header");
+
+    let type_hash = u64::from_ne_bytes(header[13..21].try_into().unwrap());
+
+    let kinds: &[(u64, IdxKind)] = &[
+        (type_hash_of::<EFIdx>(),                  IdxKind::EFSingle),
+        (type_hash_of::<UPEFIdx>(),                IdxKind::UPEf),
+        (type_hash_of::<OptEFIdx>(),               IdxKind::Opt),
+        (type_hash_of::<OptCompIdx>(),             IdxKind::OptComp),
+        (type_hash_of::<BlockVByteIdx>(),          IdxKind::BlockVByte),
+        (type_hash_of::<BlockInterpolativeIdx>(),  IdxKind::BlockInterpolative),
+    ];
+
+    kinds
+        .iter()
+        .find(|(h, _)| *h == type_hash)
+        .map(|(_, k)| k.clone())
+        .unwrap_or_else(|| panic!("unrecognised index type hash {type_hash:#x} in {path}"))
+}

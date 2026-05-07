@@ -1,6 +1,6 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
-use pef::IdxKind;
+use pef::{IdxKind, peek_idx_kind};
 use pef::indexes::InvertedIndex;
 use pef::indexes::*;
 use pef::utils::init_logger;
@@ -12,9 +12,9 @@ struct Args {
     #[arg(short, long)]
     index_path: String,
 
-    /// Type of index
+    /// Type of index (inferred from the file header if omitted)
     #[arg(short = 't', long)]
-    idx_kind: IdxKind,
+    idx_kind: Option<IdxKind>,
 }
 
 fn main() {
@@ -43,7 +43,9 @@ fn main() {
         }};
     }
 
-    match args.idx_kind {
+    let idx_kind = args.idx_kind.unwrap_or_else(|| peek_idx_kind(&index_path));
+
+    match idx_kind {
         IdxKind::EFSingle => build_idx!(EFIdx),
         IdxKind::UPEf => build_idx!(UPEFIdx),
         IdxKind::Opt => build_idx!(OptEFIdx),

@@ -29,6 +29,7 @@ dsi-bitstream = "0.6.0"
 # rgb = { git = "https://github.com/rossanoventurini/enhanced-graph-bisection.git" }
 rgb = { git = "https://github.com/AngeloSav/enhanced-graph-bisection.git" }
 rusty-perm = "0.2.0"
+xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
 
 [[bench]]
 name = "bit_vector_access"
