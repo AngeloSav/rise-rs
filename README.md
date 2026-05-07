@@ -73,7 +73,6 @@ Loads an index, reads queries from a file, and benchmarks one or more query algo
 
 ```bash
 ./target/release/query \
-    --index-kind  opt \
     --index-path  /path/to/output.idx \
     --query-path  /path/to/queries.txt \
     --query-kind  boolean-and,wand,bm-maxscore \
@@ -81,7 +80,8 @@ Loads an index, reads queries from a file, and benchmarks one or more query algo
     --k           10 \
     --n-queries   1000 \
     --n-runs      5 \
-    [--scorer bm25|dot]       # scoring model (default: bm25; must match metadata)
+    [--index-kind opt]         # inferred from the index file if omitted
+    [--scorer bm25|dot]        # inferred from the metadata file if omitted
 ```
 
 Output includes average query latency (µs), index size (MiB), and a checksum per algorithm.
@@ -92,15 +92,15 @@ Produces ranked result lists in standard TREC format for evaluation with `trec_e
 
 ```bash
 ./target/release/query_eval \
-    --index-kind  opt \
     --index-path  /path/to/output.idx \
     --query-path  /path/to/queries.txt \
     --query-kind  bm-maxscore \
     --meta-path   /path/to/output.mdata \
     --k           1000 \
+    [--index-kind opt]         # inferred from the index file if omitted
+    [--scorer bm25|dot]        # inferred from the metadata file if omitted
     [--n-queries  <n>] \
-    [--run-tag    my_run] \
-    [--scorer bm25|dot]       # scoring model (default: bm25; must match metadata)
+    [--run-tag    my_run]
 ```
 
 Query file format for this mode — each line begins with a query ID followed by term IDs:
@@ -118,7 +118,7 @@ Output format per result: `qid Q0 docid rank score run_tag`
 ```bash
 ./target/release/index_stats \
     --index-path /path/to/output.idx \
-    --index-kind opt
+    [--index-kind opt]         # inferred from the index file if omitted
 ```
 
 Prints document count, term count, total size in bytes/GiB, and a per-component memory breakdown.
@@ -147,7 +147,7 @@ Multiple algorithms can be passed as a comma-separated list in benchmark mode.
 | `bm25` | BM25 (default) |
 | `dot` | Raw dot product — no IDF or length normalisation |
 
-The scorer used during `create_posting_mdata` must match the one used at query time, as it determines the block upper bounds stored in the metadata file.
+The scorer is embedded in the metadata file's type header. Both `query` and `query_eval` infer it automatically — but if you pass `--scorer` explicitly it must match what was used during `create_posting_mdata`.
 
 **Query file format (benchmark mode)**
 
