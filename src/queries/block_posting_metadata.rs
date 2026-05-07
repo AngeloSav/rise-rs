@@ -123,6 +123,8 @@ impl<Scorer: DocScorer> BlockPostingMetadata<Scorer> {
             processed_postings += sz as usize;
         }
 
+        pb.finish();
+
         log::info!("norms_len len: {}", norms_len.len());
         log::info!("max_term_weight len: {}", max_term_weight.len());
 

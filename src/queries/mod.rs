@@ -11,6 +11,15 @@ pub use scorers::DocScorer;
 pub use scorers::BM25;
 pub use scorers::DotScorer;
 
+/// Selects the scoring model when building metadata or running ranked queries.
+///
+/// Passed on the command line via `--scorer`. Defaults to `bm25`.
+#[derive(clap::ValueEnum, Copy, Clone, Debug)]
+pub enum ScorerKind {
+    Bm25,
+    Dot,
+}
+
 pub mod topk_heap;
 
 /// Selects the query algorithm when running experiments.

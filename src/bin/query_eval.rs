@@ -1,5 +1,5 @@
 use clap::Parser;
-use pef::{IdxKind, QueryKind, indexes::*, queries::*, utils::init_logger};
+use pef::{IdxKind, QueryKind, ScorerKind, indexes::*, queries::*, utils::init_logger};
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -42,6 +42,10 @@ struct Args {
     /// Tag identifying this run in the TREC output
     #[arg(long, default_value = "pef")]
     run_tag: String,
+
+    /// Scoring model to use (must match the model used to build the metadata file)
+    #[arg(long, default_value = "bm25")]
+    scorer: ScorerKind,
 }
 
 fn run_and_print<Q>(mut op: Q, idx: &impl InvertedIndex, qid: &str, terms: &[usize], run_tag: &str)
@@ -51,8 +55,8 @@ where
     op.query(idx, terms);
 
     // into_sorted_vec() is ascending (min-heap order); reverse for descending score
-    let mut results = op.topk().into_sorted_vec();
-    results.reverse();
+    let results = op.topk().into_sorted_vec();
+    // results.reverse();
 
     for (rank, doc) in results.iter().enumerate() {
         println!(
@@ -92,11 +96,11 @@ fn main() {
     log::info!("loaded {} queries", queries.len());
 
     macro_rules! eval_idx {
-        ($t:path) => {{
+        ($t:path, $S:ty) => {{
             let idx = <$t>::load_index(&args.index_path);
             log::info!("index: {} docs, {} terms", idx.n_docs(), idx.n_terms());
 
-            let p_data = BlockPostingMetadata::<BM25>::load_file(&args.meta_path);
+            let p_data = BlockPostingMetadata::<$S>::load_file(&args.meta_path);
 
             for (qid, terms) in &queries {
                 match args.query_kind {
@@ -149,12 +153,21 @@ fn main() {
         }};
     }
 
+    macro_rules! with_scorer {
+        ($idx_ty:path) => {
+            match args.scorer {
+                ScorerKind::Bm25 => eval_idx!($idx_ty, BM25),
+                ScorerKind::Dot => eval_idx!($idx_ty, DotScorer),
+            }
+        };
+    }
+
     match args.index_kind {
-        IdxKind::EFSingle => eval_idx!(EFIdx),
-        IdxKind::UPEf => eval_idx!(UPEFIdx),
-        IdxKind::Opt => eval_idx!(OptEFIdx),
-        IdxKind::OptComp => eval_idx!(OptCompIdx),
-        IdxKind::BlockVByte => eval_idx!(BlockVByteIdx),
-        IdxKind::BlockInterpolative => eval_idx!(BlockInterpolativeIdx),
+        IdxKind::EFSingle => with_scorer!(EFIdx),
+        IdxKind::UPEf => with_scorer!(UPEFIdx),
+        IdxKind::Opt => with_scorer!(OptEFIdx),
+        IdxKind::OptComp => with_scorer!(OptCompIdx),
+        IdxKind::BlockVByte => with_scorer!(BlockVByteIdx),
+        IdxKind::BlockInterpolative => with_scorer!(BlockInterpolativeIdx),
     }
 }

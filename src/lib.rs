@@ -27,7 +27,7 @@ pub use indexes::{EFIdx, IdxKind, OptEFIdx, UPEFIdx};
 pub mod positive_sequences;
 
 pub mod queries;
-pub use queries::{DocScorer, QueryKind};
+pub use queries::{DocScorer, QueryKind, ScorerKind};
 
 pub mod gen_sequences;
 pub mod utils;

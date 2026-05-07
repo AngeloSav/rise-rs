@@ -1,7 +1,7 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
 use pef::{
-    IdxKind, QueryKind,
+    IdxKind, QueryKind, ScorerKind,
     indexes::*,
     queries::*,
     utils::{TimingQueries, init_logger},
@@ -48,6 +48,10 @@ struct Args {
     /// Whether the query file contains qid or not, if true the first number of each line will be skipped when parsing the query
     #[arg(long, default_value_t = false)]
     has_qid: bool,
+
+    /// Scoring model to use (must match the model used to build the metadata file)
+    #[arg(long, default_value = "bm25")]
+    scorer: ScorerKind,
 }
 
 #[inline(always)]
@@ -136,7 +140,7 @@ fn main() {
     let n_runs = args.n_runs;
 
     macro_rules! query_idx {
-        ($t:path) => {{
+        ($t:path, $S:ty) => {{
             let idx = <$t>::load_index(&args.index_path);
             log::info!(
                 "Index contains {} docs, {} terms",
@@ -144,7 +148,7 @@ fn main() {
                 idx.n_terms()
             );
 
-            let p_data = BlockPostingMetadata::<BM25>::load_file(
+            let p_data = BlockPostingMetadata::<$S>::load_file(
                 &args.meta_path.clone().expect("meta path not given"),
             );
 
@@ -194,12 +198,21 @@ fn main() {
         }};
     }
 
+    macro_rules! with_scorer {
+        ($idx_ty:path) => {
+            match args.scorer {
+                ScorerKind::Bm25 => query_idx!($idx_ty, BM25),
+                ScorerKind::Dot => query_idx!($idx_ty, DotScorer),
+            }
+        };
+    }
+
     match args.index_kind {
-        IdxKind::EFSingle => query_idx!(EFIdx),
-        IdxKind::UPEf => query_idx!(UPEFIdx),
-        IdxKind::Opt => query_idx!(OptEFIdx),
-        IdxKind::BlockVByte => query_idx!(BlockVByteIdx),
-        IdxKind::BlockInterpolative => query_idx!(BlockInterpolativeIdx),
-        IdxKind::OptComp => query_idx!(OptCompIdx),
+        IdxKind::EFSingle => with_scorer!(EFIdx),
+        IdxKind::UPEf => with_scorer!(UPEFIdx),
+        IdxKind::Opt => with_scorer!(OptEFIdx),
+        IdxKind::BlockVByte => with_scorer!(BlockVByteIdx),
+        IdxKind::BlockInterpolative => with_scorer!(BlockInterpolativeIdx),
+        IdxKind::OptComp => with_scorer!(OptCompIdx),
     }
 }

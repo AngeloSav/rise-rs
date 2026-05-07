@@ -104,7 +104,7 @@ where
             // println!("list n {}, size is {}", idx.n_terms, sz);
             let sz = doc_list.len() as u64;
 
-            if sz >= config::LENGTH_THRESHOLD as u64 {
+            if sz > config::LENGTH_THRESHOLD as u64 {
                 let v_docs: Vec<u64> = doc_list.collect();
                 let v_freqs: Vec<u64> = freq_list.collect();
 

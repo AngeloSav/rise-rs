@@ -25,20 +25,15 @@ impl Ord for PostingInfo {
 }
 
 impl TopKHeap {
-    #[inline]
-    /// Returns the frequency of the top element in the heap
-    pub fn top(&self) -> Option<f32> {
-        Some(self.threshold)
-    }
-
-    // returns docids of retrieved elements, ordered by score
+    // returns docids of retrieved elements, ordered by descending score
     // NOTE: this implementation may be inefficient as it clones the whole heap before iterating over it
     pub fn into_sorted_vec(&self) -> Vec<PostingInfo> {
         self.heap
             .clone()
-            .into_iter_sorted()
+            .into_sorted_vec()
+            .into_iter()
             .map(|x| x.0)
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     #[inline]
@@ -48,7 +43,7 @@ impl TopKHeap {
 
     #[inline]
     pub fn can_enter(&self, v: f32) -> bool {
-        self.heap.len() < self.k || self.top().unwrap() < v
+        self.heap.len() < self.k || self.threshold < v
     }
 
     pub fn is_empty(&self) -> bool {
@@ -71,40 +66,19 @@ impl TopKHeap {
 
     #[inline]
     pub fn push(&mut self, score: f32) -> bool {
-        if self.heap.len() < self.k {
-            // fits in heap
-            self.heap.push(Reverse(PostingInfo {
-                docid: 0,
-                frequency: score,
-            }));
-            self.threshold = self.heap.peek().unwrap().0.frequency;
-            return true;
-        } else if self.top().unwrap() < score {
-            //better score
-            self.heap.pop();
-            self.heap.push(Reverse(PostingInfo {
-                docid: 0,
-                frequency: score,
-            }));
-            self.threshold = self.heap.peek().unwrap().0.frequency;
-            return true;
-        }
-
-        false
+        self.push_with_id(0, score)
     }
 
     #[inline]
     pub fn push_with_id(&mut self, id: u64, score: f32) -> bool {
         if self.heap.len() < self.k {
-            // fits in heap
             self.heap.push(Reverse(PostingInfo {
                 docid: id,
                 frequency: score,
             }));
             self.threshold = self.heap.peek().unwrap().0.frequency;
             return true;
-        } else if self.top().unwrap() < score {
-            //better score
+        } else if score > self.threshold {
             self.heap.pop();
             self.heap.push(Reverse(PostingInfo {
                 docid: id,
@@ -131,13 +105,13 @@ mod tests {
         assert_eq!(heap.len(), 2);
         heap.push(3.0);
         heap.push(4.0);
-        assert_eq!(heap.top(), Some(2.0));
+        assert_eq!(heap.threshold, 2.0);
         assert_eq!(heap.len(), 3);
 
         println!("{:?}", heap.heap);
         heap.push(5.0);
         assert!(heap.can_enter(5.0));
-        assert_eq!(heap.top(), Some(3.0));
+        assert_eq!(heap.threshold, 3.0);
 
         assert!(!heap.can_enter(0.5));
         heap.push(0.5);
@@ -151,6 +125,7 @@ mod tests {
 
         heap.clear();
         assert_eq!(heap.len(), 0);
+        assert_eq!(heap.threshold, 0.0);
     }
 
     #[test]
@@ -169,9 +144,11 @@ mod tests {
         sorted_v.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let check = sorted_v.iter().cloned().rev().take(10).collect::<Vec<_>>();
 
-        let mut in_heap = heap.heap.iter().map(|x| x.0.frequency).collect::<Vec<_>>();
-        in_heap.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        in_heap.reverse();
+        let in_heap = heap
+            .into_sorted_vec()
+            .into_iter()
+            .map(|x| x.frequency)
+            .collect::<Vec<_>>();
 
         assert_eq!(in_heap, check);
     }

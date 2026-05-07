@@ -1,5 +1,5 @@
 use clap::Parser;
-use pef::{queries::*, utils::init_logger};
+use pef::{ScorerKind, queries::*, utils::init_logger};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -23,6 +23,10 @@ struct Args {
     /// Lambda value for variable-size blocks
     #[arg(short, long)]
     lambda: Option<f32>,
+
+    /// Scoring model to use for block upper bounds
+    #[arg(long, default_value = "bm25")]
+    scorer: ScorerKind,
 }
 
 fn main() {
@@ -30,11 +34,20 @@ fn main() {
 
     init_logger();
 
-    BlockPostingMetadata::<BM25>::create_file(
-        &args.input_path.as_str(),
-        args.variable_block,
-        args.block_size,
-        args.lambda,
-        &args.out_path.as_str(),
-    );
+    macro_rules! run {
+        ($S:ty) => {
+            BlockPostingMetadata::<$S>::create_file(
+                &args.input_path.as_str(),
+                args.variable_block,
+                args.block_size,
+                args.lambda,
+                &args.out_path.as_str(),
+            )
+        };
+    }
+
+    match args.scorer {
+        ScorerKind::Bm25 => run!(BM25),
+        ScorerKind::Dot => run!(DotScorer),
+    }
 }
