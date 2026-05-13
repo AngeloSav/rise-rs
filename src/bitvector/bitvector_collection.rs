@@ -28,7 +28,7 @@ pub type BitVecCollectionBuilder = BitVectorCollectionBuilder<Vec<u64>>;
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVecCollection, BitVecCollectionBuilder, BitVec, AccessBin};
+/// use rise::{BitVecCollection, BitVecCollectionBuilder, BitVec, AccessBin};
 ///
 /// let mut bvcb = BitVecCollectionBuilder::default();
 ///

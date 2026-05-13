@@ -1,8 +1,9 @@
 use clap::Parser;
 use mem_dbg::SizeFlags;
-use pef::{
-    IdxKind, QueryKind, ScorerKind, peek_idx_kind, peek_scorer_kind,
+use rise::{
+    IdxKind, QueryKind, ScorerKind,
     indexes::*,
+    peek_idx_kind, peek_scorer_kind,
     queries::*,
     utils::{TimingQueries, init_logger},
 };
@@ -207,7 +208,9 @@ fn main() {
         };
     }
 
-    let index_kind = args.index_kind.unwrap_or_else(|| peek_idx_kind(&args.index_path));
+    let index_kind = args
+        .index_kind
+        .unwrap_or_else(|| peek_idx_kind(&args.index_path));
     let scorer = args.scorer.unwrap_or_else(|| {
         peek_scorer_kind(args.meta_path.as_deref().expect("meta path not given"))
     });

@@ -1,15 +1,15 @@
 [package]
-name = "pef"
+name = "rise"
 version = "0.1.0"
 edition = "2024"
 authors = [
     "Rossano Venturini <rossano.venturini@unipi.it>",
-    "Angelo Savino <a.savino6@studenti.unipi.it>",
+    "Angelo Savino <angelo.savino.as@gmail.com>",
 ]
 readme = "README.md"
-description = "Rust implementation of Partitioned Elias-Fano encoding"
+description = "A Rust Inverted Search Engine (RISE) for researchers"
 license = "MIT"
-repository = "https://github.com/rossanoventurini/pef"
+repository = "https://github.com/AngeloSav/rise-rs"
 
 [dependencies]
 clap = { version = "4.0.29", features = ["derive"] }
@@ -26,18 +26,9 @@ log = "0.4.27"
 epserde = { version = "0.10.3", features = ["derive", "mmap"] }
 env_logger = "0.11.8"
 dsi-bitstream = "0.6.0"
-# rgb = { git = "https://github.com/rossanoventurini/enhanced-graph-bisection.git" }
 rgb = { git = "https://github.com/AngeloSav/enhanced-graph-bisection.git" }
 rusty-perm = "0.2.0"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
-
-[[bench]]
-name = "bit_vector_access"
-harness = false
-
-[[bench]]
-name = "ef_iter"
-harness = false
 
 [profile.release]
 lto = true

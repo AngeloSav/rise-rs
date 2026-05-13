@@ -4,9 +4,9 @@ use dsi_bitstream::{
     impls::{BufBitReader, BufBitWriter, MemWordWriterVec},
     traits::{BitRead, BitSeek, BitWrite, LE, WordRead, WordSeek},
 };
-use std::convert::Infallible;
 use epserde::Epserde;
 use mem_dbg::{MemDbg, MemSize};
+use std::convert::Infallible;
 
 /// Reads u32 words from a byte slice without requiring 4-byte alignment.
 /// Returns zero past the end (matching MemWordReader<W,B,INF=true> behaviour)
@@ -18,7 +18,10 @@ struct ByteSliceU32Reader<'a> {
 
 impl<'a> ByteSliceU32Reader<'a> {
     fn new(data: &'a [u8]) -> Self {
-        Self { data, word_index: 0 }
+        Self {
+            data,
+            word_index: 0,
+        }
     }
 }
 
@@ -241,4 +244,3 @@ pub fn cast_vecu32_to_vecu8(v: Vec<u32>) -> Vec<u8> {
     std::mem::forget(v);
     unsafe { Vec::from_raw_parts(ptr, len, capacity) }
 }
-

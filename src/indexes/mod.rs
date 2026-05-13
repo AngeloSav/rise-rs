@@ -137,17 +137,21 @@ pub fn peek_idx_kind(path: &str) -> IdxKind {
     let mut file = std::fs::File::open(path).expect("cannot open index file");
     let mut header = [0u8; 21];
     use std::io::Read;
-    file.read_exact(&mut header).expect("cannot read index header");
+    file.read_exact(&mut header)
+        .expect("cannot read index header");
 
     let type_hash = u64::from_ne_bytes(header[13..21].try_into().unwrap());
 
     let kinds: &[(u64, IdxKind)] = &[
-        (type_hash_of::<EFIdx>(),                  IdxKind::EFSingle),
-        (type_hash_of::<UPEFIdx>(),                IdxKind::UPEf),
-        (type_hash_of::<OptEFIdx>(),               IdxKind::Opt),
-        (type_hash_of::<OptCompIdx>(),             IdxKind::OptComp),
-        (type_hash_of::<BlockVByteIdx>(),          IdxKind::BlockVByte),
-        (type_hash_of::<BlockInterpolativeIdx>(),  IdxKind::BlockInterpolative),
+        (type_hash_of::<EFIdx>(), IdxKind::EFSingle),
+        (type_hash_of::<UPEFIdx>(), IdxKind::UPEf),
+        (type_hash_of::<OptEFIdx>(), IdxKind::Opt),
+        (type_hash_of::<OptCompIdx>(), IdxKind::OptComp),
+        (type_hash_of::<BlockVByteIdx>(), IdxKind::BlockVByte),
+        (
+            type_hash_of::<BlockInterpolativeIdx>(),
+            IdxKind::BlockInterpolative,
+        ),
     ];
 
     kinds

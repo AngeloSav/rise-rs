@@ -1,5 +1,5 @@
 use clap::Parser;
-use pef::{ScorerKind, queries::*, utils::init_logger};
+use rise::{ScorerKind, queries::*, utils::init_logger};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

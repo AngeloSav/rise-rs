@@ -63,10 +63,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         format!("{}.docs", &args.input_path).as_str()
     );
     let mut it_docs =
-        pef::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
+        rise::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
 
-    let it_freqs =
-        pef::readers::BinaryCollectionIterator::new(format!("{}.freqs", &args.input_path).as_str());
+    let it_freqs = rise::readers::BinaryCollectionIterator::new(
+        format!("{}.freqs", &args.input_path).as_str(),
+    );
 
     // new data to write back
     let n_docs = it_docs.next().unwrap().next().unwrap() as usize;
@@ -76,10 +77,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Construct the forward index
     println!("Constructing forward index for {} documents", n_docs);
 
-    let mut it_sizes =
-        pef::readers::BinaryCollectionIterator::new(format!("{}.sizes", &args.input_path).as_str())
-            .next()
-            .unwrap();
+    let mut it_sizes = rise::readers::BinaryCollectionIterator::new(
+        format!("{}.sizes", &args.input_path).as_str(),
+    )
+    .next()
+    .unwrap();
 
     let mut docs = Vec::with_capacity(n_docs);
     let mut avg_doc_len: f64 = 0.0;
@@ -169,22 +171,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // iterator of lists of docids
     let mut it_docs =
-        pef::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
+        rise::readers::BinaryCollectionIterator::new(format!("{}.docs", &args.input_path).as_str());
 
     // iterator of lists of freqs
     println!(
         "Reading frequencies lists from {}",
         format!("{}.freqs", &args.input_path).as_str()
     );
-    let it_freqs =
-        pef::readers::BinaryCollectionIterator::new(format!("{}.freqs", &args.input_path).as_str());
+    let it_freqs = rise::readers::BinaryCollectionIterator::new(
+        format!("{}.freqs", &args.input_path).as_str(),
+    );
 
     println!(
         "Reading sizes lists from {}",
         format!("{}.sizes", &args.input_path).as_str()
     );
-    let mut it_sizes =
-        pef::readers::BinaryCollectionIterator::new(format!("{}.sizes", &args.input_path).as_str());
+    let mut it_sizes = rise::readers::BinaryCollectionIterator::new(
+        format!("{}.sizes", &args.input_path).as_str(),
+    );
 
     // new data to write back
     println!("Permuting and writing permuted index to {}", &args.out_path);
@@ -251,7 +255,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     push_binary_list_to_file(&mut output_sizes_file, sizes_new);
     // writeback the data -----------------------------
-    // pef::readers::ds2i_reader::write_to_files(
+    // rise::readers::ds2i_reader::write_to_files(
     //     &args.out_path,
     //     n_docs as u32,
     //     &docs_new,

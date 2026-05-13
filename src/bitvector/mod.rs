@@ -102,7 +102,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitSlice, BitVec};
+    /// use rise::{BitSlice, BitVec};
     ///
     /// let data = vec![0, 2, 3, 4, 5];
     /// let n_bits = data.len() * 64;
@@ -128,7 +128,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVec, BitSlice, AccessBin};
+    /// use rise::{BitVec, BitSlice, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -169,7 +169,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVec};
+    /// use rise::{BitVec};
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -208,7 +208,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// Returns [`None`] if `index` is out of bounds or if there is no one after index.
     /// # Examples
     /// ```
-    /// use pef::{BitVec, AccessBin};
+    /// use rise::{BitVec, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5, 124, 1023, 1045];
     /// let bv: BitVec = v.into_iter().collect();
@@ -451,7 +451,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -477,7 +477,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
     /// let bv: BitVec = vv.iter().copied().collect();
@@ -497,7 +497,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
     /// let bv: BitVec = vv.iter().copied().collect();
@@ -517,8 +517,8 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::gen_sequences::negate_vector;
+    /// use rise::BitVec;
+    /// use rise::gen_sequences::negate_vector;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
     /// let bv: BitVec = vv.iter().copied().collect();
@@ -546,7 +546,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let v = vec![0,2,3,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -584,7 +584,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -605,7 +605,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -622,7 +622,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -643,7 +643,7 @@ impl<V: AsRef<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -667,7 +667,7 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     ///
     /// # Examples
     /// ```
-    /// use pef::{BitVec, AccessBin};
+    /// use rise::{BitVec, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -691,7 +691,7 @@ impl<V: AsRef<[u64]>> AccessBin for BitVector<V> {
     ///
     /// # Examples
     /// ```
-    /// use pef::{BitVec, AccessBin};
+    /// use rise::{BitVec, AccessBin};
     ///
     /// let v = vec![0,2,3,4,5];
     /// let bv: BitVec = v.into_iter().collect();
@@ -714,7 +714,7 @@ impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVec, BitBoxed, AccessBin};
+    /// use rise::{BitVec, BitBoxed, AccessBin};
     ///
     /// let mut bv = BitVec::with_capacity(2);
     /// bv.push(true);
@@ -754,7 +754,7 @@ impl<V: AsRef<[u64]> + AsMut<[u64]>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVec, BitBoxed};
+    /// use rise::{BitVec, BitBoxed};
     ///
     /// let mut bv = BitVec::with_zeros(5);
     /// bv.set_bits(0, 3, 0b101); // Sets bits 0 to 2 to 101
@@ -797,7 +797,7 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let bv = BitVec::new();
     /// assert_eq!(bv.len(), 0);
@@ -812,7 +812,7 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let bv = BitVec::new();
     /// assert_eq!(bv.len(), 0);
@@ -835,7 +835,7 @@ impl BitVector<Vec<u64>> {
     /// # Example
     ///
     /// ```
-    /// use pef::{BitVec, AccessBin};
+    /// use rise::{BitVec, AccessBin};
     ///
     /// let mut bv = BitVec::new();
     /// bv.push(true);
@@ -874,7 +874,7 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
+    /// use rise::BitVec;
     ///
     /// let mut bv = BitVec::with_capacity(7);
     /// bv.append_bits(0b101, 3);  // appends 101
@@ -947,7 +947,7 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVec, AccessBin};
+    /// use rise::{BitVec, AccessBin};
     ///
     /// let mut bv = BitVec::with_capacity(10);
     /// bv.extend_with_zeros(10);
@@ -969,7 +969,7 @@ impl BitVector<Vec<u64>> {
     /// # Examples
     ///
     /// ```
-    /// use pef::{BitVec, AccessBin};
+    /// use rise::{BitVec, AccessBin};
     ///
     /// let mut bv = BitVec::with_capacity(100);
     /// bv.extend_with_ones(100);
@@ -1027,7 +1027,7 @@ impl<V: AsRef<[u64]> + From<Vec<u64>>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitBoxed;
+    /// use rise::BitBoxed;
     ///
     /// let bb = BitBoxed::with_zeros(5);
     /// assert_eq!(bb.len(), 5);
@@ -1049,7 +1049,7 @@ impl<V: AsRef<[u64]> + From<Vec<u64>>> BitVector<V> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitBoxed;
+    /// use rise::BitBoxed;
     ///
     /// let bb = BitBoxed::with_ones(5);
     /// assert_eq!(bb.len(), 5);
@@ -1106,7 +1106,7 @@ impl Extend<bool> for BitVector<Vec<u64>> {
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVec, AccessBin};
+/// use rise::{BitVec, AccessBin};
 ///
 /// let mut bv = BitVec::new();
 ///
@@ -1142,7 +1142,7 @@ impl Extend<usize> for BitVector<Vec<u64>> {
 /// # Examples
 ///
 /// ```
-/// use pef::{AccessBin, BitVec};
+/// use rise::{AccessBin, BitVec};
 ///
 /// // Create a bit vector from an iterator over bool values
 /// let bv: BitVec = vec![true, false, true].into_iter().collect();
@@ -1193,7 +1193,7 @@ impl_my_prim_int![
 /// # Examples
 ///
 /// ```
-/// use pef::{AccessBin, BitVec};
+/// use rise::{AccessBin, BitVec};
 ///
 /// // Create a bit vector from an iterator over usize values
 /// let bv: BitVec = vec![0, 1, 3, 5].into_iter().collect();
@@ -1243,7 +1243,7 @@ where
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVec,BitBoxed, AccessBin};
+/// use rise::{BitVec,BitBoxed, AccessBin};
 ///
 /// let mut bvm = BitVec::new();
 /// bvm.push(true);
@@ -1270,7 +1270,7 @@ impl From<BitVector<Vec<u64>>> for BitVector<Box<[u64]>> {
 /// # Examples
 ///
 /// ```
-/// use pef::{BitVec, BitBoxed, AccessBin};
+/// use rise::{BitVec, BitBoxed, AccessBin};
 ///
 /// let v = vec![0,2,3,4,5];
 /// let mut bv: BitBoxed = v.into_iter().collect();
@@ -1489,8 +1489,8 @@ impl<'a> BitSliceWithOffset<'a> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::BitSliceWithOffset;
+    /// use rise::BitVec;
+    /// use rise::BitSliceWithOffset;
     ///
     /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
@@ -1581,8 +1581,8 @@ impl<'a> BitSliceWithOffset<'a> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::BitSliceWithOffset;
+    /// use rise::BitVec;
+    /// use rise::BitSliceWithOffset;
     ///
     /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
@@ -1617,8 +1617,8 @@ impl<'a> BitSliceWithOffset<'a> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::BitSliceWithOffset;
+    /// use rise::BitVec;
+    /// use rise::BitSliceWithOffset;
     ///
     /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
@@ -1767,8 +1767,8 @@ impl<'a> BitSliceWithOffset<'a> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::BitSliceWithOffset;
+    /// use rise::BitVec;
+    /// use rise::BitSliceWithOffset;
     ///
     /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
@@ -1789,8 +1789,8 @@ impl<'a> BitSliceWithOffset<'a> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::BitSliceWithOffset;
+    /// use rise::BitVec;
+    /// use rise::BitSliceWithOffset;
     ///
     /// let v = vec![0b000001010, 0b01010111000000, u64::MAX];
     ///
@@ -1811,8 +1811,8 @@ impl<'a> BitSliceWithOffset<'a> {
     /// # Examples
     ///
     /// ```
-    /// use pef::BitVec;
-    /// use pef::gen_sequences::negate_vector;
+    /// use rise::BitVec;
+    /// use rise::gen_sequences::negate_vector;
     ///
     /// let vv: Vec<usize> = vec![0, 63, 128, 129, 254, 1026];
     /// let bv: BitVec = vv.iter().copied().collect();

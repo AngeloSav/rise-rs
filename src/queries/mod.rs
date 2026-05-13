@@ -47,9 +47,9 @@ pub use query_algorithms::*;
 /// Reads the epserde type hash from the first 21 bytes of `path` and maps it
 /// to the corresponding [`ScorerKind`].
 pub fn peek_scorer_kind(path: &str) -> ScorerKind {
+    use epserde::traits::TypeHash;
     use std::hash::Hasher;
     use std::io::Read;
-    use epserde::traits::TypeHash;
     use xxhash_rust::xxh3::Xxh3;
 
     fn scorer_type_hash<S: DocScorer + TypeHash>() -> u64 {
@@ -60,7 +60,8 @@ pub fn peek_scorer_kind(path: &str) -> ScorerKind {
 
     let mut file = std::fs::File::open(path).expect("cannot open metadata file");
     let mut header = [0u8; 21];
-    file.read_exact(&mut header).expect("cannot read metadata header");
+    file.read_exact(&mut header)
+        .expect("cannot read metadata header");
     let type_hash = u64::from_ne_bytes(header[13..21].try_into().unwrap());
 
     if type_hash == scorer_type_hash::<BM25>() {
@@ -85,6 +86,6 @@ pub trait QueryOperator {
     }
 }
 
-pub trait RankedQueryOperator {
+pub trait RankedQueryOperator: QueryOperator {
     fn topk(&self) -> &topk_heap::TopKHeap;
 }

@@ -23,8 +23,8 @@ use num::integer::div_ceil;
 /// `u` automatically:
 ///
 /// ```
-/// use pef::EliasFano;
-/// use pef::SequenceEnumerator;
+/// use rise::EliasFano;
+/// use rise::SequenceEnumerator;
 ///
 /// let ef = EliasFano::from([1u64, 3, 5, 7, 10].as_slice());
 /// assert_eq!(ef.len(), 5);

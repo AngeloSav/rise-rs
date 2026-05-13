@@ -169,11 +169,7 @@ where
         };
 
         let block_data = &self.blocks_data[endpoint..];
-        let read_bytes = T::decode(
-            block_data,
-            self.cur_block_size,
-            &mut self.docs_buf,
-        );
+        let read_bytes = T::decode(block_data, self.cur_block_size, &mut self.docs_buf);
         // prefetch freqs base maybe ??
 
         std::intrinsics::prefetch_read_data::<_, 3>(block_data[read_bytes..].as_ptr());

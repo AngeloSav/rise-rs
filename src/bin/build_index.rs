@@ -1,9 +1,9 @@
 use clap::Parser;
 use mem_dbg::{DbgFlags, MemDbg, MemSize, SizeFlags};
-use pef::IdxKind;
-use pef::indexes::InvertedIndex;
-use pef::indexes::*;
-use pef::utils::init_logger;
+use rise::IdxKind;
+use rise::indexes::InvertedIndex;
+use rise::indexes::*;
+use rise::utils::init_logger;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

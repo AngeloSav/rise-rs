@@ -1,5 +1,8 @@
 use clap::Parser;
-use pef::{IdxKind, QueryKind, ScorerKind, peek_idx_kind, peek_scorer_kind, indexes::*, queries::*, utils::init_logger};
+use rise::{
+    IdxKind, QueryKind, ScorerKind, indexes::*, peek_idx_kind, peek_scorer_kind, queries::*,
+    utils::init_logger,
+};
 use std::{
     fs,
     io::{BufRead, BufReader},
@@ -162,8 +165,12 @@ fn main() {
         };
     }
 
-    let index_kind = args.index_kind.unwrap_or_else(|| peek_idx_kind(&args.index_path));
-    let scorer = args.scorer.unwrap_or_else(|| peek_scorer_kind(&args.meta_path));
+    let index_kind = args
+        .index_kind
+        .unwrap_or_else(|| peek_idx_kind(&args.index_path));
+    let scorer = args
+        .scorer
+        .unwrap_or_else(|| peek_scorer_kind(&args.meta_path));
 
     match index_kind {
         IdxKind::EFSingle => with_scorer!(EFIdx, scorer),
