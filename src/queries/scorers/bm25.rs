@@ -6,7 +6,7 @@ use crate::DocScorer;
 pub struct BM25;
 
 impl BM25 {
-    const B: f32 = 0.5; // 0.75?
+    const B: f32 = 0.5;
     const K: f32 = 1.2;
 }
 

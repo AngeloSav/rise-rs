@@ -76,7 +76,6 @@ pub fn peek_scorer_kind(path: &str) -> ScorerKind {
 pub trait QueryOperator {
     fn query_name() -> &'static str;
 
-    // this function takes an index `idx`, a number of terms `terms`,
     fn query<I>(&mut self, idx: &I, terms: &[usize]) -> usize
     where
         I: InvertedIndex;

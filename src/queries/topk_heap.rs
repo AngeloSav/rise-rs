@@ -10,17 +10,25 @@ pub struct TopKHeap {
     k: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PostingInfo {
     pub docid: u64,
     pub frequency: f32,
 }
+
 impl Eq for PostingInfo {}
 
 impl Ord for PostingInfo {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.frequency.total_cmp(&other.frequency)
+    }
+}
+
+impl PartialOrd for PostingInfo {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

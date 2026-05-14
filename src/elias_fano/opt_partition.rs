@@ -104,7 +104,7 @@ where
 {
     // serialization is done in the following way:
     // If only 1 partition:  | 1 | serialized  BaseSequence |
-    // Else:                 | n partitions | bitlen of endpoints | list of endpoints | len of (upper bounds sequence) | elias_fano encoded upper bounds | serialized BaseSequences |
+    // Else:                 | n partitions | bitlen of endpoints | list of endpoints | len of (upper bounds sequence) | elias_fano encoded upper bounds | elias_fano prefix sum of the partition sizes | serialized BaseSequences |
 
     fn write_bitvector(seq: impl IntoIterator<Item = u64>, n: usize, u: u64) -> BitVec {
         assert!(n > 0);
@@ -198,6 +198,7 @@ where
     }
 }
 
+#[inline(always)]
 fn get_endpoint<'a>(bv: &BitSliceWithOffset<'a>, idx: usize, endpoint_bits: usize) -> usize {
     if idx == 0 {
         0
@@ -368,7 +369,7 @@ where
     /// Avoids the backward `move_to_position` seeks that the general `switch_partition` does:
     /// instead of re-seeking both the `upper_bounds` and `sizes` EF iterators, it advances
     /// each by one step and reuses already-known values for begin/base.
-    #[inline]
+    // #[inline]
     fn switch_partition_next(&mut self) {
         debug_assert!(self.n_partitions > 1);
         self.cur_partition += 1;

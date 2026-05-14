@@ -43,7 +43,7 @@ struct Args {
     n_queries: Option<usize>,
 
     /// Tag identifying this run in the TREC output
-    #[arg(long, default_value = "pef")]
+    #[arg(long, default_value = "RISE")]
     run_tag: String,
 
     /// Scoring model to use (inferred from the metadata file if omitted)

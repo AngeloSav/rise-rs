@@ -18,7 +18,8 @@ pub use ranked_and::RankedAnd;
 pub use ranked_or::RankedOr;
 pub use wand::Wand;
 
-/// given a vector of terms, returns a vector of pairs (term, frequency in query)
+#[inline]
+// given a vector of terms, returns a vector of pairs (term, frequency in query)
 fn query_freqs(terms: &[usize]) -> Vec<(usize, usize)> {
     let mut count: HashMap<usize, usize> = HashMap::new();
 
@@ -28,3 +29,8 @@ fn query_freqs(terms: &[usize]) -> Vec<(usize, usize)> {
 
     count.into_iter().collect::<Vec<_>>()
 }
+
+// // no weight
+// fn query_freqs(terms: &[usize]) -> Vec<(usize, usize)> {
+//     terms.iter().map(|&t| (t, 1)).collect()
+// }
