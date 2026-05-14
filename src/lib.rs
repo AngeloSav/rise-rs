@@ -1,6 +1,7 @@
 #![allow(internal_features)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(iter_array_chunks)]
+#![feature(array_windows)]
 #![feature(core_intrinsics)]
 #![feature(float_algebraic)]
 #![feature(binary_heap_into_iter_sorted)]
