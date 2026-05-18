@@ -82,6 +82,7 @@ Loads an index, reads queries from a file, and benchmarks one or more query algo
     --n-runs      5 \
     [--index-kind opt]         # inferred from the index file if omitted
     [--scorer bm25|dot]        # inferred from the metadata file if omitted
+    [--has-qid]                # if query file contains qid as first element of each line
 ```
 
 Output includes average query latency (µs), index size (MiB), and a checksum per algorithm.
