@@ -192,7 +192,7 @@ src/
 ### Index type aliases
 
 | Alias | Document encoding |
-|---|---|---|
+|---|---|
 | `EFIdx` | `EliasFano` |
 | `UPEFIdx` | `UniformPartitionedSequence<IndexSequence>` |
 | `OptEFIdx` | `OptPartitionedSequence<IndexSequence>` | 
