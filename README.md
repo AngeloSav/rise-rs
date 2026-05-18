@@ -159,6 +159,8 @@ One query per line; each line is a whitespace-separated list of integer term IDs
 88 200 14 7
 ```
 
+If the query file contains query-ids (necessary for `query_eval`), it's possible to use `--has-qid` when running performance tests to ignore the frist element of the line.
+
 ## Architecture
 
 ```
@@ -189,14 +191,14 @@ src/
 
 ### Index type aliases
 
-| Alias | Document encoding | Frequency encoding |
+| Alias | Document encoding |
 |---|---|---|
-| `EFIdx` | `EliasFano` | `PositiveSequence<StrictEliasFano>` |
-| `UPEFIdx` | `UniformPartitionedSequence<IndexSequence>` | uniform partitioned |
-| `OptEFIdx` | `OptPartitionedSequence<IndexSequence>` | optimal partitioned |
-| `OptCompIdx` | `OptPartitionedSequence<IndexCompSequence>` | optimal partitioned complement |
-| `BlockVByteIdx` | StreamVByte blocks | StreamVByte blocks |
-| `BlockInterpolativeIdx` | Interpolative blocks | Interpolative blocks |
+| `EFIdx` | `EliasFano` |
+| `UPEFIdx` | `UniformPartitionedSequence<IndexSequence>` |
+| `OptEFIdx` | `OptPartitionedSequence<IndexSequence>` | 
+| `OptCompIdx` | `OptPartitionedSequence<IndexCompSequence>` | 
+| `BlockVByteIdx` | `StreamVByteCodec` | 
+| `BlockInterpolativeIdx` | `InterpolativeCodec` | 
 
 ## Authors
 
