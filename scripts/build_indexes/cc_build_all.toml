@@ -1,36 +1,33 @@
-#sets environment variables
 [env]
 RUST_LOG = "info"
 
-# These arguments will be used in all further experiments, if not redefined in each section
-# In particular, `bin` is the path of the binary that will be run
 [global]
 bin = '../target/release/build_index'
-# input-path = '/data1/InvertedIndexes/inverted_indexes/ccnews/cc_url'
-input-path = '/data1/InvertedIndexes/rgb/ccnews/ccnews.rgb.bin'
+# input-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin'
+input-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin.rgb'
 
 # Starting from here each section is an experiment -------------------
 
 [bic.build]
 idx-kind = 'block_interpolative'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.bic.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/ccnews.rgb.bic.idx'
 
 [vbyte.build]
 idx-kind = 'block_vbyte'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.vbyte.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/ccnews.rgb.vbyte.idx'
 
 [ef.build]
 idx-kind = 'ef'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.ef.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/ccnews.rgb.ef.idx'
 
 [upef.build]
 idx-kind = 'upef'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.upef.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/ccnews.rgb.upef.idx'
 
 [opt.build]
 idx-kind = 'opt'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.opt.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/ccnews.rgb.opt.idx'
 
 [optcomp.build]
 idx-kind = 'optcomp'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cc_url.rgb.optcomp.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/ccnews.rgb.optcomp.idx'

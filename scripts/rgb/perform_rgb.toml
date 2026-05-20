@@ -1,22 +1,15 @@
-#sets environment variables
 [env]
 RUST_LOG = "info"
 
-# These arguments will be used in all further experiments, if not redefined in each section
-# In particular, `bin` is the path of the binary that will be run
 [global]
 bin = '../target/release/read_write_rgb'
 
 # Starting from here each section is an experiment -------------------
 
-[gov2.rgb]
-input-path = '/data1/InvertedIndexes/inverted_indexes/gov2/gov2.sorted-text.bin'
-out-path = '/data1/InvertedIndexes/rgb/gov2/gov2.rgb.bin'
-
 [cw09.rgb]
-input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
-out-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
+input-path = '{RISE_DATA_DIR}/clueweb/clueweb.bin'
+out-path = '{RISE_DATA_DIR}/clueweb/clueweb.bin.rgb'
 
 [ccnews.rgb]
-input-path = '/data1/InvertedIndexes/inverted_indexes/ccnews/cc_url'
-out-path = '/data1/InvertedIndexes/rgb/ccnews/ccnews.rgb.bin'
+input-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin'
+out-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin.rgb'

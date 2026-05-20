@@ -8,13 +8,16 @@ Experiment runner supporting TOML nested tables:
 [ef.cc_url]       → experiment
 [ef.blockmax_static]
 ...
+
+Paths in TOML files may use the placeholder {RISE_DATA_DIR}, which is
+substituted at load time.  Set it via --base-dir or the RISE_DATA_DIR
+environment variable.
 """
 
 import os
 import sys
 import subprocess
 import pprint
-from datetime import datetime
 from pathlib import Path
 
 try:
@@ -46,10 +49,24 @@ def build_args(values: dict) -> list:
     return args
 
 
-def main(path: str, dry=False):
-    # Load TOML
-    with open(path, "rb") as f:
-        cfg = tomllib.load(f)
+def main(path: str, dry=False, base_dir: str = ""):
+    # Resolve {RISE_DATA_DIR} placeholder
+    if base_dir:
+        os.environ["RISE_DATA_DIR"] = base_dir
+    base_dir = os.environ.get("RISE_DATA_DIR", "")
+
+    # Load TOML, substituting {RISE_DATA_DIR} before parsing
+    raw = Path(path).read_text()
+    if "{RISE_DATA_DIR}" in raw:
+        if not base_dir:
+            print(
+                "ERROR: TOML uses {RISE_DATA_DIR} but neither --base-dir nor the "
+                "RISE_DATA_DIR environment variable is set.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        raw = raw.replace("{RISE_DATA_DIR}", base_dir.rstrip("/"))
+    cfg = tomllib.loads(raw)
 
     # 1. Set environment variables
     env = cfg.get("env", {})
@@ -128,6 +145,20 @@ def main(path: str, dry=False):
 
 
 if __name__ == "__main__":
-    dry_run = "--dry-run" in sys.argv
-    cfg_path = sys.argv[1]
-    main(cfg_path, dry=dry_run)
+    args = sys.argv[1:]
+    dry_run = "--dry-run" in args
+    args = [a for a in args if a != "--dry-run"]
+
+    base_dir = ""
+    for a in args:
+        if a.startswith("--base-dir="):
+            base_dir = a.split("=", 1)[1]
+            args.remove(a)
+            break
+
+    if not args:
+        print("Usage: run_exp.py [--base-dir=PATH] [--dry-run] <config.toml>", file=sys.stderr)
+        sys.exit(1)
+
+    cfg_path = args[0]
+    main(cfg_path, dry=dry_run, base_dir=base_dir)

@@ -1,35 +1,33 @@
-#sets environment variables
 [env]
 RUST_LOG = "info"
 
-# These arguments will be used in all further experiments, if not redefined in each section
-# In particular, `bin` is the path of the binary that will be run
 [global]
 bin = '../target/release/build_index'
-# input-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.bin'
-input-path = '/data1/InvertedIndexes/rgb/clueweb/clueweb.rgb.bin'
+# input-path = '{RISE_DATA_DIR}/clueweb/clueweb.bin'
+input-path = '{RISE_DATA_DIR}/clueweb/clueweb.bin.rgb'
 
 # Starting from here each section is an experiment -------------------
+
 [bic.build]
 idx-kind = 'block_interpolative'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.bic.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.bic.idx'
 
 [vbyte.build]
 idx-kind = 'block_vbyte'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.vbyte.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.vbyte.idx'
 
 [ef.build]
 idx-kind = 'ef'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.ef.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.ef.idx'
 
 [upef.build]
 idx-kind = 'upef'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.upef.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.upef.idx'
 
 [opt.build]
 idx-kind = 'opt'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.opt.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.opt.idx'
 
 [optcomp.build]
 idx-kind = 'optcomp'
-out-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.optcomp.pef.out'
+out-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.optcomp.idx'

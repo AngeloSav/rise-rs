@@ -5,7 +5,7 @@ RUST_BACKTRACE = 1
 [global]
 bin = '../target/release/query'
 
-query-path = '/data1/InvertedIndexes/inverted_indexes/clueweb09/clueweb.sorted-text.queries0.mapped'
+query-path = '{RISE_DATA_DIR}/clueweb/clueweb.queries'
 
 n-runs = 2
 n-queries = 1000
@@ -14,108 +14,108 @@ k = 10
 # EF -----------------------------------------
 
 [ef]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.ef.pef.out'
+index-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.ef.idx'
 index-kind = 'ef'
 
 [ef.cw09]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [ef.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [ef.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.var.mdata'
 
 # UNIFORM PARTITIONING EXPERIMENTS -------------------
 
 [up]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.upef.pef.out'
+index-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.upef.idx'
 index-kind = 'upef'
 
 [up.cw09]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [up.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [up.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.var.mdata'
 
 # OPT ----------------------------------------------------
 
 [opt]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.opt.pef.out'
+index-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.opt.idx'
 index-kind = 'opt'
 
 [opt.cw09]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [opt.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [opt.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.var.mdata'
 
 # BIC -----------------------------------------
 
 [bic]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.bic.pef.out'
+index-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.bic.idx'
 index-kind = 'block_interpolative'
 
 [bic.cw09]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [bic.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [bic.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.var.mdata'
 
 # SVB -----------------------------------------
 
 [svb]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.vbyte.pef.out'
+index-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.vbyte.idx'
 index-kind = 'block_vbyte'
 
 [svb.cw09]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [svb.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [svb.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.var.mdata'
 
 
 # OPTCOMP -----------------------------------------
 
 [optcomp]
-index-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.optcomp.pef.out'
+index-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.optcomp.idx'
 index-kind = 'optcomp'
 
 [optcomp.cw09]
 query-kind = ['boolean-and', 'ranked-and', 'ranked-or', 'wand', 'maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [optcomp.blockmax_static]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.static.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.static.mdata'
 
 [optcomp.blockmax_variable]
 query-kind = ['bm-wand', 'bm-maxscore']
-meta-path = '/data1/InvertedIndexes/built_indexes/pef/cw09.rgb.var.mdata'
+meta-path = '{RISE_DATA_DIR}/built_indexes/cw09.rgb.var.mdata'
