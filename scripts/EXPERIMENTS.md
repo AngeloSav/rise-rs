@@ -14,14 +14,14 @@ Download and extract them so the folder is at `/path/to/your/data` (or symlink a
 pip install huggingface_hub
 
 # Full download (both original and RGB-reordered collections)
-huggingface-cli download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data
+hf download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data
 
 # Original collections only (skip RGB — re-run step 1 yourself)
-huggingface-cli download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data \
+hf download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data \
   --include "*.bin" "*.queries"
 
 # RGB-reordered collections only (skip step 1)
-huggingface-cli download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data \
+hf download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data \
   --include "*.bin.rgb" "*.queries"
 
 # Symlink if the data is on a different disk:
