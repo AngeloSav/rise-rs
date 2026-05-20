@@ -20,6 +20,10 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 
 > Requires a nightly Rust toolchain. A `rust-toolchain` file is included to pin the correct version.
 
+## Reproducing the experiments
+
+See [`scripts/EXPERIMENTS.md`](scripts/EXPERIMENTS.md) for a step-by-step guide to downloading the datasets and reproducing the paper's experiments.
+
 ## Workflow
 
 There are five binaries. The core pipeline is:
