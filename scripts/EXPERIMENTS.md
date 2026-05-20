@@ -16,13 +16,13 @@ pip install huggingface_hub
 # Full download (both original and RGB-reordered collections)
 hf download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data
 
-# Original collections only (skip RGB — re-run step 1 yourself)
+# Original collections only (without RGB — run step 1 yourself if needed)
 hf download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data \
-  --include "*.bin" "*.queries"
+  --exclude "*.rgb.bin.*"
 
 # RGB-reordered collections only (skip step 1)
 hf download AngeloSav/rise-datasets --repo-type dataset --local-dir /path/to/your/data \
-  --include "*.bin.rgb" "*.queries"
+  --include "*.rgb.bin.*" "*.queries"
 
 # Symlink if the data is on a different disk:
 ln -s /path/to/your/data ~/rise_data
@@ -33,14 +33,14 @@ The expected layout after download:
 ```
 ~/rise_data/
 ├── clueweb/
-│   ├── clueweb.bin        # original DS2I input (.docs / .freqs pair)
-│   ├── clueweb.bin.rgb    # RGB-reordered version (produced by step 1)
+│   ├── clueweb.bin.*        # DS2I posting lists
+│   ├── clueweb.rgb.bin.*    # RGB-reordered version (produced by step 1)
 │   └── clueweb.queries
 ├── ccnews/
-│   ├── ccnews.bin
-│   ├── ccnews.bin.rgb
+│   ├── ccnews.bin.*
+│   ├── ccnews.rgb.bin.*
 │   └── ccnews.queries
-└── built_indexes/         # populated by steps 2–3 (build_index, create_posting_mdata)
+└── built_indexes/              # populated by steps 2–3 (build_index, create_posting_mdata)
 ```
 
 Create the output directory before running:
@@ -58,7 +58,7 @@ If your data lives elsewhere, pass `--base-dir` explicitly to `run_exp.py` (see 
 All binaries must be compiled before running any experiment script.
 
 ```bash
-just build        # from the repo root
+just build
 ```
 
 The scripts reference binaries via relative paths (`../target/release/…`), so **run all `run_exp.py` commands from the `scripts/` subdirectory**.
@@ -85,7 +85,7 @@ Add `--dry-run` to any command to print the resolved commands without executing 
 
 ## Step 1 — RGB reordering (optional)
 
-Reorders the raw collection with graph-bisection to improve compression. Skip this step and edit the `input-path` in the build configs to point at the original `.bin` files instead of the `.bin.rgb` files if you want to index the unordered collection.
+Reorders the raw collection with graph-bisection to improve compression. Skip this step and edit the `input-path` in the build configs to point at the original `.bin` files instead of the `.rgb.bin` files if you want to index the unordered collection.
 
 ```bash
 python run_exp.py rgb/perform_rgb.toml

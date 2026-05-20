@@ -4,7 +4,7 @@ RUST_LOG = "info"
 [global]
 bin = '../target/release/create_posting_mdata'
 # input-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin'
-input-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin.rgb'
+input-path = '{RISE_DATA_DIR}/ccnews/ccnews.rgb.bin'
 
 # Starting from here each section is an experiment -------------------
 

@@ -8,8 +8,8 @@ bin = '../target/release/read_write_rgb'
 
 [cw09.rgb]
 input-path = '{RISE_DATA_DIR}/clueweb/clueweb.bin'
-out-path = '{RISE_DATA_DIR}/clueweb/clueweb.bin.rgb'
+out-path = '{RISE_DATA_DIR}/clueweb/clueweb.rgb.bin'
 
 [ccnews.rgb]
 input-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin'
-out-path = '{RISE_DATA_DIR}/ccnews/ccnews.bin.rgb'
+out-path = '{RISE_DATA_DIR}/ccnews/ccnews.rgb.bin'
