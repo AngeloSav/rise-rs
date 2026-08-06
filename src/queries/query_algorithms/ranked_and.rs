@@ -82,7 +82,6 @@ impl<Scorer: DocScorer> QueryOperator for RankedAnd<'_, Scorer> {
                     score += *q_weight * Scorer::doc_term_weight(it.freq(), norm_len);
                 }
 
-                self.topk_heap.push(score);
                 self.topk_heap.push_with_id(candidate, score);
 
                 enums[0].0.next_doc();
