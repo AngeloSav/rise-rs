@@ -220,7 +220,7 @@ By downloading and using this software, you agree to cite the under-noted paper 
   booktitle = {Proceedings of the 35th ACM International Conference on Information and Knowledge Management (CIKM)},
   publisher = {ACM},
   year      = {2026},
-  url       = {[https://doi.org/10.1145/3799682.3840184](https://doi.org/10.1145/3799682.3840184)},
+  url       = {https://doi.org/10.1145/3799682.3840184},
   doi       = {10.1145/3799682.3840184},
   note      = {To appear}
 }
