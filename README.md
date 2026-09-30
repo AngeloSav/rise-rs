@@ -205,6 +205,27 @@ src/
 | `BlockVByteIdx` | `StreamVByteCodec` | 
 | `BlockInterpolativeIdx` | `InterpolativeCodec` | 
 
+## Citation License
+
+The source code in this repository is subject to the following citation license:
+
+By downloading and using this software, you agree to cite the under-noted paper in any kind of material you produce where it was used to conduct a search or experimentation, whether be it a research paper, dissertation, article, poster, presentation, or documentation. By using this software, you have agreed to the citation license.
+
+### CIKM 2026
+
+```bibtex
+@inproceedings{savino2026rise,
+  author    = {Angelo Savino and Rossano Venturini},
+  title     = {RISE: A Rust Library for Inverted Index Search Engines},
+  booktitle = {Proceedings of the 35th ACM International Conference on Information and Knowledge Management (CIKM)},
+  publisher = {ACM},
+  year      = {2026},
+  url       = {[https://doi.org/10.1145/3799682.3840184](https://doi.org/10.1145/3799682.3840184)},
+  doi       = {10.1145/3799682.3840184},
+  note      = {To appear}
+}
+```
+
 ## Authors
 
 - Angelo Savino — a.savino6@studenti.unipi.it
